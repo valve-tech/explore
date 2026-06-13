@@ -1,19 +1,33 @@
 /**
- * Address appearance index via chifra (`/list`). An appearance is a
- * (blockNumber, transactionIndex) pair for every tx an address shows up
- * in — the cheap index read (seconds, even cold) as opposed to the
- * heavyweight log walks in transfers.ts. Callers hydrate the pairs into
- * full transactions through our own RPC.
+ * Address appearance index via chifra `/list`, through the typed
+ * @valve-tech/trueblocks-sdk client (same client style as transfers.ts).
+ * An appearance is a (blockNumber, transactionIndex) pair for every tx an
+ * address shows up in — the cheap index read (seconds, even cold) as opposed
+ * to the heavyweight log walks in transfers.ts. Callers hydrate the pairs
+ * into full transactions through our own RPC.
  *
  * Results cache briefly (30s) per (chain, address, page) — long enough to
  * absorb a UI's refetch bursts, short enough that a new tx shows up on the
  * next page load.
  */
 
+import { createTrueblocksClient } from "@valve-tech/trueblocks-sdk";
 import { currentChain } from "../chains/context.js";
 
 const CHIFRA_BASE = process.env.CHIFRA_BASE_URL || "https://chifra.valve.city";
+
+/**
+ * chifra cold-cache index reads can take a few seconds. The SDK has no
+ * built-in timeout, so bound each request via the injected fetch (mirrors
+ * transfers.ts).
+ */
 const CHIFRA_TIMEOUT_MS = 30_000;
+
+const client = createTrueblocksClient({
+  baseUrl: CHIFRA_BASE,
+  fetch: (input, init) =>
+    fetch(input, { ...init, signal: AbortSignal.timeout(CHIFRA_TIMEOUT_MS) }),
+});
 
 const APPEARANCE_TTL_MS = 30_000;
 const appearanceCache = new Map<
@@ -24,15 +38,6 @@ const appearanceCache = new Map<
 export interface Appearance {
   blockNumber: number;
   transactionIndex: number;
-}
-
-interface ChifraListResponse {
-  data?: Array<{
-    address: string;
-    blockNumber: number;
-    transactionIndex: number;
-  }>;
-  errors?: string[];
 }
 
 /**
@@ -50,26 +55,28 @@ export async function listAppearances(
   const cached = appearanceCache.get(cacheKey);
   if (cached && Date.now() - cached.t < APPEARANCE_TTL_MS) return cached.value;
 
-  const params = new URLSearchParams({
-    addrs: address,
-    chain,
-    reversed: "true",
-    // chifra's firstRecord is 0-based (verified against the live daemon).
-    firstRecord: String((page - 1) * limit),
-    maxRecords: String(limit),
-  });
-
   try {
-    const res = await fetch(`${CHIFRA_BASE}/list?${params}`, {
-      signal: AbortSignal.timeout(CHIFRA_TIMEOUT_MS),
+    const res = await client.list({
+      addrs: [address],
+      chain,
+      reversed: true,
+      // chifra's firstRecord is 0-based (verified against the live daemon).
+      firstRecord: (page - 1) * limit,
+      maxRecords: limit,
     });
-    if (!res.ok) return [];
-    const json = (await res.json()) as ChifraListResponse;
-    if (!Array.isArray(json.data)) return [];
-    const appearances = json.data.map((row) => ({
-      blockNumber: row.blockNumber,
-      transactionIndex: row.transactionIndex,
-    }));
+
+    // `/list` returns an (appearance | bounds | monitor) union; keep only the
+    // appearance rows — those carrying a numeric block + transaction index.
+    const appearances: Appearance[] = (res.data ?? []).flatMap((row) => {
+      const blockNumber = (row as { blockNumber?: unknown }).blockNumber;
+      const transactionIndex = (row as { transactionIndex?: unknown })
+        .transactionIndex;
+      return typeof blockNumber === "number" &&
+        typeof transactionIndex === "number"
+        ? [{ blockNumber, transactionIndex }]
+        : [];
+    });
+
     appearanceCache.set(cacheKey, { value: appearances, t: Date.now() });
     if (appearanceCache.size > 500) {
       const oldest = appearanceCache.keys().next().value;
