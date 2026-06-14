@@ -77,22 +77,25 @@ describe("RevertExplainer", () => {
         }),
       ],
     });
-    const { container } = render(<RevertExplainer frame={tree} />);
+    const { container } = render(
+      <RevertExplainer frame={tree} classNames={{ chainArrow: "tx-arrow" }} />,
+    );
     // Both CALL and DELEGATECALL chips appear
     expect(screen.getByText("CALL")).toBeDefined();
     expect(screen.getByText("DELEGATECALL")).toBeDefined();
-    // An arrow appears between them
-    expect(container.textContent).toContain("→");
+    // An arrow icon appears between the two steps
+    expect(container.querySelectorAll(".tx-arrow")).toHaveLength(1);
   });
 
   it("renders chain with no arrows for a single-frame revert", () => {
     const { container } = render(
       <RevertExplainer
         frame={makeFrame({ type: "CALL", error: "reverted" })}
+        classNames={{ chainArrow: "tx-arrow" }}
       />,
     );
-    // Only one chain step, so no arrow
-    expect((container.textContent ?? "").split("→").length).toBe(1);
+    // Only one chain step, so no arrow between steps
+    expect(container.querySelectorAll(".tx-arrow")).toHaveLength(0);
   });
 
   it("shows function selector on a chain step when present", () => {
@@ -185,5 +188,51 @@ describe("RevertExplainer", () => {
   it("returns empty className when no slot or override supplied", () => {
     const { container } = render(<RevertExplainer frame={makeFrame({})} />);
     expect((container.firstChild as HTMLElement).className).toBe("");
+  });
+
+  it("renders the built-in check icon by default in the success state", () => {
+    const { container } = render(
+      <RevertExplainer frame={makeFrame({ type: "CALL" })} />,
+    );
+    // Default success icon is an inline SVG.
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+
+  it("renders a custom successIcon override", () => {
+    render(
+      <RevertExplainer
+        frame={makeFrame({ type: "CALL" })}
+        successIcon={<span data-testid="custom-check">ok</span>}
+      />,
+    );
+    expect(screen.getByTestId("custom-check")).toBeDefined();
+  });
+
+  it("renders the built-in arrow icon by default in the chain", () => {
+    const tree = makeFrame({
+      type: "CALL",
+      children: [
+        makeFrame({ type: "STATICCALL", depth: 1, error: "reverted" }),
+      ],
+    });
+    const { container } = render(<RevertExplainer frame={tree} />);
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+
+  it("renders a custom arrowIcon override in the chain", () => {
+    const tree = makeFrame({
+      type: "CALL",
+      children: [
+        makeFrame({ type: "STATICCALL", depth: 1, error: "reverted" }),
+      ],
+    });
+    render(
+      <RevertExplainer
+        frame={tree}
+        arrowIcon={<span data-testid="custom-arrow">to</span>}
+      />,
+    );
+    // Two chain steps → one arrow between them.
+    expect(screen.getAllByTestId("custom-arrow").length).toBe(1);
   });
 });

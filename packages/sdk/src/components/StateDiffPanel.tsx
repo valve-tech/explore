@@ -1,7 +1,8 @@
-import { type CSSProperties } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import type { Hex } from "viem";
 import type { StateDiff, StorageChange } from "../types.js";
 import { formatWei, truncateAddress } from "./formatters.js";
+import { ArrowRightIcon } from "../icons/ArrowRightIcon.js";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -53,6 +54,11 @@ export interface StateDiffPanelProps {
   valueSymbol?: string;
   /** Message shown when `diffs` is empty. Default: "No state changes." */
   emptyMessage?: string;
+  /**
+   * Glyph rendered between each before and after value. Defaults to the
+   * built-in `ArrowRightIcon`.
+   */
+  arrowIcon?: ReactNode;
   /** Per-slot class names for theming. */
   classNames?: StateDiffPanelClassNames;
   /** Inline style on the root element. */
@@ -107,6 +113,8 @@ const fieldRowStyle: CSSProperties = {
 
 const arrowStyle: CSSProperties = {
   color: SUBTLE_TEXT,
+  display: "inline-flex",
+  alignItems: "center",
 };
 
 // ---------------------------------------------------------------------------
@@ -124,6 +132,7 @@ export function StateDiffPanel({
   hideHeader,
   valueSymbol = "PLS",
   emptyMessage = "No state changes.",
+  arrowIcon = <ArrowRightIcon size={12} />,
   classNames,
   style,
   className,
@@ -168,6 +177,7 @@ export function StateDiffPanel({
               diff={diff}
               valueSymbol={valueSymbol}
               onSelectAddress={onSelectAddress}
+              arrowIcon={arrowIcon}
               classNames={classNames}
             />
           ))}
@@ -185,6 +195,7 @@ interface AddressSectionProps {
   diff: StateDiff;
   valueSymbol: string;
   onSelectAddress?: (diff: StateDiff) => void;
+  arrowIcon: ReactNode;
   classNames?: StateDiffPanelClassNames;
 }
 
@@ -192,6 +203,7 @@ function AddressSection({
   diff,
   valueSymbol,
   onSelectAddress,
+  arrowIcon,
   classNames,
 }: AddressSectionProps): React.JSX.Element {
   const balanceChanged =
@@ -230,6 +242,7 @@ function AddressSection({
           before={diff.balanceBefore!}
           after={diff.balanceAfter!}
           symbol={valueSymbol}
+          arrowIcon={arrowIcon}
           classNames={classNames}
         />
       )}
@@ -239,6 +252,7 @@ function AddressSection({
           label="nonce"
           before={String(diff.nonceBefore)}
           after={String(diff.nonceAfter)}
+          arrowIcon={arrowIcon}
           classNames={classNames}
         />
       )}
@@ -248,12 +262,17 @@ function AddressSection({
           label="code"
           before={shortHex(diff.codeBefore!)}
           after={shortHex(diff.codeAfter!)}
+          arrowIcon={arrowIcon}
           classNames={classNames}
         />
       )}
 
       {diff.storage.length > 0 && (
-        <StorageList changes={diff.storage} classNames={classNames} />
+        <StorageList
+          changes={diff.storage}
+          arrowIcon={arrowIcon}
+          classNames={classNames}
+        />
       )}
     </div>
   );
@@ -267,6 +286,7 @@ interface FieldRowProps {
   label: string;
   before: string;
   after: string;
+  arrowIcon: ReactNode;
   classNames?: StateDiffPanelClassNames;
 }
 
@@ -274,6 +294,7 @@ function FieldRow({
   label,
   before,
   after,
+  arrowIcon,
   classNames,
 }: FieldRowProps): React.JSX.Element {
   return (
@@ -287,7 +308,7 @@ function FieldRow({
       <span className={classNames?.beforeValue} style={{ color: NEUTRAL_TEXT }}>
         {before}
       </span>
-      <span style={arrowStyle}>→</span>
+      <span style={arrowStyle}>{arrowIcon}</span>
       <span className={classNames?.afterValue} style={{ color: NEUTRAL_TEXT }}>
         {after}
       </span>
@@ -299,6 +320,7 @@ interface BalanceRowProps {
   before: bigint;
   after: bigint;
   symbol: string;
+  arrowIcon: ReactNode;
   classNames?: StateDiffPanelClassNames;
 }
 
@@ -306,6 +328,7 @@ function BalanceRow({
   before,
   after,
   symbol,
+  arrowIcon,
   classNames,
 }: BalanceRowProps): React.JSX.Element {
   const delta = signedDelta(before, after);
@@ -322,7 +345,7 @@ function BalanceRow({
       <span className={classNames?.beforeValue} style={{ color: NEUTRAL_TEXT }}>
         {formatWei(before)} {symbol}
       </span>
-      <span style={arrowStyle}>→</span>
+      <span style={arrowStyle}>{arrowIcon}</span>
       <span className={classNames?.afterValue} style={{ color: NEUTRAL_TEXT }}>
         {formatWei(after)} {symbol}
       </span>
@@ -335,11 +358,13 @@ function BalanceRow({
 
 interface StorageListProps {
   changes: StorageChange[];
+  arrowIcon: ReactNode;
   classNames?: StateDiffPanelClassNames;
 }
 
 function StorageList({
   changes,
+  arrowIcon,
   classNames,
 }: StorageListProps): React.JSX.Element {
   return (
@@ -368,7 +393,7 @@ function StorageList({
             {shortHex(c.slot)}
           </span>
           <span style={{ color: NEUTRAL_TEXT }}>{shortHex(c.before)}</span>
-          <span style={arrowStyle}>→</span>
+          <span style={arrowStyle}>{arrowIcon}</span>
           <span style={{ color: NEUTRAL_TEXT }}>{shortHex(c.after)}</span>
         </div>
       ))}

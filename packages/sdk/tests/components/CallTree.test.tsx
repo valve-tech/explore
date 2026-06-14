@@ -85,11 +85,14 @@ describe("CallTree", () => {
   });
 
   it("collapses children when the expand arrow is clicked", () => {
-    render(<CallTree frame={buildTree()} hideLegend />);
+    const { container } = render(<CallTree frame={buildTree()} hideLegend />);
     expect(screen.queryByText("0x70a08231")).toBeDefined();
-    // First "▶" is the root's expand arrow
-    const arrows = screen.getAllByText("▶");
-    fireEvent.click(arrows[0]!);
+    // Expand toggles are the buttons without the "Show details" title. The
+    // first one in document order is the root's expand caret.
+    const expandButtons = Array.from(
+      container.querySelectorAll("button"),
+    ).filter((b) => b.getAttribute("title") !== "Show details");
+    fireEvent.click(expandButtons[0]!);
     expect(screen.queryByText("0x70a08231")).toBeNull();
   });
 
@@ -179,8 +182,10 @@ describe("CallTree", () => {
       gasUsed: 21_000n,
     });
     const { container } = render(<CallTree frame={leaf} hideLegend />);
-    // No expand arrow present
-    expect(within(container).queryByText("▶")).toBeNull();
+    // No expand toggle present — the only button is the "Show details" toggle.
+    const buttons = Array.from(container.querySelectorAll("button"));
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]!.getAttribute("title")).toBe("Show details");
   });
 
   it("shows revert reason in detail panel for reverted frames", () => {
@@ -293,5 +298,36 @@ describe("CallTree", () => {
       render(<CallTree frame={tree} hideLegend />),
     ).not.toThrow();
     expect(screen.getByText("FUTURE_OPCODE")).toBeDefined();
+  });
+
+  it("renders the built-in expand and arrow icons by default", () => {
+    const { container } = render(<CallTree frame={buildTree()} hideLegend />);
+    // Default icons are inline SVGs (no glyph text). At least the root row's
+    // expand caret + from→to arrow render as <svg>.
+    expect(container.querySelectorAll("svg").length).toBeGreaterThan(0);
+  });
+
+  it("renders a custom expandIcon override", () => {
+    render(
+      <CallTree
+        frame={buildTree()}
+        hideLegend
+        expandIcon={<span data-testid="custom-expand">EXP</span>}
+      />,
+    );
+    // Two expandable rows (root + STATICCALL) → two carets.
+    expect(screen.getAllByTestId("custom-expand").length).toBe(2);
+  });
+
+  it("renders a custom arrowIcon override", () => {
+    render(
+      <CallTree
+        frame={buildTree()}
+        hideLegend
+        arrowIcon={<span data-testid="custom-arrow">ARR</span>}
+      />,
+    );
+    // One arrow per rendered frame (3 frames in the tree).
+    expect(screen.getAllByTestId("custom-arrow").length).toBe(3);
   });
 });

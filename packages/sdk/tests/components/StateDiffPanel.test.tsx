@@ -307,4 +307,39 @@ describe("StateDiffPanel", () => {
     const root = container.firstChild as HTMLElement;
     expect(root.className).toBe("");
   });
+
+  it("renders the built-in arrow icon by default in diff rows", () => {
+    const { container } = render(
+      <StateDiffPanel
+        diffs={[diff({ balanceBefore: 0n, balanceAfter: 1n })]}
+        hideHeader
+      />,
+    );
+    // The default arrow is an inline SVG sitting between before/after.
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+
+  it("renders a custom arrowIcon override across balance, field, and storage rows", () => {
+    render(
+      <StateDiffPanel
+        diffs={[
+          diff({
+            balanceBefore: 0n,
+            balanceAfter: 1n,
+            nonceBefore: 1,
+            nonceAfter: 2,
+            codeBefore: "0xab" as Hex,
+            codeAfter: "0xcd" as Hex,
+            storage: [
+              { slot: "0x1" as Hex, before: "0x0" as Hex, after: "0x1" as Hex },
+            ],
+          }),
+        ]}
+        hideHeader
+        arrowIcon={<span data-testid="custom-arrow">to</span>}
+      />,
+    );
+    // balance + nonce + code + storage = 4 arrow sites.
+    expect(screen.getAllByTestId("custom-arrow").length).toBe(4);
+  });
 });

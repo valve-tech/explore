@@ -291,4 +291,33 @@ describe("FrameDetailPanel", () => {
     const root = container.firstChild as HTMLElement;
     expect(root.className).toBe("");
   });
+
+  it("renders the built-in arrow icon between addresses by default", () => {
+    const { container } = render(
+      <FrameDetailPanel frame={makeFrame({ type: "CALL" })} />,
+    );
+    // Default header arrow is an inline SVG.
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+
+  it("renders a custom arrowIcon override in the header", () => {
+    render(
+      <FrameDetailPanel
+        frame={makeFrame({ type: "CALL" })}
+        arrowIcon={<span data-testid="custom-arrow">to</span>}
+      />,
+    );
+    expect(screen.getByTestId("custom-arrow")).toBeDefined();
+  });
+
+  it("does not render the header arrow when hideHeader=true", () => {
+    render(
+      <FrameDetailPanel
+        frame={makeFrame({ type: "CALL" })}
+        hideHeader
+        arrowIcon={<span data-testid="custom-arrow">to</span>}
+      />,
+    );
+    expect(screen.queryByTestId("custom-arrow")).toBeNull();
+  });
 });

@@ -1,4 +1,4 @@
-import { type CSSProperties } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import type { Hex } from "viem";
 import type { CallType, DecodedParam, TraceFrame } from "../types.js";
 import {
@@ -7,6 +7,7 @@ import {
   getFunctionSelector,
   truncateAddress,
 } from "./formatters.js";
+import { ArrowRightIcon } from "../icons/ArrowRightIcon.js";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -66,6 +67,11 @@ export interface FrameDetailPanelProps {
   valueSymbol?: string;
   /** Hide the call-type badge + addresses header. */
   hideHeader?: boolean;
+  /**
+   * Glyph rendered between the from and to addresses in the header. Defaults
+   * to the built-in `ArrowRightIcon`.
+   */
+  arrowIcon?: ReactNode;
   /** Per-slot class names for theming. */
   classNames?: FrameDetailPanelClassNames;
   /** Inline style on the root element. */
@@ -149,6 +155,7 @@ export function FrameDetailPanel({
   frame,
   valueSymbol = "PLS",
   hideHeader,
+  arrowIcon = <ArrowRightIcon size={12} />,
   classNames,
   style,
   className,
@@ -171,7 +178,15 @@ export function FrameDetailPanel({
           <span className={classNames?.fromAddress} style={{ color: MUTED_TEXT }}>
             {truncateAddress(frame.from)}
           </span>
-          <span style={{ color: SUBTLE_TEXT }}>→</span>
+          <span
+            style={{
+              color: SUBTLE_TEXT,
+              display: "inline-flex",
+              alignItems: "center",
+            }}
+          >
+            {arrowIcon}
+          </span>
           <span className={classNames?.toAddress} style={{ color: NEUTRAL_TEXT }}>
             {frame.to === null ? "(create)" : truncateAddress(frame.to)}
           </span>

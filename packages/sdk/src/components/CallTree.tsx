@@ -1,4 +1,4 @@
-import { type CSSProperties } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import type { CallType, TraceFrame } from "../types.js";
 import { formatGas } from "./formatters.js";
 import {
@@ -8,6 +8,8 @@ import {
 import { countFrames } from "./CallTree/countFrames.js";
 import { CallNode } from "./CallTree/CallNode.js";
 import type { CallTreeClassNames } from "./CallTree/types.js";
+import { ChevronRightIcon } from "../icons/ChevronRightIcon.js";
+import { ArrowRightIcon } from "../icons/ArrowRightIcon.js";
 
 export type { CallTreeClassNames };
 
@@ -24,6 +26,16 @@ export interface CallTreeProps {
   hideHeader?: boolean;
   /** Hide the legend chips. */
   hideLegend?: boolean;
+  /**
+   * Caret rendered in each expandable row's toggle button; rotates 90° when
+   * the row is expanded. Defaults to the built-in `ChevronRightIcon`.
+   */
+  expandIcon?: ReactNode;
+  /**
+   * Glyph rendered between a frame's from and to addresses. Defaults to the
+   * built-in `ArrowRightIcon`.
+   */
+  arrowIcon?: ReactNode;
   /** Per-slot class names for theming. */
   classNames?: CallTreeClassNames;
   /** Inline style on the root element. */
@@ -50,6 +62,8 @@ export function CallTree({
   valueSymbol = "PLS",
   hideHeader = false,
   hideLegend = false,
+  expandIcon = <ChevronRightIcon size={12} />,
+  arrowIcon = <ArrowRightIcon size={12} />,
   classNames = {},
   style,
   className,
@@ -86,6 +100,8 @@ export function CallTree({
           onSelect={onSelect}
           valueSymbol={valueSymbol}
           classNames={classNames}
+          expandIcon={expandIcon}
+          arrowIcon={arrowIcon}
         />
       </div>
     </div>

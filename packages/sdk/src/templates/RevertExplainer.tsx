@@ -1,10 +1,12 @@
-import { type CSSProperties } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import type { CallType, TraceFrame } from "../types.js";
 import { walkCallTree } from "../traversal/walkCallTree.js";
 import {
   getFunctionSelector,
   truncateAddress,
 } from "../components/formatters.js";
+import { CheckIcon } from "../icons/CheckIcon.js";
+import { ArrowRightIcon } from "../icons/ArrowRightIcon.js";
 
 // ---------------------------------------------------------------------------
 // Theme
@@ -50,6 +52,16 @@ export interface RevertExplainerProps {
   frame: TraceFrame;
   /** Custom message when no revert occurred. */
   successMessage?: string;
+  /**
+   * Icon shown beside the success message when nothing reverted. Defaults to
+   * the built-in `CheckIcon`.
+   */
+  successIcon?: ReactNode;
+  /**
+   * Glyph between steps in the revert breadcrumb chain. Defaults to the
+   * built-in `ArrowRightIcon`.
+   */
+  arrowIcon?: ReactNode;
   /** Per-slot class names. */
   classNames?: RevertExplainerClassNames;
   /** Inline style on root. */
@@ -147,6 +159,8 @@ const chipStyle: CSSProperties = {
 export function RevertExplainer({
   frame,
   successMessage = "Transaction completed without revert.",
+  successIcon = <CheckIcon size={14} />,
+  arrowIcon = <ArrowRightIcon size={12} />,
   classNames,
   style,
   className,
@@ -161,12 +175,18 @@ export function RevertExplainer({
       {path.length === 0 ? (
         <div
           className={classNames?.successBody}
-          style={{ color: SUCCESS_TEXT, padding: "6px 0" }}
+          style={{
+            color: SUCCESS_TEXT,
+            padding: "6px 0",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
         >
-          ✓ {successMessage}
+          {successIcon} {successMessage}
         </div>
       ) : (
-        <RevertedBody path={path} classNames={classNames} />
+        <RevertedBody path={path} arrowIcon={arrowIcon} classNames={classNames} />
       )}
     </div>
   );
@@ -174,10 +194,15 @@ export function RevertExplainer({
 
 interface RevertedBodyProps {
   path: TraceFrame[];
+  arrowIcon: ReactNode;
   classNames?: RevertExplainerClassNames;
 }
 
-function RevertedBody({ path, classNames }: RevertedBodyProps): React.JSX.Element {
+function RevertedBody({
+  path,
+  arrowIcon,
+  classNames,
+}: RevertedBodyProps): React.JSX.Element {
   const reverter = path[path.length - 1]!;
   // findRevertPath only includes frames where `error || revertReason` is
   // truthy, so at least one of these is set by construction.
@@ -208,8 +233,15 @@ function RevertedBody({ path, classNames }: RevertedBodyProps): React.JSX.Elemen
               style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}
             >
               {i > 0 && (
-                <span className={classNames?.chainArrow} style={{ color: SUBTLE_TEXT }}>
-                  →
+                <span
+                  className={classNames?.chainArrow}
+                  style={{
+                    color: SUBTLE_TEXT,
+                    display: "inline-flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {arrowIcon}
                 </span>
               )}
               <ChainStep

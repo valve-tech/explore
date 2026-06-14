@@ -249,3 +249,35 @@ describe("StepDebugger — slot theming", () => {
     }
   });
 });
+
+describe("StepDebugger — nav icons", () => {
+  it("renders the built-in prev/next chevron icons by default", () => {
+    const { container } = render(<StepDebugger steps={RICH_STEPS} />);
+    // The Prev/Next buttons each carry an inline-SVG chevron by default.
+    const prev = screen.getByTitle(/Previous step/);
+    const next = screen.getByTitle(/Next step/);
+    expect(prev.querySelector("svg")).not.toBeNull();
+    expect(next.querySelector("svg")).not.toBeNull();
+    // Sanity: at least these two svgs are present in the control row.
+    expect(container.querySelectorAll("svg").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders custom prevIcon / nextIcon overrides", () => {
+    render(
+      <StepDebugger
+        steps={RICH_STEPS}
+        prevIcon={<span data-testid="ci-prev">P</span>}
+        nextIcon={<span data-testid="ci-next">N</span>}
+      />,
+    );
+    expect(screen.getByTestId("ci-prev")).toBeDefined();
+    expect(screen.getByTestId("ci-next")).toBeDefined();
+    // The override sits inside the corresponding control button.
+    expect(
+      screen.getByTitle(/Previous step/).querySelector("[data-testid='ci-prev']"),
+    ).not.toBeNull();
+    expect(
+      screen.getByTitle(/Next step/).querySelector("[data-testid='ci-next']"),
+    ).not.toBeNull();
+  });
+});

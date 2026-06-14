@@ -187,3 +187,17 @@ export {
   type EmbedDashboardClassNames,
   type EmbedDashboardTab,
 } from "./widgets/index.js";
+
+// Icons (inline-SVG, dependency-free — React peer dep). These are the
+// tree-shakable defaults behind every component's icon-override prop, exported
+// here so consumers can import and reuse them directly. A consumer that never
+// touches an icon (or overrides every one) never pulls these into their bundle.
+export {
+  ChevronRightIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ArrowRightIcon,
+  CheckIcon,
+  XIcon,
+  type IconProps,
+} from "./icons/index.js";

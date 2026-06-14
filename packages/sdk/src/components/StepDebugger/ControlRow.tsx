@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { useOpcodeNavigation } from "../../hooks/useOpcodeNavigation.js";
 
 export function ControlRow({
@@ -5,11 +6,15 @@ export function ControlRow({
   empty,
   className,
   buttonClassName,
+  prevIcon,
+  nextIcon,
 }: {
   nav: ReturnType<typeof useOpcodeNavigation>;
   empty: boolean;
   className?: string;
   buttonClassName?: string;
+  prevIcon: ReactNode;
+  nextIcon: ReactNode;
 }) {
   const disableAll = empty;
   return (
@@ -25,14 +30,16 @@ export function ControlRow({
       }}
     >
       <Button
-        label="◀ Prev"
+        label="Prev"
+        leadingIcon={prevIcon}
         title="Previous step (←)"
         onClick={nav.goBack}
         disabled={disableAll || !nav.canGoBack}
         className={buttonClassName}
       />
       <Button
-        label="Next ▶"
+        label="Next"
+        trailingIcon={nextIcon}
         title="Next step (→)"
         onClick={nav.goForward}
         disabled={disableAll || !nav.canGoForward}
@@ -88,6 +95,8 @@ function Button({
   disabled,
   accent = false,
   className,
+  leadingIcon,
+  trailingIcon,
 }: {
   label: string;
   title: string;
@@ -95,6 +104,8 @@ function Button({
   disabled: boolean;
   accent?: boolean;
   className?: string;
+  leadingIcon?: ReactNode;
+  trailingIcon?: ReactNode;
 }) {
   return (
     <button
@@ -105,6 +116,9 @@ function Button({
       disabled={disabled}
       className={className}
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
         padding: "5px 10px",
         borderRadius: 4,
         fontSize: 11,
@@ -118,7 +132,9 @@ function Button({
         opacity: disabled ? 0.4 : 1,
       }}
     >
+      {leadingIcon}
       {label}
+      {trailingIcon}
     </button>
   );
 }

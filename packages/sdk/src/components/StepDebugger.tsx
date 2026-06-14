@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   type CSSProperties,
+  type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import type { OpcodeStep } from "../types.js";
@@ -11,6 +12,8 @@ import { Header } from "./StepDebugger/Header.js";
 import { ControlRow } from "./StepDebugger/ControlRow.js";
 import { DetailPanels } from "./StepDebugger/DetailPanels.js";
 import type { StepDebuggerClassNames } from "./StepDebugger/types.js";
+import { ChevronLeftIcon } from "../icons/ChevronLeftIcon.js";
+import { ChevronRightIcon } from "../icons/ChevronRightIcon.js";
 
 export type { StepDebuggerClassNames };
 
@@ -27,6 +30,16 @@ export interface StepDebuggerProps {
    * call/storage/log. Set false to disable.
    */
   keyboard?: boolean;
+  /**
+   * Icon for the "Prev" (step-back) control. Defaults to the built-in
+   * `ChevronLeftIcon`.
+   */
+  prevIcon?: ReactNode;
+  /**
+   * Icon for the "Next" (step-forward) control. Defaults to the built-in
+   * `ChevronRightIcon`.
+   */
+  nextIcon?: ReactNode;
   /** Per-slot class names for theming. */
   classNames?: StepDebuggerClassNames;
   style?: CSSProperties;
@@ -44,6 +57,8 @@ export function StepDebugger({
   initialIndex,
   onStepChange,
   keyboard = true,
+  prevIcon = <ChevronLeftIcon size={12} />,
+  nextIcon = <ChevronRightIcon size={12} />,
   classNames = {},
   style,
   className,
@@ -122,6 +137,8 @@ export function StepDebugger({
         empty={empty}
         className={classNames.controls}
         buttonClassName={classNames.button}
+        prevIcon={prevIcon}
+        nextIcon={nextIcon}
       />
       {!empty && nav.step && (
         <DetailPanels step={nav.step} classNames={classNames} />

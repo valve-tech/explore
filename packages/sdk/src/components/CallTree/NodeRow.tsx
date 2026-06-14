@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { TraceFrame } from "../../types.js";
 import {
   formatGas,
@@ -18,6 +19,10 @@ interface Props {
   onSelect?: (frame: TraceFrame) => void;
   valueSymbol: string;
   classNames: CallTreeClassNames;
+  /** Caret rendered inside the expand button (rotates 90° when expanded). */
+  expandIcon: ReactNode;
+  /** Glyph rendered between the from and to addresses. */
+  arrowIcon: ReactNode;
 }
 
 export function NodeRow({
@@ -30,6 +35,8 @@ export function NodeRow({
   onSelect,
   valueSymbol,
   classNames,
+  expandIcon,
+  arrowIcon,
 }: Props) {
   const typeStyle = getCallTypeStyle(frame.type);
   const valueDisplay = formatWei(frame.value, valueSymbol);
@@ -73,12 +80,12 @@ export function NodeRow({
         >
           <span
             style={{
-              display: "inline-block",
+              display: "inline-flex",
               transition: "transform 0.15s",
               transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
             }}
           >
-            ▶
+            {expandIcon}
           </span>
         </button>
       ) : (
@@ -126,7 +133,16 @@ export function NodeRow({
       >
         {truncateAddress(frame.from)}
       </span>
-      <span style={{ color: "#6e7681", flexShrink: 0 }}>→</span>
+      <span
+        style={{
+          color: "#6e7681",
+          flexShrink: 0,
+          display: "inline-flex",
+          alignItems: "center",
+        }}
+      >
+        {arrowIcon}
+      </span>
       <span
         className={classNames.address}
         style={{
