@@ -79,13 +79,7 @@ export default function AddressView({
       <div
         className="rounded-lg bs p-8 flex flex-col items-center justify-center min-h-[300px] theme-card-bg"
       >
-        <div
-          className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mb-3"
-          style={{
-            borderColor: "var(--color-accent)",
-            borderTopColor: "transparent",
-          }}
-        />
+        <div className="spinner mb-3" />
         <span
           className="text-sm theme-text-secondary"
         >
