@@ -77,8 +77,8 @@ const CONTEXT_BLOCKS = [
     icon: "heroicons:check-badge",
     body: (
       <div className="text-xs space-y-1.5 theme-text-secondary">
-        <div className="flex justify-between"><span>BlockScout</span><span className="theme-success">✓</span></div>
-        <div className="flex justify-between"><span>Sourcify (full match)</span><span className="theme-success">✓</span></div>
+        <div className="flex justify-between"><span>BlockScout</span><Icon icon="heroicons:check" className="w-4 h-4 theme-success" aria-hidden /></div>
+        <div className="flex justify-between"><span>Sourcify (full match)</span><Icon icon="heroicons:check" className="w-4 h-4 theme-success" aria-hidden /></div>
         <div className="flex justify-between"><span>Slither analysis</span><span className="theme-text-muted">cached 4d ago</span></div>
       </div>
     ),

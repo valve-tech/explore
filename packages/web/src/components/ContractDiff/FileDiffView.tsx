@@ -1,3 +1,4 @@
+import { Icon } from "@iconify/react";
 import type { FileDiff } from "./types";
 
 const STATUS_COLOR: Record<FileDiff["status"], string> = {
@@ -64,9 +65,11 @@ export function FileDiffView({ file, isExpanded, onToggle }: Props) {
               -{file.linesRemoved}
             </span>
           )}
-          <span className="theme-text-muted" style={{ fontSize: "12px" }}>
-            {isExpanded ? "▲" : "▼"}
-          </span>
+          <Icon
+            icon={isExpanded ? "heroicons:chevron-up" : "heroicons:chevron-down"}
+            className="w-3 h-3 theme-text-muted"
+            aria-hidden
+          />
         </div>
       </button>
 

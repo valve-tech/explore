@@ -191,9 +191,18 @@ function lensesFor(o: Outcome): Lens[] {
         icon: "heroicons:list-bullet",
         body: (
           <div className="font-mono text-xs leading-relaxed">
-            <div className="theme-text">→ Router.swapExactTokensForTokens</div>
-            <div className="pl-4 theme-text-secondary">→ WPLS.transferFrom(user, pair, 1e18)</div>
-            <div className="pl-8 theme-danger">✗ REVERT: TRANSFER_FROM_FAILED</div>
+            <div className="theme-text flex items-center gap-inline">
+              <Icon icon="heroicons:arrow-long-right" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
+              <span>Router.swapExactTokensForTokens</span>
+            </div>
+            <div className="pl-4 theme-text-secondary flex items-center gap-inline">
+              <Icon icon="heroicons:arrow-long-right" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
+              <span>WPLS.transferFrom(user, pair, 1e18)</span>
+            </div>
+            <div className="pl-8 theme-danger flex items-center gap-inline">
+              <Icon icon="heroicons:x-mark" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
+              <span>REVERT: TRANSFER_FROM_FAILED</span>
+            </div>
             <div className="pl-4 theme-text-muted">(execution stops, gas refunded after 184,392)</div>
           </div>
         ),
@@ -360,9 +369,11 @@ export default function JourneyDraft() {
             )}
             {!isRevert && (
               <div
-                className="text-xs font-mono px-2 py-1 theme-success-bg theme-success"
+                className="text-xs font-mono px-2 py-1 flex items-center gap-inline theme-success-bg theme-success"
               >
-                1.0 WPLS → 12,488.21 HEX
+                <span>1.0 WPLS</span>
+                <Icon icon="heroicons:arrow-long-right" className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
+                <span>12,488.21 HEX</span>
               </div>
             )}
           </div>

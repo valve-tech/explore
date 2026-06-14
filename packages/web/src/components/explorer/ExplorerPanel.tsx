@@ -233,7 +233,7 @@ function Breadcrumb({
       {collapsed.map((node, i) => (
         <span key={node.key} className="flex items-center gap-tight">
           {i > 0 && (
-            <span className="theme-text-muted">›</span>
+            <Icon icon="heroicons:chevron-right" className="w-3.5 h-3.5 theme-text-muted" aria-hidden />
           )}
           {/* Insert the "…" expander right after Home when collapsed. */}
           {hasGap && i === 1 && (
@@ -246,7 +246,7 @@ function Breadcrumb({
               >
                 …
               </button>
-              <span className="theme-text-muted">›</span>
+              <Icon icon="heroicons:chevron-right" className="w-3.5 h-3.5 theme-text-muted" aria-hidden />
             </>
           )}
           <CrumbNode node={node} onJump={onJump} />

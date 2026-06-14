@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Icon } from "@iconify/react";
 import {
   isCallOp,
   isStorageOp,
@@ -916,7 +917,7 @@ export default function StepDebugger({
                   cursor: canBack ? "pointer" : "not-allowed",
                 }}
               >
-                ←
+                <Icon icon="heroicons:chevron-left" className="w-4 h-4" aria-hidden />
               </button>
               <button
                 onClick={navGoForward}
@@ -928,7 +929,7 @@ export default function StepDebugger({
                   cursor: canForward ? "pointer" : "not-allowed",
                 }}
               >
-                →
+                <Icon icon="heroicons:chevron-right" className="w-4 h-4" aria-hidden />
               </button>
               {recents.length > 0 && (
                 <button
@@ -976,7 +977,11 @@ export default function StepDebugger({
                         className={`w-full text-left px-3 py-2 text-xs flex items-center gap-inline transition-colors hover:opacity-90 theme-mono theme-text bs-b-muted${r.step === currentStep ? " theme-accent-bg" : ""}`}
                       >
                         <span className={r.kind === "function" ? "theme-accent" : "theme-text-secondary"}>
-                          {r.kind === "function" ? "ƒ" : "›"}
+                          {r.kind === "function" ? (
+                            "ƒ"
+                          ) : (
+                            <Icon icon="heroicons:chevron-right" className="w-3.5 h-3.5" aria-hidden />
+                          )}
                         </span>
                         <span className="flex-1 truncate">{r.label}</span>
                         <span className="theme-text-muted">step {r.step.toLocaleString()}</span>

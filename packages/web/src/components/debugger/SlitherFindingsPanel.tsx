@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "@iconify/react";
 import type { SlitherFinding } from "../../api/source";
 
 // ---------------------------------------------------------------------------
@@ -125,9 +126,11 @@ export default function FindingsPanel({ findings, onJumpToLine }: FindingsPanelP
                       {finding.description.split("\n")[0]}
                     </p>
                   </div>
-                  <span className="text-xs flex-shrink-0 theme-text-muted">
-                    {isExpanded ? "▼" : "▶"}
-                  </span>
+                  <Icon
+                    icon={isExpanded ? "heroicons:chevron-down" : "heroicons:chevron-right"}
+                    className="w-3.5 h-3.5 flex-shrink-0 theme-text-muted"
+                    aria-hidden
+                  />
                 </button>
 
                 {/* Expanded detail */}

@@ -1,4 +1,5 @@
 import { apiUrl } from "../lib/apiBase";
+import { Icon } from "@iconify/react";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { StateDiff, BalanceChange, StorageChange, NonceChange } from "../api/simulate";
@@ -44,9 +45,11 @@ function SectionHeader({
           {count}
         </span>
       </span>
-      <span className="text-xs theme-text-muted">
-        {expanded ? "▼" : "▶"}
-      </span>
+      <Icon
+        icon={expanded ? "heroicons:chevron-down" : "heroicons:chevron-right"}
+        className="w-3.5 h-3.5 theme-text-muted"
+        aria-hidden
+      />
     </button>
   );
 }
@@ -194,9 +197,11 @@ function StorageGroup({
           >
             {rows.length} slot{rows.length !== 1 ? "s" : ""}
           </span>
-          <span className="text-xs theme-text-muted">
-            {expanded ? "▼" : "▶"}
-          </span>
+          <Icon
+            icon={expanded ? "heroicons:chevron-down" : "heroicons:chevron-right"}
+            className="w-3.5 h-3.5 theme-text-muted"
+            aria-hidden
+          />
         </div>
       </button>
       {expanded && (
