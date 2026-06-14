@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   resolveApiBase,
@@ -20,22 +20,6 @@ import {
   type NotifyPermission,
 } from "../../lib/watcher/desktopNotify";
 import { CHAINS } from "../../lib/chains";
-
-const AUTO_COLLAPSE_ENABLED_KEY = "valvetech-shell-auto-collapse";
-
-const PANEL_HEAVY_ROUTES = [
-  { key: "debugger", label: "Debugger", note: "Has call tree (left) + storage/stack/memory (right)" },
-  { key: "explorer", label: "Explorer", note: "Has sub-tabs and table widths that benefit from horizontal space" },
-];
-
-function loadBool(key: string, fallback: boolean): boolean {
-  try {
-    const v = localStorage.getItem(key);
-    return v === null ? fallback : v === "true";
-  } catch {
-    return fallback;
-  }
-}
 
 function Toggle({
   checked,
@@ -68,18 +52,6 @@ function Toggle({
 }
 
 export default function SettingsPanel() {
-  const [autoCollapse, setAutoCollapse] = useState(() =>
-    loadBool(AUTO_COLLAPSE_ENABLED_KEY, true),
-  );
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(AUTO_COLLAPSE_ENABLED_KEY, String(autoCollapse));
-    } catch {
-      /* ignore */
-    }
-  }, [autoCollapse]);
-
   return (
     <div className="p-4 max-w-3xl">
       <div className="mb-6">
@@ -92,49 +64,6 @@ export default function SettingsPanel() {
           Workspace preferences
         </h1>
       </div>
-
-      {/* Section: Sidebar */}
-      <Section title="Sidebar" icon="heroicons:bars-3">
-        <Row
-          label="Auto-collapse on panel-heavy routes"
-          hint="Auto-collapse the sidebar to icons when entering routes that already have their own side panels. Manual toggle still works."
-          control={<Toggle checked={autoCollapse} onChange={setAutoCollapse} />}
-        />
-        <div className="pt-4 pb-2">
-          <div
-            className="text-[10px] uppercase tracking-widest mb-2 theme-text-muted"
-          >
-            Auto-collapse rules
-          </div>
-          {PANEL_HEAVY_ROUTES.map((r, i, arr) => (
-            <div
-              key={r.key}
-              className={`flex items-start justify-between py-2.5${
-                i < arr.length - 1 ? " bs-b-muted" : ""
-              }`}
-              style={{ opacity: autoCollapse ? 1 : 0.4 }}
-            >
-              <div>
-                <div className="text-sm theme-text">
-                  {r.label}{" "}
-                  <code
-                    className="ml-1 text-[11px] theme-text-muted"
-                  >
-                    /{r.key}
-                  </code>
-                </div>
-                <div className="text-xs mt-0.5 theme-text-muted">
-                  {r.note}
-                </div>
-              </div>
-              <div className="text-xs flex items-center gap-1.5 theme-text-muted">
-                <Icon icon="heroicons:arrow-down-right" className="w-3 h-3" />
-                collapses
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
 
       {/* Section: Backend API origin */}
       <BackendApiSection />

@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from "react";
-import { useLocation } from "react-router-dom";
 import { useSidebarState } from "./AppShell/useSidebarState";
 import { useCommandPaletteShortcut } from "./AppShell/useCommandPaletteShortcut";
 import { TopBar } from "./AppShell/TopBar";
@@ -14,10 +13,8 @@ export default function AppShell({
   apiStatus: ApiStatus;
   children: ReactNode;
 }) {
-  const location = useLocation();
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const { collapsed, autoCollapsed, intent, onToggleCollapse } =
-    useSidebarState(location.pathname);
+  const { collapsed, onToggleCollapse } = useSidebarState();
 
   useCommandPaletteShortcut(setPaletteOpen);
 
@@ -27,8 +24,6 @@ export default function AppShell({
     >
       <TopBar
         collapsed={collapsed}
-        autoCollapsed={autoCollapsed}
-        intent={intent}
         onToggleCollapse={onToggleCollapse}
         apiStatus={apiStatus}
         onOpenPalette={() => setPaletteOpen(true)}

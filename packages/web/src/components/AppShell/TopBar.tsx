@@ -6,7 +6,6 @@ import { WorkspaceSyncStatus } from "../wallet/WorkspaceSyncStatus";
 import { WorkspaceSyncAutoPush } from "../wallet/WorkspaceSyncAutoPush";
 import { ExploreLogo } from "./ExploreLogo";
 import { ValveLogo } from "./ValveLogo";
-import type { SidebarIntent } from "./useSidebarState";
 import type { ApiStatus } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -15,15 +14,11 @@ import type { ApiStatus } from "./types";
 
 export function TopBar({
   collapsed,
-  autoCollapsed,
-  intent,
   onToggleCollapse,
   apiStatus,
   onOpenPalette,
 }: {
   collapsed: boolean;
-  autoCollapsed: boolean;
-  intent: SidebarIntent;
   onToggleCollapse: () => void;
   apiStatus: ApiStatus;
   onOpenPalette: () => void;
@@ -34,12 +29,7 @@ export function TopBar({
   const canGoBack =
     ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
 
-  const toggleTitle =
-    intent === "auto" && autoCollapsed
-      ? "Auto-collapsed for this route — expand"
-      : collapsed
-        ? "Expand sidebar"
-        : "Collapse sidebar";
+  const toggleTitle = collapsed ? "Expand sidebar" : "Collapse sidebar";
 
   const statusColor =
     apiStatus === "connected"
