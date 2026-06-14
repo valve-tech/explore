@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import type { TraceFrame } from "../../types.js";
 import { NodeRow } from "./NodeRow.js";
 import { DetailPanel } from "./DetailPanel.js";
@@ -12,6 +13,8 @@ interface CallNodeProps {
   onSelect?: (frame: TraceFrame) => void;
   valueSymbol: string;
   classNames: CallTreeClassNames;
+  expandIcon: ReactNode;
+  arrowIcon: ReactNode;
 }
 
 export function CallNode({
@@ -22,6 +25,8 @@ export function CallNode({
   onSelect,
   valueSymbol,
   classNames,
+  expandIcon,
+  arrowIcon,
 }: CallNodeProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [showDetails, setShowDetails] = useState(false);
@@ -47,6 +52,8 @@ export function CallNode({
         onSelect={onSelect}
         valueSymbol={valueSymbol}
         classNames={classNames}
+        expandIcon={expandIcon}
+        arrowIcon={arrowIcon}
       />
 
       {showDetails && (
@@ -65,6 +72,8 @@ export function CallNode({
               onSelect={onSelect}
               valueSymbol={valueSymbol}
               classNames={classNames}
+              expandIcon={expandIcon}
+              arrowIcon={arrowIcon}
             />
           ))}
         </div>
