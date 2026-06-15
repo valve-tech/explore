@@ -77,6 +77,12 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
         <Legend counts={counts} />
       </div>
 
+      <div className="text-xs theme-text-muted">
+        y = tip per gas (log scale) ={" "}
+        <code className="theme-mono">effectiveGasPrice − baseFee</code> · bars in
+        block position; ordered by tip, not by transaction type
+      </div>
+
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "auto" }}>
         {/* baseline */}
         <line x1={PAD_L} y1={BASELINE} x2={W - PAD_R} y2={BASELINE} stroke="var(--color-border-muted)" strokeWidth={1} />

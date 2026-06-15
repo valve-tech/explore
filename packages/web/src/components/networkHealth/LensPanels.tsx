@@ -1,5 +1,6 @@
 import type { WindowAggregate } from "../../api/networkHealth";
 import { SplitBar, TypeLegend } from "./SplitBar";
+import { InfoTip, Eq } from "./InfoTip";
 import { nativeAmount, pct, shareOf } from "./format";
 
 /**
@@ -22,8 +23,14 @@ export function LensPanels({
   return (
     <div className="space-y-stack">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm uppercase tracking-wide theme-text-secondary">
+        <h2 className="flex items-center gap-tight text-sm uppercase tracking-wide theme-text-secondary">
           User cost vs validator revenue
+          <InfoTip label="user cost vs validator revenue">
+            Each tx's price splits:{" "}
+            <Eq>effectiveGasPrice = baseFee + tip</Eq>. Users pay the whole price
+            (cost); the base fee is burned; validators earn only the tip
+            (revenue). So <Eq>paid = burned + tips</Eq>.
+          </InfoTip>
         </h2>
         <TypeLegend />
       </div>
