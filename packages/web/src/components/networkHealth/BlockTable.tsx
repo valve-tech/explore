@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "@iconify/react";
 import type { BlockStats } from "../../api/networkHealth";
 import { formatGwei } from "../../lib/format/tokenAmount";
 import { SplitBar } from "./SplitBar";
@@ -63,8 +64,13 @@ function BlockRow({
         onClick={onToggle}
       >
         <Td>
-          <span className="theme-text-muted">{expanded ? "▾" : "▸"}</span>{" "}
-          <span className="theme-accent">#{block.number}</span>
+          <span className="inline-flex items-center gap-tight">
+            <Icon
+              icon={expanded ? "heroicons:chevron-down" : "heroicons:chevron-right"}
+              className="w-4 h-4 theme-text-muted"
+            />
+            <span className="theme-accent">#{block.number}</span>
+          </span>
         </Td>
         <Td muted>{timeAgo(block.timestamp)}</Td>
         <Td right>{block.txCount}</Td>

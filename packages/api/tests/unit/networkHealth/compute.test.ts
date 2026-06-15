@@ -112,9 +112,10 @@ describe("computeBlock — positions", () => {
 describe("computeBlock — prioritization", () => {
   it("cross-sender priority inversion rate (full pairwise)", () => {
     const s = serializeBlock(computeBlock(workedBlock(), { burnsBaseFee: true }));
-    // tips 150,80,200 (3 distinct senders). Ascending pairs: (150,200),(80,200)
-    // = 2 of 3 cross-sender pairs.
-    assert.ok(Math.abs(s.priorityInversionRate! - 2 / 3) < 1e-9);
+    // tips 150,80,200, gas 100,200,100 (3 distinct senders). Gas-weighted:
+    // inverted pairs (150,200)→100·100=10000 + (80,200)→200·100=20000 = 30000.
+    // total cross weight = ((Σg)²−Σg²)/2 = (400²−60000)/2 = 50000. rate 0.6.
+    assert.ok(Math.abs(s.priorityInversionRate! - 0.6) < 1e-9);
   });
 
   it("sees non-adjacent disorder hidden behind a same-sender tip jump", () => {
@@ -134,7 +135,9 @@ describe("computeBlock — prioritization", () => {
       ],
     };
     const s = serializeBlock(computeBlock(block, { burnsBaseFee: true }));
-    // cross pairs: (A0,B2),(A1,B2). inverted: 200>100 → 1. rate 1/2.
+    // cross pairs: (A0,B2),(A1,B2), all gas 1. gas-weighted: inverted 200>100 →
+    // 1·1=1; total cross weight = 1. rate 1/1... no: total cross weight =
+    // ((3²−3)/2) − within(A: (2²−2)/2=1) = 3−1 = 2. inverted 1. rate 0.5.
     assert.equal(s.priorityInversionRate, 0.5);
   });
 
@@ -200,7 +203,7 @@ describe("computeLadder", () => {
     assert.equal(l.txs[1]!.type, "legacy");
     assert.equal(l.txs[0]!.position, 0);
     assert.equal(l.txs[0]!.gasUsed, "100"); // carried through for bar width
-    assert.ok(Math.abs(l.priorityInversionRate! - 2 / 3) < 1e-9);
+    assert.ok(Math.abs(l.priorityInversionRate! - 0.6) < 1e-9); // gas-weighted
   });
 
   it("labels multi-tx-sender displacement as nonce, not a jump", () => {
@@ -253,8 +256,8 @@ describe("aggregateWindow", () => {
     // sums double
     assert.equal(a.paid, "182000");
     assert.equal(a.burned, "80000");
-    // pooled inversion rate: (2+2) inverted / (3+3) cross pairs = 2/3
-    assert.ok(Math.abs(a.priorityInversionRate! - 2 / 3) < 1e-9);
+    // pooled gas-weighted rate: (30000+30000) / (50000+50000) = 0.6
+    assert.ok(Math.abs(a.priorityInversionRate! - 0.6) < 1e-9);
     assert.equal(a.legacyGasShare, 0.5);
   });
 });

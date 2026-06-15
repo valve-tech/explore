@@ -124,6 +124,71 @@ export async function fetchBlockInput(
   };
 }
 
+/**
+ * Fetch one block's FULL transactions + receipts for the on-demand ladder.
+ * Like `fetchBlockInput` but also carries per-tx display fields (hash, to,
+ * value, methodId) sourced from the full transaction objects. Kept separate so
+ * the window warm (`fetchBlockInput`) stays lean — header + receipts only.
+ */
+export async function fetchBlockLadderInput(
+  client: PublicClient,
+  blockNumber: bigint,
+): Promise<BlockInput> {
+  const rpc = client.request as (args: {
+    method: "eth_getBlockReceipts";
+    params: [string];
+  }) => Promise<RpcReceipt[] | null>;
+
+  let block;
+  let receipts;
+  try {
+    [block, receipts] = await Promise.all([
+      client.getBlock({ blockNumber, includeTransactions: true }),
+      rpc({ method: "eth_getBlockReceipts", params: [numberToHex(blockNumber)] }),
+    ]);
+  } catch (err) {
+    if (isMethodUnsupported(err)) throw new ReceiptsUnsupportedError();
+    if (isRateLimited(err)) throw new RateLimitedError();
+    throw err;
+  }
+
+  // Index full txs by transactionIndex for merge with receipts.
+  const txByIndex = new Map<number, (typeof block.transactions)[number]>();
+  for (const t of block.transactions) {
+    if (typeof t === "string") continue;
+    txByIndex.set(t.transactionIndex ?? 0, t);
+  }
+
+  const txs: TxInput[] = (receipts ?? []).map((r) => {
+    const idx = r.transactionIndex ? Number(BigInt(r.transactionIndex)) : 0;
+    const tx = txByIndex.get(idx);
+    const input = tx?.input ?? "0x";
+    return {
+      transactionIndex: idx,
+      type: numericType(r.type),
+      from: (r.from ?? "").toLowerCase(),
+      gasUsed: r.gasUsed ? hexToBigInt(r.gasUsed as `0x${string}`) : 0n,
+      effectiveGasPrice: r.effectiveGasPrice
+        ? hexToBigInt(r.effectiveGasPrice as `0x${string}`)
+        : 0n,
+      hash: tx?.hash ?? "",
+      to: tx?.to ?? null,
+      value: tx?.value ?? 0n,
+      methodId: input.length >= 10 ? input.slice(0, 10) : "",
+    };
+  });
+
+  return {
+    number: block.number ?? blockNumber,
+    timestamp: Number(block.timestamp),
+    baseFeePerGas: block.baseFeePerGas ?? 0n,
+    gasUsed: block.gasUsed ?? 0n,
+    gasLimit: block.gasLimit ?? 0n,
+    miner: block.miner ?? "",
+    txs,
+  };
+}
+
 export async function fetchBlockMetrics(
   client: PublicClient,
   blockNumber: bigint,

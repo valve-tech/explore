@@ -80,30 +80,86 @@ export function countAscendingPairs(values: bigint[]): number {
 }
 
 /**
- * Cross-sender inversions: ascending pairs over the whole block minus those
- * within a single sender (whose order is nonce-forced). `senders` and `rev` are
- * in position order and index-aligned.
+ * Gas-weighted sum over ascending pairs (i < j with `values[j] > values[i]`)
+ * of `weights[i] · weights[j]`. Same Fenwick approach as `countAscendingPairs`,
+ * but the BIT stores SUMS of weight (bigint) keyed by value rank; for each j we
+ * accumulate `weight_j · (Σ weight_i already inserted with value_i < value_j)`.
+ * `values` and `weights` are index-aligned. Returns a bigint.
+ */
+export function sumAscendingPairWeights(
+  values: bigint[],
+  weights: bigint[],
+): bigint {
+  const n = values.length;
+  if (n < 2) return 0n;
+  const sorted = [...new Set(values)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const rank = new Map<bigint, number>();
+  sorted.forEach((v, i) => rank.set(v, i + 1)); // 1-indexed
+  const m = sorted.length;
+  const bit = new Array<bigint>(m + 1).fill(0n);
+  const add = (i: number, w: bigint) => {
+    for (; i <= m; i += i & -i) bit[i]! += w;
+  };
+  const sumBelow = (i: number) => {
+    let s = 0n;
+    for (; i > 0; i -= i & -i) s += bit[i]!;
+    return s;
+  };
+  let acc = 0n;
+  for (let j = 0; j < n; j += 1) {
+    const r = rank.get(values[j]!)!;
+    acc += weights[j]! * sumBelow(r - 1); // weight of smaller-valued earlier txns
+    add(r, weights[j]!);
+  }
+  return acc;
+}
+
+/** Total weight over all unordered pairs of an array: ((Σw)² − Σw²) / 2. */
+function totalPairWeight(weights: bigint[]): bigint {
+  let sum = 0n;
+  let sumSq = 0n;
+  for (const w of weights) {
+    sum += w;
+    sumSq += w * w;
+  }
+  return (sum * sum - sumSq) / 2n;
+}
+
+/**
+ * Cross-sender inversions, GAS-WEIGHTED: each pair (i,j) is weighted by
+ * gas_i · gas_j. Ascending/total weight over the whole block minus the
+ * within-sender contribution (whose order is nonce-forced). `senders`, `rev`,
+ * and `weights` are in position order and index-aligned. Returns gas weights.
  */
 function crossSenderInversions(
   senders: string[],
   rev: bigint[],
-): { inverted: number; pairs: number } {
+  weights: bigint[],
+): { inverted: bigint; pairs: bigint } {
   const n = rev.length;
-  const bySender = new Map<string, bigint[]>();
+  const bySenderRev = new Map<string, bigint[]>();
+  const bySenderW = new Map<string, bigint[]>();
   for (let i = 0; i < n; i += 1) {
-    const arr = bySender.get(senders[i]!);
-    if (arr) arr.push(rev[i]!);
-    else bySender.set(senders[i]!, [rev[i]!]);
+    const s = senders[i]!;
+    const r = bySenderRev.get(s);
+    if (r) {
+      r.push(rev[i]!);
+      bySenderW.get(s)!.push(weights[i]!);
+    } else {
+      bySenderRev.set(s, [rev[i]!]);
+      bySenderW.set(s, [weights[i]!]);
+    }
   }
-  let withinAsc = 0;
-  let withinPairs = 0;
-  for (const arr of bySender.values()) {
-    withinAsc += countAscendingPairs(arr);
-    withinPairs += (arr.length * (arr.length - 1)) / 2;
+  let withinAsc = 0n;
+  let withinPairs = 0n;
+  for (const [s, revs] of bySenderRev) {
+    const ws = bySenderW.get(s)!;
+    withinAsc += sumAscendingPairWeights(revs, ws);
+    withinPairs += totalPairWeight(ws);
   }
   return {
-    inverted: countAscendingPairs(rev) - withinAsc,
-    pairs: (n * (n - 1)) / 2 - withinPairs,
+    inverted: sumAscendingPairWeights(rev, weights) - withinAsc,
+    pairs: totalPairWeight(weights) - withinPairs,
   };
 }
 
@@ -167,6 +223,7 @@ export function computeBlock(
     crossSenderInversions(
       txs.map((t) => t.from),
       revenue,
+      txs.map((t) => t.gasUsed),
     );
 
   // Over-prioritized gas: a tx placed earlier than its revenue rank justifies.
@@ -231,8 +288,9 @@ function normHist(histGas: bigint[], totalGas: bigint): number[] {
   return histGas.map((g) => ratio(g, totalGas));
 }
 
-function rate(inversions: number, pairs: number): number | null {
-  return pairs === 0 ? null : inversions / pairs;
+/** Gas-weighted inversion rate in [0,1], or null when no comparable pairs. */
+function rate(inverted: bigint, pairs: bigint): number | null {
+  return pairs === 0n ? null : Number((inverted * 1_000_000n) / pairs) / 1e6;
 }
 
 export function serializeBlock(m: BlockMetrics): BlockStatsWire {
@@ -313,12 +371,17 @@ export function computeLadder(
       tipGwei: Number(rev[i]!) / 1e9,
       gasUsed: t.gasUsed.toString(),
       status,
+      hash: t.hash ?? "",
+      to: t.to ?? null,
+      value: (t.value ?? 0n).toString(),
+      methodId: t.methodId ?? "",
     };
   });
 
   const { inverted, pairs } = crossSenderInversions(
     txs.map((t) => t.from),
     rev,
+    txs.map((t) => t.gasUsed),
   );
 
   return {
@@ -327,7 +390,7 @@ export function computeLadder(
     baseFeePerGas: base.toString(),
     txCount: n,
     burnsBaseFee: config.burnsBaseFee,
-    priorityInversionRate: pairs === 0 ? null : inverted / pairs,
+    priorityInversionRate: rate(inverted, pairs),
     txs: ladder,
   };
 }
@@ -342,8 +405,8 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
   const posBpsGasByType = zeroBig();
   const posHistGasByType = zeroHist();
   const overPrioritizedGasByType = zeroBig();
-  let priorityInversions = 0;
-  let priorityPairs = 0;
+  let priorityInversions = 0n;
+  let priorityPairs = 0n;
 
   for (const m of metrics) {
     for (const k of ["legacy", "modern"] as const) {

@@ -75,6 +75,10 @@ export interface LadderTx {
   tipGwei: number;
   gasUsed: string;
   status: "ordered" | "jumped" | "nonce";
+  hash: string;
+  to: string | null;
+  value: string;
+  methodId: string;
 }
 
 export interface BlockLadder {

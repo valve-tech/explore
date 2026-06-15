@@ -26,8 +26,8 @@ function metrics(n: bigint): BlockMetrics {
       legacy: new Array<bigint>(POSITION_BUCKETS).fill(0n),
       modern: new Array<bigint>(POSITION_BUCKETS).fill(0n),
     },
-    priorityInversions: 0,
-    priorityPairs: 0,
+    priorityInversions: 0n,
+    priorityPairs: 0n,
     overPrioritizedGasByType: { ...zero },
   };
 }

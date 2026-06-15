@@ -31,6 +31,13 @@ export interface TxInput {
   from: string;
   gasUsed: bigint;
   effectiveGasPrice: bigint;
+  // Display-only fields, populated for the on-demand ladder (not the window
+  // warm, which fetches headers + receipts only). Ignored by computeBlock.
+  hash?: string;
+  to?: string | null;
+  value?: bigint;
+  /** 4-byte selector ("0x........") or "" for plain transfers. */
+  methodId?: string;
 }
 
 /** One block, normalized from its header + receipts. */
@@ -91,10 +98,13 @@ export interface BlockMetrics {
    * disorder on a near-sorted (geth-ordered) chain is still seen. Same-sender
    * pairs are excluded (nonce forces their order). The two lenses agree on
    * ordering — within a block baseFee is constant — so one metric covers both.
+   *
+   * Gas-weighted: each pair (i,j) is weighted by gasUsed_i · gasUsed_j, so
+   * mis-ordering two big-gas txns counts more than two tiny ones.
    */
-  priorityInversions: number;
-  /** Comparable cross-sender pairs (denominator for the inversion rate). */
-  priorityPairs: number;
+  priorityInversions: bigint;
+  /** Gas-weighted total of comparable cross-sender pairs (the denominator). */
+  priorityPairs: bigint;
 
   /** Σ gasUsed of txns placed earlier than their revenue rank justifies, by type. */
   overPrioritizedGasByType: TypeSplit<bigint>;
@@ -186,6 +196,14 @@ export interface LadderTx {
   /** Raw gas used — drives the bar width (the tx's block-space footprint). */
   gasUsed: string;
   status: "ordered" | "jumped" | "nonce";
+  /** Transaction hash. */
+  hash: string;
+  /** Recipient address (lowercased as provided by RPC), or null for contract creation. */
+  to: string | null;
+  /** Raw wei value transferred. */
+  value: string;
+  /** 4-byte selector ("0x........") or "" for plain transfers. */
+  methodId: string;
 }
 
 export interface BlockLadderWire {

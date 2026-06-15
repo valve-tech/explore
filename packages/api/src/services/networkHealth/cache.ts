@@ -16,7 +16,7 @@ import { getChain } from "../chains/registry.js";
 import { getRpcClient } from "../chains/clients.js";
 import { dedupePromise } from "../../lib/dedupePromise.js";
 import { aggregateWindow, computeLadder, serializeBlock } from "./compute.js";
-import { fetchBlockInput, fetchBlockMetrics } from "./fetch.js";
+import { fetchBlockLadderInput, fetchBlockMetrics } from "./fetch.js";
 import {
   type BlockLadderWire,
   type BlockMetrics,
@@ -232,7 +232,7 @@ export async function getBlockLadder(
 ): Promise<BlockLadderWire> {
   const config = getChain(chainId);
   const burnsBaseFee = config.burnsBaseFee ?? true;
-  const input = await fetchBlockInput(getRpcClient(chainId), blockNumber);
+  const input = await fetchBlockLadderInput(getRpcClient(chainId), blockNumber);
   return computeLadder(input, { burnsBaseFee });
 }
 
