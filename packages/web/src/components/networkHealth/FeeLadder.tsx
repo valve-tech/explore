@@ -62,6 +62,18 @@ function short(addr: string | null): string {
   return addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 }
 
+function percentile(values: number[], p: number): number {
+  if (!values.length) return 0;
+  const s = [...values].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.floor(p * (s.length - 1)))]!;
+}
+
+/** Gwei with thousands separators and scale-appropriate precision. */
+function fmtGwei(n: number): string {
+  const d = n >= 100 ? 0 : n >= 1 ? 2 : 4;
+  return n.toLocaleString(undefined, { maximumFractionDigits: d });
+}
+
 export function FeeLadder({ blockNumber }: { blockNumber: string }) {
   const { data, isPending, isError, error } = useBlockLadder(blockNumber);
 
@@ -95,10 +107,6 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
         <Legend />
       </div>
       <StackedLadder data={data} />
-      <div className="text-xs theme-text-muted">
-        y = effectiveGasPrice (linear) · bottom = tip kept · top = base fee burned ·
-        width = gas · total height = user cost
-      </div>
     </div>
   );
 }
@@ -137,13 +145,18 @@ function StackedLadder({ data }: { data: BlockLadder }) {
   const cumX = gasLayout(gas, plotW);
   const baseFeeGwei = safeGwei(data.baseFeePerGas);
 
-  // Linear scale across the tallest stacked bar (cost = base fee + tip).
-  const maxTip = Math.max(0, ...txs.map((t) => t.tipGwei));
-  const maxCost = baseFeeGwei + maxTip || 1;
-  const yPerGwei = PLOT_H / maxCost;
+  // Percentile-clamped scale so a few huge tips don't compress everyone else.
+  // Burn is a constant block on top; tips hang DOWN from its lower edge.
+  const tips = txs.map((t) => Math.max(0, t.tipGwei));
+  const posTips = tips.filter((t) => t > 0);
+  const clampTip = posTips.length ? percentile(posTips, 0.95) : 0;
+  const scale = PLOT_H / (baseFeeGwei + clampTip || 1);
+  const burnH = baseFeeGwei > 0 ? baseFeeGwei * scale : 0;
+  const lineY = PAD_T + burnH;
 
   return (
-    <div className="relative">
+    <>
+      <div className="relative">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
@@ -153,21 +166,18 @@ function StackedLadder({ data }: { data: BlockLadder }) {
         }
         onMouseLeave={() => setHovered(null)}
       >
-        <line
-          x1={PAD_L}
-          y1={BASELINE}
-          x2={W - PAD_R}
-          y2={BASELINE}
-          stroke="var(--color-border-muted)"
-          strokeWidth={1}
-        />
+        {/* burned base fee — one solid block on top, constant for every tx */}
+        {burnH > 0 && (
+          <rect x={PAD_L} y={PAD_T} width={plotW} height={burnH} fill={BURN_COLOR} />
+        )}
+        {/* fixed line: bottom of the burn block; tips hang below it */}
+        <line x1={PAD_L} y1={lineY} x2={W - PAD_R} y2={lineY} stroke="var(--color-border-default)" strokeWidth={1} />
+        <line x1={PAD_L} y1={BASELINE} x2={W - PAD_R} y2={BASELINE} stroke="var(--color-border-muted)" strokeWidth={1} />
         {txs.map((t, i) => {
           const x = cumX[i]!;
           const w = Math.max(0.5, cumX[i + 1]! - x - 0.3);
-          const tipH = t.tipGwei > 0 ? t.tipGwei * yPerGwei : 0;
-          const burnH = baseFeeGwei > 0 ? baseFeeGwei * yPerGwei : 0;
-          const tipY = BASELINE - tipH;
-          const burnY = tipY - burnH;
+          const clipped = t.tipGwei > clampTip;
+          const depth = Math.min(t.tipGwei, clampTip) * scale;
           return (
             <g
               key={i}
@@ -178,38 +188,28 @@ function StackedLadder({ data }: { data: BlockLadder }) {
                 navigate(`/tx/${t.hash}`);
               }}
             >
-              {/* burned base fee (top, constant) */}
-              {burnH > 0 && (
-                <rect x={x} y={burnY} width={w} height={burnH} fill={BURN_COLOR} />
+              {/* tip kept by the validator — a stalactite hanging from the line */}
+              {depth > 0 && (
+                <rect x={x} y={lineY} width={w} height={depth} fill={KEEP_COLOR} />
               )}
-              {/* tip kept by validator (bottom) */}
-              {tipH > 0 && (
-                <rect x={x} y={tipY} width={w} height={tipH} fill={KEEP_COLOR} />
+              {/* outlier: tip exceeds the 95th-pct scale, clipped at the baseline */}
+              {clipped && (
+                <rect x={x} y={BASELINE - 2} width={w} height={2} fill="var(--color-accent)" />
               )}
-              {/* invisible full-height hit target so zero-tip bars are hoverable */}
-              <rect
-                x={x}
-                y={PAD_T}
-                width={w}
-                height={BASELINE - PAD_T}
-                fill="transparent"
-              />
+              {/* full-height hit target so every bar (incl. zero-tip) is hoverable */}
+              <rect x={x} y={PAD_T} width={w} height={BASELINE - PAD_T} fill="transparent" />
             </g>
           );
         })}
-        <text x={PAD_L} y={PAD_T + 4} fontSize={11} fill="var(--color-text-muted)">
-          {maxCost.toFixed(maxCost >= 100 ? 0 : 2)} gwei
-        </text>
+        {burnH > 9 && (
+          <text x={PAD_L + 4} y={PAD_T + 11} fontSize={11} fill="var(--color-bg-primary)">
+            burned {fmtGwei(baseFeeGwei)} gwei
+          </text>
+        )}
         <text x={PAD_L} y={H - 6} fontSize={11} fill="var(--color-text-muted)">
           top of block
         </text>
-        <text
-          x={W - PAD_R}
-          y={H - 6}
-          fontSize={11}
-          textAnchor="end"
-          fill="var(--color-text-muted)"
-        >
+        <text x={W - PAD_R} y={H - 6} fontSize={11} textAnchor="end" fill="var(--color-text-muted)">
           bottom
         </text>
       </svg>
@@ -224,7 +224,13 @@ function StackedLadder({ data }: { data: BlockLadder }) {
           cursor={cursor}
         />
       )}
-    </div>
+      </div>
+      <div className="text-xs theme-text-muted">
+        solid block = base fee burned (constant) · stalactites = tip kept by the
+        validator, clamped at 95th pct (≤ {fmtGwei(clampTip)} gwei; accent ticks =
+        outliers) · width = gas
+      </div>
+    </>
   );
 }
 
@@ -262,36 +268,36 @@ function TxTooltip({
       }}
     >
       <div className="theme-mono theme-accent">{short(tx.hash)}</div>
-      <div className="theme-text-secondary">
-        <span className="theme-mono">{short(tx.sender)}</span>
-        {" → "}
-        <span className="theme-mono">
-          {tx.to === null ? "contract creation" : short(tx.to)}
-        </span>
+      <div className="theme-text-secondary theme-mono">
+        {short(tx.sender)} → {tx.to === null ? "contract creation" : short(tx.to)}
       </div>
-      <div className="theme-text-secondary">
-        value{" "}
-        <span className="theme-mono theme-text">
+      <div
+        className="grid gap-x-inline gap-y-tight"
+        style={{ gridTemplateColumns: "auto 1fr" }}
+      >
+        <span className="theme-text-muted">value</span>
+        <span className="theme-mono theme-text text-right">
           {formatAmountDisplay(tx.value, 18, { maxFractionDigits: 4, symbol })}
         </span>
-      </div>
-      <div className="theme-text-secondary">
-        method <span className="theme-mono theme-text">{tx.methodId || "transfer"}</span>
-      </div>
-      <div className="theme-text-secondary">
-        gas{" "}
-        <span className="theme-mono theme-text">
-          {Number(gas).toLocaleString()} ({pct(gasShare)} of block)
+        <span className="theme-text-muted">method</span>
+        <span className="theme-mono theme-text text-right">{tx.methodId || "transfer"}</span>
+        <span className="theme-text-muted">gas</span>
+        <span className="theme-mono theme-text text-right">
+          {Number(gas).toLocaleString()} · {pct(gasShare)}
         </span>
+        <span className="theme-text-muted">tip</span>
+        <span className="theme-mono text-right" style={{ color: KEEP_COLOR }}>
+          {fmtGwei(tx.tipGwei)} gwei
+        </span>
+        <span className="theme-text-muted">burned</span>
+        <span className="theme-mono text-right" style={{ color: BURN_COLOR }}>
+          {fmtGwei(baseFeeGwei)} gwei
+        </span>
+        <span className="theme-text-muted">cost</span>
+        <span className="theme-mono theme-text text-right">{fmtGwei(cost)} gwei</span>
+        <span className="theme-text-muted">order</span>
+        <span className="theme-text text-right">{tx.status}</span>
       </div>
-      <div className="theme-text-secondary">
-        tip <span className="theme-mono" style={{ color: KEEP_COLOR }}>{tx.tipGwei} gwei</span>
-        {" · "}
-        burned <span className="theme-mono" style={{ color: BURN_COLOR }}>{baseFeeGwei} gwei</span>
-        {" · "}
-        cost <span className="theme-mono theme-text">{cost} gwei</span>
-      </div>
-      <div className="theme-text-muted">{tx.status}</div>
     </div>
   );
 }
