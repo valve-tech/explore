@@ -48,120 +48,28 @@ function revenuePerGas(tx: TxInput, base: bigint, burns: boolean): bigint {
 }
 
 /**
- * Count pairs (i < j) where `values[j] > values[i]` — i.e. a later element
- * strictly out-ranks an earlier one (out of descending order). O(n log n) via
- * a Fenwick tree over compressed values. This is the building block for the
- * cross-sender inversion rate: a geth-ordered chain produces a near-perfect
- * descending tip staircase, so an *adjacent* count reads ~0 even when real,
- * non-adjacent disorder exists — this full pairwise count sees it.
+ * Tip flow between CONSECUTIVE cross-sender transactions, by magnitude. Walking
+ * down the block, `variation` sums how far the tip moves between neighbors and
+ * `ascent` sums only the moves that go UP (the wrong way for a fee market).
+ * `ascent / variation` is the fraction of fee movement that's out of order:
+ *   - magnitude-weighted, so a 1-wei wobble contributes ~nothing;
+ *   - adjacent, so it's each tx vs its immediate neighbor (not distant pairs);
+ *   - same-sender consecutive pairs skipped (nonce forces their order).
+ * `senders` and `rev` are index-aligned in block-position order.
  */
-export function countAscendingPairs(values: bigint[]): number {
-  const n = values.length;
-  if (n < 2) return 0;
-  const sorted = [...new Set(values)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  const rank = new Map<bigint, number>();
-  sorted.forEach((v, i) => rank.set(v, i + 1)); // 1-indexed
-  const m = sorted.length;
-  const bit = new Array<number>(m + 1).fill(0);
-  const add = (i: number) => {
-    for (; i <= m; i += i & -i) bit[i]! += 1;
-  };
-  const sumBelow = (i: number) => {
-    let s = 0;
-    for (; i > 0; i -= i & -i) s += bit[i]!;
-    return s;
-  };
-  let count = 0;
-  for (let j = 0; j < n; j += 1) {
-    const r = rank.get(values[j]!)!;
-    count += sumBelow(r - 1); // already-inserted with strictly smaller value
-    add(r);
-  }
-  return count;
-}
-
-/**
- * Gas-weighted sum over ascending pairs (i < j with `values[j] > values[i]`)
- * of `weights[i] · weights[j]`. Same Fenwick approach as `countAscendingPairs`,
- * but the BIT stores SUMS of weight (bigint) keyed by value rank; for each j we
- * accumulate `weight_j · (Σ weight_i already inserted with value_i < value_j)`.
- * `values` and `weights` are index-aligned. Returns a bigint.
- */
-export function sumAscendingPairWeights(
-  values: bigint[],
-  weights: bigint[],
-): bigint {
-  const n = values.length;
-  if (n < 2) return 0n;
-  const sorted = [...new Set(values)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  const rank = new Map<bigint, number>();
-  sorted.forEach((v, i) => rank.set(v, i + 1)); // 1-indexed
-  const m = sorted.length;
-  const bit = new Array<bigint>(m + 1).fill(0n);
-  const add = (i: number, w: bigint) => {
-    for (; i <= m; i += i & -i) bit[i]! += w;
-  };
-  const sumBelow = (i: number) => {
-    let s = 0n;
-    for (; i > 0; i -= i & -i) s += bit[i]!;
-    return s;
-  };
-  let acc = 0n;
-  for (let j = 0; j < n; j += 1) {
-    const r = rank.get(values[j]!)!;
-    acc += weights[j]! * sumBelow(r - 1); // weight of smaller-valued earlier txns
-    add(r, weights[j]!);
-  }
-  return acc;
-}
-
-/** Total weight over all unordered pairs of an array: ((Σw)² − Σw²) / 2. */
-function totalPairWeight(weights: bigint[]): bigint {
-  let sum = 0n;
-  let sumSq = 0n;
-  for (const w of weights) {
-    sum += w;
-    sumSq += w * w;
-  }
-  return (sum * sum - sumSq) / 2n;
-}
-
-/**
- * Cross-sender inversions, GAS-WEIGHTED: each pair (i,j) is weighted by
- * gas_i · gas_j. Ascending/total weight over the whole block minus the
- * within-sender contribution (whose order is nonce-forced). `senders`, `rev`,
- * and `weights` are in position order and index-aligned. Returns gas weights.
- */
-function crossSenderInversions(
+function tipFlow(
   senders: string[],
   rev: bigint[],
-  weights: bigint[],
-): { inverted: bigint; pairs: bigint } {
-  const n = rev.length;
-  const bySenderRev = new Map<string, bigint[]>();
-  const bySenderW = new Map<string, bigint[]>();
-  for (let i = 0; i < n; i += 1) {
-    const s = senders[i]!;
-    const r = bySenderRev.get(s);
-    if (r) {
-      r.push(rev[i]!);
-      bySenderW.get(s)!.push(weights[i]!);
-    } else {
-      bySenderRev.set(s, [rev[i]!]);
-      bySenderW.set(s, [weights[i]!]);
-    }
+): { ascent: bigint; variation: bigint } {
+  let ascent = 0n;
+  let variation = 0n;
+  for (let i = 0; i + 1 < rev.length; i += 1) {
+    if (senders[i] === senders[i + 1]) continue;
+    const d = rev[i + 1]! - rev[i]!;
+    variation += d < 0n ? -d : d;
+    if (d > 0n) ascent += d;
   }
-  let withinAsc = 0n;
-  let withinPairs = 0n;
-  for (const [s, revs] of bySenderRev) {
-    const ws = bySenderW.get(s)!;
-    withinAsc += sumAscendingPairWeights(revs, ws);
-    withinPairs += totalPairWeight(ws);
-  }
-  return {
-    inverted: sumAscendingPairWeights(rev, weights) - withinAsc,
-    pairs: totalPairWeight(weights) - withinPairs,
-  };
+  return { ascent, variation };
 }
 
 export function computeBlock(
@@ -217,15 +125,12 @@ export function computeBlock(
     posHistGasByType[b][bucketIdx]! += gas;
   }
 
-  // Cross-sender priority inversions: pairs (i<j by position) from DIFFERENT
-  // senders where the later tx out-tips the earlier one (full pairwise, not
-  // adjacent — so non-adjacent disorder on a near-sorted chain is still seen).
-  const { inverted: priorityInversions, pairs: priorityPairs } =
-    crossSenderInversions(
-      txs.map((t) => t.from),
-      revenue,
-      txs.map((t) => t.gasUsed),
-    );
+  // Out-of-order: magnitude of tip movement that goes UP between consecutive
+  // cross-sender txns, over total movement (see tipFlow).
+  const { ascent: tipAscent, variation: tipVariation } = tipFlow(
+    txs.map((t) => t.from),
+    revenue,
+  );
 
   // Over-prioritized gas: a tx placed earlier than its revenue rank justifies.
   // Rank by revenue desc, stable tie-break by original index.
@@ -259,8 +164,8 @@ export function computeBlock(
     paidByType,
     posBpsGasByType,
     posHistGasByType,
-    priorityInversions,
-    priorityPairs,
+    tipAscent,
+    tipVariation,
     overPrioritizedGasByType,
   };
 }
@@ -325,7 +230,7 @@ export function serializeBlock(m: BlockMetrics): BlockStatsWire {
       legacy: normHist(m.posHistGasByType.legacy, m.gasByType.legacy),
       modern: normHist(m.posHistGasByType.modern, m.gasByType.modern),
     },
-    priorityInversionRate: rate(m.priorityInversions, m.priorityPairs),
+    priorityInversionRate: rate(m.tipAscent, m.tipVariation),
     overPrioritizedGasByType: splitStr(m.overPrioritizedGasByType),
   };
 }
@@ -380,10 +285,9 @@ export function computeLadder(
     };
   });
 
-  const { inverted, pairs } = crossSenderInversions(
+  const { ascent, variation } = tipFlow(
     txs.map((t) => t.from),
     rev,
-    txs.map((t) => t.gasUsed),
   );
 
   return {
@@ -392,7 +296,7 @@ export function computeLadder(
     baseFeePerGas: base.toString(),
     txCount: n,
     burnsBaseFee: config.burnsBaseFee,
-    priorityInversionRate: rate(inverted, pairs),
+    priorityInversionRate: rate(ascent, variation),
     txs: ladder,
   };
 }
@@ -407,8 +311,8 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
   const posBpsGasByType = zeroBig();
   const posHistGasByType = zeroHist();
   const overPrioritizedGasByType = zeroBig();
-  let priorityInversions = 0n;
-  let priorityPairs = 0n;
+  let tipAscent = 0n;
+  let tipVariation = 0n;
 
   for (const m of metrics) {
     for (const k of ["legacy", "modern"] as const) {
@@ -423,8 +327,8 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
         posHistGasByType[k][i]! += m.posHistGasByType[k][i]!;
       }
     }
-    priorityInversions += m.priorityInversions;
-    priorityPairs += m.priorityPairs;
+    tipAscent += m.tipAscent;
+    tipVariation += m.tipVariation;
   }
 
   const totalGas = gasByType.legacy + gasByType.modern;
@@ -459,7 +363,7 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
       modern: normHist(posHistGasByType.modern, gasByType.modern),
     },
     burnedShare: ratio(burned, paid),
-    priorityInversionRate: rate(priorityInversions, priorityPairs),
+    priorityInversionRate: rate(tipAscent, tipVariation),
     overPrioritizedGasByType: splitStr(overPrioritizedGasByType),
   };
 }
@@ -498,8 +402,8 @@ export function aggregateMiners(metrics: BlockMetrics[]): MinerStatsWire[] {
     a.burned += m.burnedByType.legacy + m.burnedByType.modern;
     a.tips += m.tipsByType.legacy + m.tipsByType.modern;
     a.paid += m.paidByType.legacy + m.paidByType.modern;
-    a.inv += m.priorityInversions;
-    a.pairs += m.priorityPairs;
+    a.inv += m.tipAscent;
+    a.pairs += m.tipVariation;
   }
   return [...by.entries()]
     .map(([miner, a]) => ({

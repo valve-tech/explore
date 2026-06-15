@@ -95,18 +95,14 @@ export interface BlockMetrics {
   posHistGasByType: TypeSplit<bigint[]>;
 
   /**
-   * Cross-sender pairs (i<j by position) where the later tx out-tips the
-   * earlier one — full pairwise (Kendall), not adjacent, so non-adjacent
-   * disorder on a near-sorted (geth-ordered) chain is still seen. Same-sender
-   * pairs are excluded (nonce forces their order). The two lenses agree on
-   * ordering — within a block baseFee is constant — so one metric covers both.
-   *
-   * Gas-weighted: each pair (i,j) is weighted by gasUsed_i · gasUsed_j, so
-   * mis-ordering two big-gas txns counts more than two tiny ones.
+   * Out-of-order tip flow between consecutive cross-sender txns (see tipFlow):
+   * `tipAscent` = Σ upward tip moves (wrong way for a fee market), `tipVariation`
+   * = Σ |all moves|. The rate `tipAscent / tipVariation` is magnitude-weighted
+   * (a 1-wei wobble ≈ 0) and adjacent (each tx vs its neighbor). Same-sender
+   * consecutive pairs are excluded (nonce forces their order).
    */
-  priorityInversions: bigint;
-  /** Gas-weighted total of comparable cross-sender pairs (the denominator). */
-  priorityPairs: bigint;
+  tipAscent: bigint;
+  tipVariation: bigint;
 
   /** Σ gasUsed of txns placed earlier than their revenue rank justifies, by type. */
   overPrioritizedGasByType: TypeSplit<bigint>;

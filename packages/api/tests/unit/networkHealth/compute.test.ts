@@ -110,17 +110,15 @@ describe("computeBlock — positions", () => {
 });
 
 describe("computeBlock — prioritization", () => {
-  it("cross-sender priority inversion rate (full pairwise)", () => {
+  it("magnitude-weighted neighbor out-of-order rate", () => {
     const s = serializeBlock(computeBlock(workedBlock(), { burnsBaseFee: true }));
-    // tips 150,80,200, gas 100,200,100 (3 distinct senders). Gas-weighted:
-    // inverted pairs (150,200)→100·100=10000 + (80,200)→200·100=20000 = 30000.
-    // total cross weight = ((Σg)²−Σg²)/2 = (400²−60000)/2 = 50000. rate 0.6.
-    assert.ok(Math.abs(s.priorityInversionRate! - 0.6) < 1e-9);
+    // tips by position 150,80,200 (3 distinct senders). Consecutive moves:
+    // 150→80 = −70 (down), 80→200 = +120 (up). variation 190, ascent 120.
+    // rate = 120/190.
+    assert.ok(Math.abs(s.priorityInversionRate! - 120 / 190) < 1e-5);
   });
 
-  it("sees non-adjacent disorder hidden behind a same-sender tip jump", () => {
-    // A's nonce-forced tip jump (100→300) puts a later B(200) out of order vs
-    // A's first tx — invisible to an adjacent metric (which would read 0%).
+  it("a 1-wei ascent amid real descents reads ~0 (magnitude matters)", () => {
     const block: BlockInput = {
       number: 9n,
       timestamp: 1,
@@ -129,16 +127,14 @@ describe("computeBlock — prioritization", () => {
       gasLimit: 100n,
       miner: "0xm",
       txs: [
-        tx(0, 2, "0xa", 1n, 100n),
-        tx(1, 2, "0xa", 1n, 300n), // same sender, higher tip (nonce-forced)
-        tx(2, 2, "0xb", 1n, 200n),
+        tx(0, 2, "0xa", 1n, 5_000_000_000n),
+        tx(1, 2, "0xb", 1n, 5_000_000_001n), // +1 wei vs prev — trivial
+        tx(2, 2, "0xc", 1n, 2_000_000_000n), // real −3 gwei descent
       ],
     };
     const s = serializeBlock(computeBlock(block, { burnsBaseFee: true }));
-    // cross pairs: (A0,B2),(A1,B2), all gas 1. gas-weighted: inverted 200>100 →
-    // 1·1=1; total cross weight = 1. rate 1/1... no: total cross weight =
-    // ((3²−3)/2) − within(A: (2²−2)/2=1) = 3−1 = 2. inverted 1. rate 0.5.
-    assert.equal(s.priorityInversionRate, 0.5);
+    // ascent 1 wei / variation ~3e9 → essentially zero, not a full inversion.
+    assert.ok(s.priorityInversionRate! < 1e-6);
   });
 
   it("excludes same-sender pairs from inversion accounting", () => {
@@ -203,7 +199,7 @@ describe("computeLadder", () => {
     assert.equal(l.txs[1]!.type, "legacy");
     assert.equal(l.txs[0]!.position, 0);
     assert.equal(l.txs[0]!.gasUsed, "100"); // carried through for bar width
-    assert.ok(Math.abs(l.priorityInversionRate! - 0.6) < 1e-9); // gas-weighted
+    assert.ok(Math.abs(l.priorityInversionRate! - 120 / 190) < 1e-5);
   });
 
   it("labels multi-tx-sender displacement as nonce, not a jump", () => {
@@ -256,8 +252,8 @@ describe("aggregateWindow", () => {
     // sums double
     assert.equal(a.paid, "182000");
     assert.equal(a.burned, "80000");
-    // pooled gas-weighted rate: (30000+30000) / (50000+50000) = 0.6
-    assert.ok(Math.abs(a.priorityInversionRate! - 0.6) < 1e-9);
+    // pooled magnitude rate: (120+120) ascent / (190+190) variation = 120/190
+    assert.ok(Math.abs(a.priorityInversionRate! - 120 / 190) < 1e-5);
     assert.equal(a.legacyGasShare, 0.5);
   });
 });
