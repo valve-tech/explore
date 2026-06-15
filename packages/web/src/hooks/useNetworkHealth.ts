@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { fetchNetworkHealth } from "../api/networkHealth";
+import { fetchNetworkHealth, fetchBlockLadder } from "../api/networkHealth";
 import { useActiveChainId } from "../lib/activeChain";
 
 /**
@@ -16,5 +16,16 @@ export function useNetworkHealth(limit: number) {
     placeholderData: keepPreviousData,
     staleTime: 10_000,
     refetchInterval: 20_000,
+  });
+}
+
+/** One block's fee ladder, fetched on demand when a row is expanded. */
+export function useBlockLadder(blockNumber: string | null) {
+  const chainId = useActiveChainId();
+  return useQuery({
+    queryKey: ["network-health-ladder", chainId, blockNumber],
+    queryFn: () => fetchBlockLadder(chainId, blockNumber!),
+    enabled: !!blockNumber,
+    staleTime: 60_000,
   });
 }

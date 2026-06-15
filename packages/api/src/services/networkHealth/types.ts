@@ -86,13 +86,14 @@ export interface BlockMetrics {
   posHistGasByType: TypeSplit<bigint[]>;
 
   /**
-   * Adjacent pairs where a later tx out-prioritizes an earlier one. Note the
-   * two lenses agree on *ordering*: within a block baseFee is constant, so
-   * `tip = effectiveGasPrice − baseFee` preserves rank — tip-order, cost-order
-   * and price-order are identical. One inversion metric covers both.
+   * Cross-sender pairs (i<j by position) where the later tx out-tips the
+   * earlier one — full pairwise (Kendall), not adjacent, so non-adjacent
+   * disorder on a near-sorted (geth-ordered) chain is still seen. Same-sender
+   * pairs are excluded (nonce forces their order). The two lenses agree on
+   * ordering — within a block baseFee is constant — so one metric covers both.
    */
   priorityInversions: number;
-  /** Adjacent comparable pairs (excludes same-sender nonce-ordered pairs). */
+  /** Comparable cross-sender pairs (denominator for the inversion rate). */
   priorityPairs: number;
 
   /** Σ gasUsed of txns placed earlier than their revenue rank justifies, by type. */
@@ -159,6 +160,41 @@ export interface WindowAggregateWire {
   burnedShare: number;
   priorityInversionRate: number | null;
   overPrioritizedGasByType: TypeSplit<string>;
+}
+
+// ---------------------------------------------------------------------------
+// Per-block fee ladder (on-demand detail for the graph)
+// ---------------------------------------------------------------------------
+
+/**
+ * One transaction's place on the block's fee ladder, classified by situation:
+ *   - "ordered" — sits where its tip rank puts it (no later cross-sender tx
+ *     out-tips it).
+ *   - "jumped" — a later, different-sender tx paid a HIGHER tip, yet this
+ *     single-tx sender sits ahead of it: genuine non-fee prioritization.
+ *   - "nonce" — same as jumped, but this sender has multiple txns in the block,
+ *     so the placement may be forced by nonce ordering (ambiguous, not flagged red).
+ */
+export interface LadderTx {
+  position: number;
+  sender: string;
+  type: "legacy" | "modern";
+  /** Raw wei tip (validator revenue per gas). */
+  tip: string;
+  /** Tip in gwei as a number, for plotting on a log axis. */
+  tipGwei: number;
+  status: "ordered" | "jumped" | "nonce";
+}
+
+export interface BlockLadderWire {
+  number: string;
+  timestamp: number;
+  baseFeePerGas: string;
+  txCount: number;
+  burnsBaseFee: boolean;
+  /** Cross-sender inversion rate for this block, [0,1] or null. */
+  priorityInversionRate: number | null;
+  txs: LadderTx[];
 }
 
 export interface NetworkHealthResponse {

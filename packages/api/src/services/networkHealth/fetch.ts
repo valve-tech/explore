@@ -51,6 +51,21 @@ export class ReceiptsUnsupportedError extends Error {
   }
 }
 
+/** Thrown when the RPC endpoint rate-limits the window warm (e.g. a demo key). */
+export class RateLimitedError extends Error {
+  constructor() {
+    super(
+      "RPC rate-limited while loading blocks — set a dedicated RPC URL for this chain",
+    );
+    this.name = "RateLimitedError";
+  }
+}
+
+function isRateLimited(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return msg.includes("429") || msg.includes("too many requests");
+}
+
 function isMethodUnsupported(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   return (
@@ -62,11 +77,11 @@ function isMethodUnsupported(err: unknown): boolean {
   );
 }
 
-export async function fetchBlockMetrics(
+/** Fetch one block's header + receipts and normalize to a BlockInput. */
+export async function fetchBlockInput(
   client: PublicClient,
   blockNumber: bigint,
-  burnsBaseFee: boolean,
-): Promise<BlockMetrics> {
+): Promise<BlockInput> {
   // viem 2.47 has no high-level getBlockReceipts action — call the raw method.
   // (Receipts carry per-tx gasUsed/effectiveGasPrice/type/index; the header
   // carries baseFee/timestamp/gasUsed.)
@@ -84,6 +99,7 @@ export async function fetchBlockMetrics(
     ]);
   } catch (err) {
     if (isMethodUnsupported(err)) throw new ReceiptsUnsupportedError();
+    if (isRateLimited(err)) throw new RateLimitedError();
     throw err;
   }
 
@@ -97,7 +113,7 @@ export async function fetchBlockMetrics(
       : 0n,
   }));
 
-  const input: BlockInput = {
+  return {
     number: header.number ?? blockNumber,
     timestamp: Number(header.timestamp),
     baseFeePerGas: header.baseFeePerGas ?? 0n,
@@ -106,5 +122,14 @@ export async function fetchBlockMetrics(
     miner: header.miner ?? "",
     txs,
   };
-  return computeBlock(input, { burnsBaseFee });
+}
+
+export async function fetchBlockMetrics(
+  client: PublicClient,
+  blockNumber: bigint,
+  burnsBaseFee: boolean,
+): Promise<BlockMetrics> {
+  return computeBlock(await fetchBlockInput(client, blockNumber), {
+    burnsBaseFee,
+  });
 }

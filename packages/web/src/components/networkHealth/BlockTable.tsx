@@ -1,10 +1,18 @@
+import { useState } from "react";
 import type { BlockStats } from "../../api/networkHealth";
 import { formatGwei } from "../../lib/format/tokenAmount";
 import { SplitBar } from "./SplitBar";
+import { FeeLadder } from "./FeeLadder";
 import { pct, shareOf, timeAgo } from "./format";
 
-/** Per-block breakdown, newest first, with a queue-jump indicator by type. */
+const COLS = 7;
+
+/**
+ * Per-block breakdown, newest first. Click a row to expand its fee ladder —
+ * the per-tx tip-by-position graph with queue-jumps highlighted.
+ */
 export function BlockTable({ blocks }: { blocks: BlockStats[] }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
   return (
     <div className="card overflow-x-auto">
       <table className="w-full text-sm theme-mono">
@@ -15,13 +23,20 @@ export function BlockTable({ blocks }: { blocks: BlockStats[] }) {
             <Th right>Txns</Th>
             <Th right>Base fee</Th>
             <Th right>Legacy gas</Th>
-            <Th right>Inversions</Th>
+            <Th right>Out of order</Th>
             <Th>Queue-jump</Th>
           </tr>
         </thead>
         <tbody>
           {blocks.map((b) => (
-            <BlockRow key={b.number} block={b} />
+            <BlockRow
+              key={b.number}
+              block={b}
+              expanded={expanded === b.number}
+              onToggle={() =>
+                setExpanded((cur) => (cur === b.number ? null : b.number))
+              }
+            />
           ))}
         </tbody>
       </table>
@@ -29,32 +44,53 @@ export function BlockTable({ blocks }: { blocks: BlockStats[] }) {
   );
 }
 
-function BlockRow({ block }: { block: BlockStats }) {
+function BlockRow({
+  block,
+  expanded,
+  onToggle,
+}: {
+  block: BlockStats;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const over = block.overPrioritizedGasByType;
   const overTotal = (BigInt(over.legacy) + BigInt(over.modern)).toString();
   const hasJump = overTotal !== "0";
   return (
-    <tr className="bs-t-muted">
-      <Td>
-        <span className="theme-accent">#{block.number}</span>
-      </Td>
-      <Td muted>{timeAgo(block.timestamp)}</Td>
-      <Td right>{block.txCount}</Td>
-      <Td right>{formatGwei(block.baseFeePerGas) ?? "—"}</Td>
-      <Td right>{pct(block.legacyGasShare, 0)}</Td>
-      <Td right>
-        <InversionCell rate={block.priorityInversionRate} />
-      </Td>
-      <Td>
-        {hasJump ? (
-          <div className="w-20" title="over-prioritized gas, legacy vs modern">
-            <SplitBar legacyFraction={shareOf(over.legacy, overTotal)} />
-          </div>
-        ) : (
-          <span className="theme-text-muted">—</span>
-        )}
-      </Td>
-    </tr>
+    <>
+      <tr
+        className="bs-t-muted cursor-pointer hover:bg-[color:var(--color-bg-tertiary)]"
+        onClick={onToggle}
+      >
+        <Td>
+          <span className="theme-text-muted">{expanded ? "▾" : "▸"}</span>{" "}
+          <span className="theme-accent">#{block.number}</span>
+        </Td>
+        <Td muted>{timeAgo(block.timestamp)}</Td>
+        <Td right>{block.txCount}</Td>
+        <Td right>{formatGwei(block.baseFeePerGas) ?? "—"}</Td>
+        <Td right>{pct(block.legacyGasShare, 0)}</Td>
+        <Td right>
+          <InversionCell rate={block.priorityInversionRate} />
+        </Td>
+        <Td>
+          {hasJump ? (
+            <div className="w-20" title="over-prioritized gas, legacy vs modern">
+              <SplitBar legacyFraction={shareOf(over.legacy, overTotal)} />
+            </div>
+          ) : (
+            <span className="theme-text-muted">—</span>
+          )}
+        </Td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={COLS} className="bs-t-muted">
+            <FeeLadder blockNumber={block.number} />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -69,7 +105,7 @@ function Th({
   children,
   right,
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   right?: boolean;
 }) {
   return (

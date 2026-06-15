@@ -15,9 +15,13 @@
 import { getChain } from "../chains/registry.js";
 import { getRpcClient } from "../chains/clients.js";
 import { dedupePromise } from "../../lib/dedupePromise.js";
-import { aggregateWindow, serializeBlock } from "./compute.js";
-import { fetchBlockMetrics } from "./fetch.js";
-import { type BlockMetrics, type NetworkHealthResponse } from "./types.js";
+import { aggregateWindow, computeLadder, serializeBlock } from "./compute.js";
+import { fetchBlockInput, fetchBlockMetrics } from "./fetch.js";
+import {
+  type BlockLadderWire,
+  type BlockMetrics,
+  type NetworkHealthResponse,
+} from "./types.js";
 
 export const INITIAL_WINDOW = 256;
 export const LOAD_CHUNK = 256;
@@ -216,6 +220,20 @@ export async function getNetworkHealth(
       blocks: window.map(serializeBlock),
     };
   });
+}
+
+/**
+ * One block's fee ladder, fetched on demand (not cached — it's a click-through
+ * detail). Two RPC calls per request.
+ */
+export async function getBlockLadder(
+  chainId: number,
+  blockNumber: bigint,
+): Promise<BlockLadderWire> {
+  const config = getChain(chainId);
+  const burnsBaseFee = config.burnsBaseFee ?? true;
+  const input = await fetchBlockInput(getRpcClient(chainId), blockNumber);
+  return computeLadder(input, { burnsBaseFee });
 }
 
 /** Test seam: drop all cached state. */

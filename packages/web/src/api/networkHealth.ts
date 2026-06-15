@@ -67,6 +67,25 @@ export interface NetworkHealthResult {
   blocks: BlockStats[];
 }
 
+export interface LadderTx {
+  position: number;
+  sender: string;
+  type: "legacy" | "modern";
+  tip: string;
+  tipGwei: number;
+  status: "ordered" | "jumped" | "nonce";
+}
+
+export interface BlockLadder {
+  number: string;
+  timestamp: number;
+  baseFeePerGas: string;
+  txCount: number;
+  burnsBaseFee: boolean;
+  priorityInversionRate: number | null;
+  txs: LadderTx[];
+}
+
 interface Envelope {
   ok: boolean;
   result?: NetworkHealthResult;
@@ -89,6 +108,26 @@ export async function fetchNetworkHealth(
   const data = (await res.json().catch(() => null)) as Envelope | null;
   if (!res.ok || !data?.ok || !data.result) {
     throw new Error(data?.error || `network-health HTTP ${res.status}`);
+  }
+  return data.result;
+}
+
+interface LadderEnvelope {
+  ok: boolean;
+  result?: BlockLadder;
+  error?: string;
+}
+
+/** Fetch one block's fee ladder (per-tx tip + ordering situation) on demand. */
+export async function fetchBlockLadder(
+  chainId: number,
+  blockNumber: string,
+): Promise<BlockLadder> {
+  const url = scoped(`${API_BASE}/block/${blockNumber}`, chainId);
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  const data = (await res.json().catch(() => null)) as LadderEnvelope | null;
+  if (!res.ok || !data?.ok || !data.result) {
+    throw new Error(data?.error || `ladder HTTP ${res.status}`);
   }
   return data.result;
 }

@@ -53,7 +53,7 @@ export function SummaryCards({
       <StatCard
         label="Priority inversions"
         value={pct(aggregate.priorityInversionRate)}
-        sub="adjacent out-of-order pairs"
+        sub="cross-sender pairs out of fee order"
       />
 
       <StatCard

@@ -26,7 +26,10 @@ export default function NetworkHealthPage() {
           splits into a burned base fee and a tip the validator keeps — shown
           here through both lenses, with how transaction types fall in mining
           order. Inversions flag blocks ordered on something other than fee; a
-          signal to investigate, not proof of misbehavior.
+          signal to investigate, not proof of misbehavior.{" "}
+          <span className="theme-text-muted">
+            Click any block below to open its fee ladder.
+          </span>
         </p>
       </header>
 

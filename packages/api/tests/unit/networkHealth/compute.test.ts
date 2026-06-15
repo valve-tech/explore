@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   computeBlock,
+  computeLadder,
   serializeBlock,
   aggregateWindow,
 } from "../../../src/services/networkHealth/compute.js";
@@ -109,9 +110,31 @@ describe("computeBlock — positions", () => {
 });
 
 describe("computeBlock — prioritization", () => {
-  it("adjacent priority inversion rate", () => {
+  it("cross-sender priority inversion rate (full pairwise)", () => {
     const s = serializeBlock(computeBlock(workedBlock(), { burnsBaseFee: true }));
-    // pairs (tx0,tx1): 80>150? no. (tx1,tx2): 200>80? yes. → 1/2
+    // tips 150,80,200 (3 distinct senders). Ascending pairs: (150,200),(80,200)
+    // = 2 of 3 cross-sender pairs.
+    assert.ok(Math.abs(s.priorityInversionRate! - 2 / 3) < 1e-9);
+  });
+
+  it("sees non-adjacent disorder hidden behind a same-sender tip jump", () => {
+    // A's nonce-forced tip jump (100→300) puts a later B(200) out of order vs
+    // A's first tx — invisible to an adjacent metric (which would read 0%).
+    const block: BlockInput = {
+      number: 9n,
+      timestamp: 1,
+      baseFeePerGas: 0n,
+      gasUsed: 3n,
+      gasLimit: 100n,
+      miner: "0xm",
+      txs: [
+        tx(0, 2, "0xa", 1n, 100n),
+        tx(1, 2, "0xa", 1n, 300n), // same sender, higher tip (nonce-forced)
+        tx(2, 2, "0xb", 1n, 200n),
+      ],
+    };
+    const s = serializeBlock(computeBlock(block, { burnsBaseFee: true }));
+    // cross pairs: (A0,B2),(A1,B2). inverted: 200>100 → 1. rate 1/2.
     assert.equal(s.priorityInversionRate, 0.5);
   });
 
@@ -165,6 +188,42 @@ describe("computeBlock — receipts arrive unordered", () => {
   });
 });
 
+describe("computeLadder", () => {
+  it("classifies each tx by ordering situation", () => {
+    const l = computeLadder(workedBlock(), { burnsBaseFee: true });
+    assert.equal(l.txs.length, 3);
+    // tx0 (tip150) and tx1 (tip80) both sit ahead of tx2 (tip200) → jumped;
+    // tx2 has nothing higher after it → ordered. All single-tx senders.
+    assert.equal(l.txs[0]!.status, "jumped");
+    assert.equal(l.txs[1]!.status, "jumped");
+    assert.equal(l.txs[2]!.status, "ordered");
+    assert.equal(l.txs[1]!.type, "legacy");
+    assert.equal(l.txs[0]!.position, 0);
+    assert.ok(Math.abs(l.priorityInversionRate! - 2 / 3) < 1e-9);
+  });
+
+  it("labels multi-tx-sender displacement as nonce, not a jump", () => {
+    const block: BlockInput = {
+      number: 9n,
+      timestamp: 1,
+      baseFeePerGas: 0n,
+      gasUsed: 3n,
+      gasLimit: 100n,
+      miner: "0xm",
+      txs: [
+        tx(0, 2, "0xa", 1n, 100n),
+        tx(1, 2, "0xa", 1n, 300n),
+        tx(2, 2, "0xb", 1n, 200n),
+      ],
+    };
+    const l = computeLadder(block, { burnsBaseFee: true });
+    // A0 sits ahead of B(200) but A has 2 txns → nonce-ambiguous, not "jumped".
+    assert.equal(l.txs[0]!.status, "nonce");
+    assert.equal(l.txs[1]!.status, "ordered");
+    assert.equal(l.txs[2]!.status, "ordered");
+  });
+});
+
 describe("aggregateWindow", () => {
   it("empty window", () => {
     const a = aggregateWindow([]);
@@ -193,8 +252,8 @@ describe("aggregateWindow", () => {
     // sums double
     assert.equal(a.paid, "182000");
     assert.equal(a.burned, "80000");
-    // pooled inversion rate is still 0.5 (2/4)
-    assert.equal(a.priorityInversionRate, 0.5);
+    // pooled inversion rate: (2+2) inverted / (3+3) cross pairs = 2/3
+    assert.ok(Math.abs(a.priorityInversionRate! - 2 / 3) < 1e-9);
     assert.equal(a.legacyGasShare, 0.5);
   });
 });

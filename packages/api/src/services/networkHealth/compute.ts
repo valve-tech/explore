@@ -10,8 +10,10 @@ import {
   POSITION_BUCKETS,
   type AnalysisConfig,
   type BlockInput,
+  type BlockLadderWire,
   type BlockMetrics,
   type BlockStatsWire,
+  type LadderTx,
   type TxInput,
   type TypeSplit,
   type WindowAggregateWire,
@@ -42,6 +44,67 @@ function zeroHist(): TypeSplit<bigint[]> {
 function revenuePerGas(tx: TxInput, base: bigint, burns: boolean): bigint {
   if (!burns) return tx.effectiveGasPrice;
   return tx.effectiveGasPrice > base ? tx.effectiveGasPrice - base : 0n;
+}
+
+/**
+ * Count pairs (i < j) where `values[j] > values[i]` — i.e. a later element
+ * strictly out-ranks an earlier one (out of descending order). O(n log n) via
+ * a Fenwick tree over compressed values. This is the building block for the
+ * cross-sender inversion rate: a geth-ordered chain produces a near-perfect
+ * descending tip staircase, so an *adjacent* count reads ~0 even when real,
+ * non-adjacent disorder exists — this full pairwise count sees it.
+ */
+export function countAscendingPairs(values: bigint[]): number {
+  const n = values.length;
+  if (n < 2) return 0;
+  const sorted = [...new Set(values)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const rank = new Map<bigint, number>();
+  sorted.forEach((v, i) => rank.set(v, i + 1)); // 1-indexed
+  const m = sorted.length;
+  const bit = new Array<number>(m + 1).fill(0);
+  const add = (i: number) => {
+    for (; i <= m; i += i & -i) bit[i]! += 1;
+  };
+  const sumBelow = (i: number) => {
+    let s = 0;
+    for (; i > 0; i -= i & -i) s += bit[i]!;
+    return s;
+  };
+  let count = 0;
+  for (let j = 0; j < n; j += 1) {
+    const r = rank.get(values[j]!)!;
+    count += sumBelow(r - 1); // already-inserted with strictly smaller value
+    add(r);
+  }
+  return count;
+}
+
+/**
+ * Cross-sender inversions: ascending pairs over the whole block minus those
+ * within a single sender (whose order is nonce-forced). `senders` and `rev` are
+ * in position order and index-aligned.
+ */
+function crossSenderInversions(
+  senders: string[],
+  rev: bigint[],
+): { inverted: number; pairs: number } {
+  const n = rev.length;
+  const bySender = new Map<string, bigint[]>();
+  for (let i = 0; i < n; i += 1) {
+    const arr = bySender.get(senders[i]!);
+    if (arr) arr.push(rev[i]!);
+    else bySender.set(senders[i]!, [rev[i]!]);
+  }
+  let withinAsc = 0;
+  let withinPairs = 0;
+  for (const arr of bySender.values()) {
+    withinAsc += countAscendingPairs(arr);
+    withinPairs += (arr.length * (arr.length - 1)) / 2;
+  }
+  return {
+    inverted: countAscendingPairs(rev) - withinAsc,
+    pairs: (n * (n - 1)) / 2 - withinPairs,
+  };
 }
 
 export function computeBlock(
@@ -97,18 +160,14 @@ export function computeBlock(
     posHistGasByType[b][bucketIdx]! += gas;
   }
 
-  // Adjacent inversions, excluding same-sender pairs (nonce ordering forces
-  // those regardless of fee). Within a block baseFee is constant, so revenue
-  // (tip) order and cost (price) order are identical — one metric covers both.
-  let priorityInversions = 0;
-  let priorityPairs = 0;
-  for (let i = 0; i + 1 < n; i += 1) {
-    const a = txs[i]!;
-    const c = txs[i + 1]!;
-    if (a.from === c.from) continue;
-    priorityPairs += 1;
-    if (revenue[i + 1]! > revenue[i]!) priorityInversions += 1;
-  }
+  // Cross-sender priority inversions: pairs (i<j by position) from DIFFERENT
+  // senders where the later tx out-tips the earlier one (full pairwise, not
+  // adjacent — so non-adjacent disorder on a near-sorted chain is still seen).
+  const { inverted: priorityInversions, pairs: priorityPairs } =
+    crossSenderInversions(
+      txs.map((t) => t.from),
+      revenue,
+    );
 
   // Over-prioritized gas: a tx placed earlier than its revenue rank justifies.
   // Rank by revenue desc, stable tie-break by original index.
@@ -208,6 +267,67 @@ export function serializeBlock(m: BlockMetrics): BlockStatsWire {
     },
     priorityInversionRate: rate(m.priorityInversions, m.priorityPairs),
     overPrioritizedGasByType: splitStr(m.overPrioritizedGasByType),
+  };
+}
+
+/**
+ * Per-block fee ladder: each tx in position order with its tip and a
+ * situation classification, for the color-coded graph. O(n²) classification is
+ * fine — this runs on one block, on demand (not during the window warm).
+ */
+export function computeLadder(
+  block: BlockInput,
+  config: AnalysisConfig,
+): BlockLadderWire {
+  const base = block.baseFeePerGas;
+  const txs = [...block.txs].sort(
+    (a, b) => a.transactionIndex - b.transactionIndex,
+  );
+  const n = txs.length;
+  const rev = txs.map((t) => revenuePerGas(t, base, config.burnsBaseFee));
+
+  const senderCount = new Map<string, number>();
+  for (const t of txs) senderCount.set(t.from, (senderCount.get(t.from) ?? 0) + 1);
+
+  const ladder: LadderTx[] = txs.map((t, i) => {
+    // Did a later, different-sender tx pay a higher tip? Then this tx sits
+    // ahead of someone who paid more.
+    let jumped = false;
+    for (let j = i + 1; j < n; j += 1) {
+      if (txs[j]!.from !== t.from && rev[j]! > rev[i]!) {
+        jumped = true;
+        break;
+      }
+    }
+    const multi = (senderCount.get(t.from) ?? 1) > 1;
+    const status: LadderTx["status"] = jumped
+      ? multi
+        ? "nonce"
+        : "jumped"
+      : "ordered";
+    return {
+      position: i,
+      sender: t.from,
+      type: t.type <= 1 ? "legacy" : "modern",
+      tip: rev[i]!.toString(),
+      tipGwei: Number(rev[i]!) / 1e9,
+      status,
+    };
+  });
+
+  const { inverted, pairs } = crossSenderInversions(
+    txs.map((t) => t.from),
+    rev,
+  );
+
+  return {
+    number: block.number.toString(),
+    timestamp: block.timestamp,
+    baseFeePerGas: base.toString(),
+    txCount: n,
+    burnsBaseFee: config.burnsBaseFee,
+    priorityInversionRate: pairs === 0 ? null : inverted / pairs,
+    txs: ladder,
   };
 }
 
