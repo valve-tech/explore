@@ -113,7 +113,7 @@ export default function App() {
           <Route path="/address/:address" element={<ExplorerPanel />} />
           <Route path="/token/:address" element={<ExplorerPanel />} />
           <Route path="/mempool" element={<MempoolView />} />
-          <Route path="/health" element={<NetworkHealthPage />} />
+          <Route path="/network-health" element={<NetworkHealthPage />} />
           <Route path="/debugger" element={<DebuggerView />} />
           <Route path="/debugger/:txHash/:tab" element={<DebuggerView />} />
           <Route path="/debugger/:txHash" element={<DebuggerView />} />

@@ -2,7 +2,9 @@
 
 **Status:** Design / spec
 **Date:** 2026-06-14
-**Route:** `/health` (label "Network Health", nav group "Inspect")
+**Route:** `/network-health` (label "Network Health", nav group "Inspect").
+`/health` is taken — it's the API health-check, proxied to the backend in dev
+and excluded from the SPA fallback in prod, so the page must not use it.
 **Scope:** v1 — one chain at a time, driven by the existing ChainSelector.
 
 ## Problem
@@ -170,7 +172,7 @@ CACHE_CAP      = 2560  // per-chain ring-buffer ceiling
 
 ### Frontend
 
-- **Route** `/health`, lazy-loaded, registered in `App.tsx` + a `navGroups.ts`
+- **Route** `/network-health`, lazy-loaded, registered in `App.tsx` + a `navGroups.ts`
   entry under **Inspect**, label "Network Health".
 - **Chain-aware:** reads the active chain like other pages; switching the
   ChainSelector refetches for that chain.
