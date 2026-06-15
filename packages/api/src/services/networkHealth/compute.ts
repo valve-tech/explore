@@ -14,6 +14,7 @@ import {
   type BlockMetrics,
   type BlockStatsWire,
   type LadderTx,
+  type MinerStatsWire,
   type TxInput,
   type TypeSplit,
   type WindowAggregateWire,
@@ -246,6 +247,7 @@ export function computeBlock(
   return {
     number: block.number,
     timestamp: block.timestamp,
+    miner: (block.miner || "").toLowerCase(),
     baseFeePerGas: base,
     gasUsed: block.gasUsed,
     gasLimit: block.gasLimit,
@@ -460,4 +462,55 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
     priorityInversionRate: rate(priorityInversions, priorityPairs),
     overPrioritizedGasByType: splitStr(overPrioritizedGasByType),
   };
+}
+
+/** Per-validator rollup over the window — who produced what, and how. */
+export function aggregateMiners(metrics: BlockMetrics[]): MinerStatsWire[] {
+  interface Acc {
+    blocks: number;
+    gasUsed: bigint;
+    legacyGas: bigint;
+    burned: bigint;
+    tips: bigint;
+    paid: bigint;
+    inv: bigint;
+    pairs: bigint;
+  }
+  const by = new Map<string, Acc>();
+  for (const m of metrics) {
+    let a = by.get(m.miner);
+    if (!a) {
+      a = {
+        blocks: 0,
+        gasUsed: 0n,
+        legacyGas: 0n,
+        burned: 0n,
+        tips: 0n,
+        paid: 0n,
+        inv: 0n,
+        pairs: 0n,
+      };
+      by.set(m.miner, a);
+    }
+    a.blocks += 1;
+    a.gasUsed += m.gasUsed;
+    a.legacyGas += m.gasByType.legacy;
+    a.burned += m.burnedByType.legacy + m.burnedByType.modern;
+    a.tips += m.tipsByType.legacy + m.tipsByType.modern;
+    a.paid += m.paidByType.legacy + m.paidByType.modern;
+    a.inv += m.priorityInversions;
+    a.pairs += m.priorityPairs;
+  }
+  return [...by.entries()]
+    .map(([miner, a]) => ({
+      miner,
+      blocks: a.blocks,
+      gasUsed: a.gasUsed.toString(),
+      legacyGasShare: ratio(a.legacyGas, a.gasUsed),
+      burned: a.burned.toString(),
+      tips: a.tips.toString(),
+      paid: a.paid.toString(),
+      priorityInversionRate: rate(a.inv, a.pairs),
+    }))
+    .sort((x, y) => y.blocks - x.blocks || Number(BigInt(y.tips) - BigInt(x.tips)));
 }

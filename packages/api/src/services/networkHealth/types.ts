@@ -72,6 +72,8 @@ export const POSITION_BUCKETS = 10;
 export interface BlockMetrics {
   number: bigint;
   timestamp: number;
+  /** Block producer / fee recipient (lowercased) — for per-validator rollups. */
+  miner: string;
   baseFeePerGas: bigint;
   gasUsed: bigint;
   gasLimit: bigint;
@@ -217,6 +219,23 @@ export interface BlockLadderWire {
   txs: LadderTx[];
 }
 
+/** Per-validator rollup over the loaded window. */
+export interface MinerStatsWire {
+  miner: string;
+  blocks: number;
+  gasUsed: string;
+  /** Gas-weighted legacy share of this miner's blocks. */
+  legacyGasShare: number;
+  /** Total burned (base fee) across this miner's blocks. */
+  burned: string;
+  /** Total tips this miner earned. */
+  tips: string;
+  /** Total paid by users in this miner's blocks. */
+  paid: string;
+  /** Gas-weighted cross-sender inversion rate across this miner's blocks. */
+  priorityInversionRate: number | null;
+}
+
 export interface NetworkHealthResponse {
   chainId: number;
   burnsBaseFee: boolean;
@@ -225,6 +244,8 @@ export interface NetworkHealthResponse {
   /** True when older blocks can still be loaded (under the cache cap + not genesis). */
   hasMore: boolean;
   aggregate: WindowAggregateWire;
+  /** Per-validator rollup, most-blocks first. */
+  miners: MinerStatsWire[];
   /** Newest-first. */
   blocks: BlockStatsWire[];
 }

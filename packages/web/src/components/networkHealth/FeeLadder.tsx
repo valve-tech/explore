@@ -20,8 +20,14 @@ import { pct, shareOf } from "./format";
  * accepted tradeoff; we show the full range honestly rather than log-warping it.
  */
 
-const BURN_COLOR = "var(--color-danger)";
+// Burn is constant and not the signal → neutral. Red is reserved for out-of-order.
+const BURN_COLOR = "var(--color-text-muted)";
 const KEEP_COLOR = "var(--color-success)";
+const STATUS_COLORS: Record<LadderTx["status"], string> = {
+  ordered: "var(--color-success)", // in fee order
+  jumped: "var(--color-danger)", // out of fee order
+  nonce: "var(--color-warning)", // nonce-forced placement
+};
 
 const W = 1000;
 const H = 280;
@@ -112,16 +118,20 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
 }
 
 function Legend() {
+  const items: Array<[string, string]> = [
+    [STATUS_COLORS.ordered, "tip · in order"],
+    [STATUS_COLORS.jumped, "tip · out of order"],
+    [STATUS_COLORS.nonce, "tip · nonce-forced"],
+    [BURN_COLOR, "burned (base fee)"],
+  ];
   return (
-    <div className="flex gap-row text-xs theme-text-muted">
-      <span className="flex items-center gap-tight">
-        <span className="inline-block h-2 w-2" style={{ backgroundColor: KEEP_COLOR }} />
-        kept (tip → validator)
-      </span>
-      <span className="flex items-center gap-tight">
-        <span className="inline-block h-2 w-2" style={{ backgroundColor: BURN_COLOR }} />
-        burned (base fee)
-      </span>
+    <div className="flex flex-wrap gap-row text-xs theme-text-muted">
+      {items.map(([c, label]) => (
+        <span key={label} className="flex items-center gap-tight">
+          <span className="inline-block h-2 w-2" style={{ backgroundColor: c }} />
+          {label}
+        </span>
+      ))}
     </div>
   );
 }
@@ -188,13 +198,14 @@ function StackedLadder({ data }: { data: BlockLadder }) {
                 navigate(`/tx/${t.hash}`);
               }}
             >
-              {/* tip kept by the validator — a stalactite hanging from the line */}
+              {/* tip kept by the validator — a stalactite hanging from the line,
+                  colored by ordering status (red = out of fee order) */}
               {depth > 0 && (
-                <rect x={x} y={lineY} width={w} height={depth} fill={KEEP_COLOR} />
+                <rect x={x} y={lineY} width={w} height={depth} fill={STATUS_COLORS[t.status]} />
               )}
               {/* outlier: tip exceeds the 95th-pct scale, clipped at the baseline */}
               {clipped && (
-                <rect x={x} y={BASELINE - 2} width={w} height={2} fill="var(--color-accent)" />
+                <rect x={x} y={BASELINE - 2} width={w} height={2} fill="var(--color-text-primary)" />
               )}
               {/* full-height hit target so every bar (incl. zero-tip) is hoverable */}
               <rect x={x} y={PAD_T} width={w} height={BASELINE - PAD_T} fill="transparent" />

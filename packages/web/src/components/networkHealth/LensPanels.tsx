@@ -1,7 +1,7 @@
 import type { WindowAggregate } from "../../api/networkHealth";
 import { SplitBar, TypeLegend } from "./SplitBar";
 import { InfoTip, Eq } from "./InfoTip";
-import { nativeAmount, pct, shareOf } from "./format";
+import { nativeAmount, pct, shareOf, span } from "./format";
 
 /**
  * The two lenses, paired. Same per-gas amount split at the base-fee line:
@@ -19,6 +19,7 @@ export function LensPanels({
   burnsBaseFee: boolean;
 }) {
   const tipsShareOfPaid = shareOf(aggregate.tips, aggregate.paid);
+  const period = `over ${aggregate.blocksAnalyzed.toLocaleString()} blocks · ~${span(aggregate.fromTimestamp, aggregate.toTimestamp)}`;
 
   return (
     <div className="space-y-stack">
@@ -40,6 +41,7 @@ export function LensPanels({
           title="User cost"
           help="what senders paid, per gas × gas used"
           total={nativeAmount(aggregate.paid, symbol)}
+          period={period}
           legacyFraction={shareOf(aggregate.paidByType.legacy, aggregate.paid)}
           footer={
             burnsBaseFee
@@ -52,6 +54,7 @@ export function LensPanels({
           title="Validator revenue"
           help={burnsBaseFee ? "tips kept — base fee is burned" : "full fees kept"}
           total={nativeAmount(aggregate.tips, symbol)}
+          period={period}
           legacyFraction={shareOf(aggregate.tipsByType.legacy, aggregate.tips)}
           footer={`${pct(tipsShareOfPaid)} of what users spent`}
           accent="var(--color-success)"
@@ -65,6 +68,7 @@ function Lens({
   title,
   help,
   total,
+  period,
   legacyFraction,
   footer,
   accent,
@@ -72,6 +76,7 @@ function Lens({
   title: string;
   help: string;
   total: string;
+  period: string;
   legacyFraction: number;
   footer: string;
   accent: string;
@@ -82,8 +87,11 @@ function Lens({
         <div className="text-sm theme-text">{title}</div>
         <div className="text-xs theme-text-muted">{help}</div>
       </div>
-      <div className="text-2xl theme-mono" style={{ color: accent }}>
-        {total}
+      <div>
+        <div className="text-2xl theme-mono" style={{ color: accent }}>
+          {total}
+        </div>
+        <div className="text-xs theme-text-muted">{period}</div>
       </div>
       <SplitBar legacyFraction={legacyFraction} height="h-2.5" />
       <div className="text-xs theme-text-secondary">{footer}</div>

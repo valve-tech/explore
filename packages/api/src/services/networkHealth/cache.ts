@@ -15,7 +15,12 @@
 import { getChain } from "../chains/registry.js";
 import { getRpcClient } from "../chains/clients.js";
 import { dedupePromise } from "../../lib/dedupePromise.js";
-import { aggregateWindow, computeLadder, serializeBlock } from "./compute.js";
+import {
+  aggregateMiners,
+  aggregateWindow,
+  computeLadder,
+  serializeBlock,
+} from "./compute.js";
 import { fetchBlockLadderInput, fetchBlockMetrics } from "./fetch.js";
 import {
   type BlockLadderWire,
@@ -217,6 +222,7 @@ export async function getNetworkHealth(
       headBlock: (head ?? 0n).toString(),
       hasMore: cache.hasMore(oldest),
       aggregate: aggregateWindow(window),
+      miners: aggregateMiners(window),
       blocks: window.map(serializeBlock),
     };
   });

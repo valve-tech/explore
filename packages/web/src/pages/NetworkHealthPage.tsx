@@ -5,6 +5,7 @@ import { chainById, chainSymbol } from "../lib/chains";
 import { SummaryCards } from "../components/networkHealth/SummaryCards";
 import { LensPanels } from "../components/networkHealth/LensPanels";
 import { PositionHeatmap } from "../components/networkHealth/PositionHeatmap";
+import { MinersPanel } from "../components/networkHealth/MinersPanel";
 import { BlockTable } from "../components/networkHealth/BlockTable";
 
 const STEP = 256;
@@ -71,6 +72,11 @@ export default function NetworkHealthPage() {
           <PositionHeatmap
             histogram={data.aggregate.positionHistogram}
             avgPosition={data.aggregate.avgPositionByType}
+          />
+          <MinersPanel
+            miners={data.miners}
+            symbol={symbol}
+            totalBlocks={data.aggregate.blocksAnalyzed}
           />
           <BlockTable blocks={data.blocks} />
 

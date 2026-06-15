@@ -12,6 +12,7 @@ function metrics(n: bigint): BlockMetrics {
   return {
     number: n,
     timestamp: Number(n),
+    miner: "0xminer",
     baseFeePerGas: 0n,
     gasUsed: 0n,
     gasLimit: 0n,

@@ -58,12 +58,24 @@ export interface WindowAggregate {
   overPrioritizedGasByType: TypeSplit<string>;
 }
 
+export interface MinerStats {
+  miner: string;
+  blocks: number;
+  gasUsed: string;
+  legacyGasShare: number;
+  burned: string;
+  tips: string;
+  paid: string;
+  priorityInversionRate: number | null;
+}
+
 export interface NetworkHealthResult {
   chainId: number;
   burnsBaseFee: boolean;
   headBlock: string;
   hasMore: boolean;
   aggregate: WindowAggregate;
+  miners: MinerStats[];
   blocks: BlockStats[];
 }
 

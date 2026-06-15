@@ -75,7 +75,9 @@ createRoot(rootEl).render(
       // semantics and bumped to v2 keys. Old v1 entries from prior outages
       // held empty mappings / no-match results that pinned the debugger
       // call tree's source-map and method-name layers across reloads.
-      persistOptions={{ persister, maxAge: Infinity, buster: "2026-06-01-staletime-hygiene-sweep" }}
+      // 2026-06-15: network-health responses gained `miners` (per-validator
+      // rollup); old persisted entries lacked it and crashed the miners panel.
+      persistOptions={{ persister, maxAge: Infinity, buster: "2026-06-15-network-health-miners" }}
     >
       <Router>
         <App />
