@@ -7,6 +7,7 @@ import { LensPanels } from "../components/networkHealth/LensPanels";
 import { PositionHeatmap } from "../components/networkHealth/PositionHeatmap";
 import { MinersPanel } from "../components/networkHealth/MinersPanel";
 import { BlockTable } from "../components/networkHealth/BlockTable";
+import { ChainFlipper } from "../components/networkHealth/ChainFlipper";
 
 const STEP = 256;
 const MAX = 2560;
@@ -21,7 +22,10 @@ export default function NetworkHealthPage() {
   return (
     <div className="space-y-section p-4">
       <header className="space-y-stack">
-        <h1 className="text-xl theme-text">Network Health</h1>
+        <div className="flex flex-wrap items-center justify-between gap-row">
+          <h1 className="text-xl theme-text">Network Health</h1>
+          <ChainFlipper />
+        </div>
         <p className="max-w-3xl text-sm theme-text-secondary">
           Who's getting prioritized in recent {chainName} blocks. Each tx's price
           splits into a burned base fee and a tip the validator keeps — shown

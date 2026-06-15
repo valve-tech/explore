@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Icon } from "@iconify/react";
 import type { MinerStats } from "../../api/networkHealth";
 import { nativeAmount, pct } from "./format";
 
@@ -17,13 +19,24 @@ export function MinersPanel({
   symbol: string;
   totalBlocks: number;
 }) {
+  // collapsed by default — secondary to the per-block view below.
+  const [open, setOpen] = useState(false);
   // miners may be absent on a stale persisted response (added after first ship).
   if (!miners || !miners.length) return null;
   return (
     <div className="space-y-stack">
-      <h2 className="text-sm uppercase tracking-wide theme-text-secondary">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-tight text-sm uppercase tracking-wide theme-text-secondary hover:theme-text"
+      >
+        <Icon
+          icon={open ? "heroicons:chevron-down" : "heroicons:chevron-right"}
+          className="w-4 h-4"
+        />
         Validators ({miners.length})
-      </h2>
+      </button>
+      {open && (
       <div className="card overflow-x-auto">
         <table className="w-full text-sm theme-mono">
           <thead>
@@ -67,6 +80,7 @@ export function MinersPanel({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import type { BlockStats } from "../../api/networkHealth";
 import { formatGwei } from "../../lib/format/tokenAmount";
+import { useNowSeconds } from "../../hooks/useNow";
 import { SplitBar } from "./SplitBar";
 import { FeeLadder } from "./FeeLadder";
 import { pct, shareOf, timeAgo } from "./format";
@@ -72,7 +73,7 @@ function BlockRow({
             <span className="theme-accent">#{block.number}</span>
           </span>
         </Td>
-        <Td muted>{timeAgo(block.timestamp)}</Td>
+        <Td muted><Age ts={block.timestamp} /></Td>
         <Td right>{block.txCount}</Td>
         <Td right>{formatGwei(block.baseFeePerGas) ?? "—"}</Td>
         <Td right>{pct(block.legacyGasShare, 0)}</Td>
@@ -98,6 +99,13 @@ function BlockRow({
       )}
     </>
   );
+}
+
+/** Live-ticking age — subscribes to the shared 1s clock so only this cell
+ *  re-renders each second, never the table or the expanded ladder. */
+function Age({ ts }: { ts: number }) {
+  const nowSec = useNowSeconds();
+  return <>{timeAgo(ts, nowSec * 1000)}</>;
 }
 
 function InversionCell({ rate }: { rate: number | null }) {

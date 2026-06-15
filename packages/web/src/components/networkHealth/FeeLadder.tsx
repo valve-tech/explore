@@ -18,8 +18,12 @@ import { pct, shareOf } from "./format";
  */
 
 const BURN_COLOR = "var(--color-text-muted)"; // neutral — constant, not the signal
-const KEEP_COLOR = "var(--color-success)"; // in fee order
 const OOO_COLOR = "var(--color-danger)"; // out of fee order vs the previous tx
+// Tx type — same convention as the rest of the page (heatmap, composition bars).
+const TYPE_COLORS: Record<LadderTx["type"], string> = {
+  legacy: "var(--color-warning)", // type 0/1
+  modern: "var(--color-accent)", // type ≥2
+};
 
 const W = 1000;
 const H = 280;
@@ -111,8 +115,9 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
 
 function Legend() {
   const items: Array<[string, string]> = [
-    [KEEP_COLOR, "in fee order"],
-    [OOO_COLOR, "out of order (vs prev)"],
+    [TYPE_COLORS.legacy, "legacy tip (0/1)"],
+    [TYPE_COLORS.modern, "modern tip (≥2)"],
+    [OOO_COLOR, "out of order (red tint)"],
     [BURN_COLOR, "burned (base fee)"],
   ];
   return (
@@ -206,7 +211,9 @@ function StackedLadder({ data }: { data: BlockLadder }) {
               >
                 {depth > 0 && (
                   <>
-                    <rect x={x} y={lineY} width={w} height={depth} fill={KEEP_COLOR} />
+                    {/* base color = tx type (legacy amber / modern purple) */}
+                    <rect x={x} y={lineY} width={w} height={depth} fill={TYPE_COLORS[t.type]} />
+                    {/* red tint scaled by how much it out-pays the previous tx */}
                     {r > 0 && (
                       <rect x={x} y={lineY} width={w} height={depth} fill={OOO_COLOR} opacity={r} />
                     )}
@@ -245,9 +252,9 @@ function StackedLadder({ data }: { data: BlockLadder }) {
         )}
       </div>
       <div className="text-xs theme-text-muted">
-        grey block = base fee burned (constant) · stalactites = tip kept by the
-        validator (log scale, full range) · red = out-paid the previous tx (redder
-        = bigger jump) · width = gas
+        grey block = base fee burned (constant) · stalactites = tip kept (log
+        scale, full range), colored by type (legacy amber / modern purple) · red
+        tint = out-paid the previous tx (redder = bigger) · width = gas
       </div>
     </>
   );
@@ -302,6 +309,10 @@ function TxTooltip({
         <span className="theme-mono theme-text text-right">
           {formatAmountDisplay(tx.value, 18, { maxFractionDigits: 4, symbol })}
         </span>
+        <span className="theme-text-muted">type</span>
+        <span className="theme-mono text-right" style={{ color: TYPE_COLORS[tx.type] }}>
+          {tx.type === "legacy" ? "legacy (0/1)" : "modern (≥2)"}
+        </span>
         <span className="theme-text-muted">method</span>
         <span className="theme-mono theme-text text-right">{tx.methodId || "transfer"}</span>
         <span className="theme-text-muted">gas</span>
@@ -309,9 +320,7 @@ function TxTooltip({
           {Number(gas).toLocaleString()} · {pct(gasShare)}
         </span>
         <span className="theme-text-muted">tip</span>
-        <span className="theme-mono text-right" style={{ color: KEEP_COLOR }}>
-          {fmtGwei(tx.tipGwei)} gwei
-        </span>
+        <span className="theme-mono theme-text text-right">{fmtGwei(tx.tipGwei)} gwei</span>
         <span className="theme-text-muted">burned</span>
         <span className="theme-mono text-right" style={{ color: BURN_COLOR }}>
           {fmtGwei(baseFeeGwei)} gwei
