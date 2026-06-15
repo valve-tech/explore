@@ -35,6 +35,7 @@ import signaturesRouter from "./routes/signatures.js";
 import apiKeysRouter from "./routes/apiKeys.js";
 import diffRouter from "./routes/diff.js";
 import gasRouter from "./routes/gas.js";
+import networkHealthRouter from "./routes/networkHealth.js";
 import mempoolRouter from "./routes/mempool.js";
 import chifraRouter from "./routes/chifra.js";
 import etherscanRouter from "./routes/etherscan.js";
@@ -117,6 +118,7 @@ app.use("/api/portfolio", portfolioRouter);
 app.use("/api/diff", diffRouter);
 app.use("/api", chifraRouter);
 app.use("/api/gas", gasRouter);
+app.use("/api/network-health", networkHealthRouter);
 app.use("/api/mempool", mempoolRouter);
 
 // Etherscan-shaped dispatcher at the bare /api root. Matches GET/POST /api

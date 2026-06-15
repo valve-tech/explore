@@ -1,0 +1,110 @@
+/**
+ * Network-health analysis — RPC adapter.
+ *
+ * Pulls one block's header + receipts and folds them into BlockMetrics via the
+ * pure `computeBlock`. Header gives baseFee/timestamp/gasUsed; receipts give
+ * per-tx gasUsed/effectiveGasPrice/type/index — everything the analysis needs
+ * in two RPC calls. `eth_getBlockReceipts` is supported by reth (the valve
+ * fleet) and geth-family nodes.
+ */
+
+import { hexToBigInt, numberToHex, type PublicClient } from "viem";
+import { computeBlock } from "./compute.js";
+import { type BlockInput, type BlockMetrics, type TxInput } from "./types.js";
+
+/** Minimal shape of a raw `eth_getBlockReceipts` entry (hex-encoded). */
+interface RpcReceipt {
+  transactionIndex?: string;
+  type?: string;
+  from?: string;
+  gasUsed?: string;
+  effectiveGasPrice?: string;
+}
+
+/** EIP-2718 type label → numeric category (viem receipts use the labels). */
+const TYPE_LABELS: Record<string, number> = {
+  legacy: 0,
+  eip2930: 1,
+  eip1559: 2,
+  eip4844: 3,
+  eip7702: 4,
+};
+
+export function numericType(t: unknown): number {
+  if (typeof t === "number") return t;
+  if (typeof t === "bigint") return Number(t);
+  if (typeof t === "string") {
+    if (t in TYPE_LABELS) return TYPE_LABELS[t]!;
+    if (t.startsWith("0x")) return Number(BigInt(t));
+    const n = Number(t);
+    if (Number.isFinite(n)) return n;
+  }
+  // Unknown / future type — treat as modern (≥2) so it isn't miscounted as legacy.
+  return 2;
+}
+
+/** Thrown when the chain's RPC doesn't implement eth_getBlockReceipts. */
+export class ReceiptsUnsupportedError extends Error {
+  constructor() {
+    super("eth_getBlockReceipts is not supported by this chain's RPC endpoint");
+    this.name = "ReceiptsUnsupportedError";
+  }
+}
+
+function isMethodUnsupported(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("method not found") ||
+    msg.includes("does not exist") ||
+    msg.includes("not supported") ||
+    msg.includes("unsupported method") ||
+    msg.includes("not available")
+  );
+}
+
+export async function fetchBlockMetrics(
+  client: PublicClient,
+  blockNumber: bigint,
+  burnsBaseFee: boolean,
+): Promise<BlockMetrics> {
+  // viem 2.47 has no high-level getBlockReceipts action — call the raw method.
+  // (Receipts carry per-tx gasUsed/effectiveGasPrice/type/index; the header
+  // carries baseFee/timestamp/gasUsed.)
+  const rpc = client.request as (args: {
+    method: "eth_getBlockReceipts";
+    params: [string];
+  }) => Promise<RpcReceipt[] | null>;
+
+  let header;
+  let receipts;
+  try {
+    [header, receipts] = await Promise.all([
+      client.getBlock({ blockNumber, includeTransactions: false }),
+      rpc({ method: "eth_getBlockReceipts", params: [numberToHex(blockNumber)] }),
+    ]);
+  } catch (err) {
+    if (isMethodUnsupported(err)) throw new ReceiptsUnsupportedError();
+    throw err;
+  }
+
+  const txs: TxInput[] = (receipts ?? []).map((r) => ({
+    transactionIndex: r.transactionIndex ? Number(BigInt(r.transactionIndex)) : 0,
+    type: numericType(r.type),
+    from: (r.from ?? "").toLowerCase(),
+    gasUsed: r.gasUsed ? hexToBigInt(r.gasUsed as `0x${string}`) : 0n,
+    effectiveGasPrice: r.effectiveGasPrice
+      ? hexToBigInt(r.effectiveGasPrice as `0x${string}`)
+      : 0n,
+  }));
+
+  const input: BlockInput = {
+    number: header.number ?? blockNumber,
+    timestamp: Number(header.timestamp),
+    baseFeePerGas: header.baseFeePerGas ?? 0n,
+    gasUsed: header.gasUsed ?? 0n,
+    gasLimit: header.gasLimit ?? 0n,
+    miner: header.miner ?? "",
+    txs,
+  };
+  return computeBlock(input, { burnsBaseFee });
+}

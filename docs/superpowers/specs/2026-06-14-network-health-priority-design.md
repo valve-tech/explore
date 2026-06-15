@@ -43,18 +43,17 @@ identically for legacy and dynamic-fee txns.
 
 ### Why the split matters
 
-Block ordering follows the **validator** axis (tip), but users experience the
-**cost** axis (total). The gap between the two is the story:
+The two lenses diverge in **magnitude**, not **ordering**. Within a single block
+`baseFee` is constant, so `tip = effectiveGasPrice − baseFee` preserves rank —
+tip-order, cost-order and price-order are *identical*. There is therefore **one**
+prioritization metric (a priority-inversion rate), not a separate tip- and
+cost-inversion pair (an earlier draft wrongly split them; they would always be
+equal).
 
-- **Tip-inversions** (validator lens): a later tx out-tips an earlier one. These
-  are the genuine anomalies — the producer left money on the table or ordered on
-  something other than fee.
-- **Cost-inversions** (user lens): a later tx paid more *total* than an earlier
-  one. Under base-fee burn these are *expected*, not anomalies — but they are
-  exactly the "I paid more, why am I last?" experience.
-
-The wedge between cost-inversions and tip-inversions is the burn distorting
-user-perceived fairness, and it is a first-class number on the page.
+Where the lenses genuinely differ is the decomposition: `paid = burned + tips`.
+The **burn share** (`burned / paid`) is the real wedge between what users spend
+and what validators earn — the share of user spend destroyed rather than paid to
+anyone. That is a first-class number on the page, split by type.
 
 This is where the **legacy vs modern split earns its place**: a legacy tx sets a
 single fixed `gasPrice`, so when base fee rises its tip (`gasPrice − baseFee`)
@@ -104,10 +103,12 @@ From `eth_getBlockReceipts` (tip/gasUsed/type/index per tx) + the block header
 - **Avg normalized position by type:** position `index/(txCount−1)`, 0 = top.
 - **Position histogram by type:** fixed buckets (e.g. 10) × {legacy, modern},
   gas-weighted — feeds the window heatmap.
-- **Tip-inversions:** count/share of tx pairs where a later tx has a higher tip
-  than an earlier one, **excluding same-sender pairs** (nonce ordering
-  legitimately forces those). Normalized to [0,1].
-- **Cost-inversions:** same, on `effectiveGasPrice` instead of tip.
+- **Priority-inversions:** share of *adjacent* tx pairs where a later tx
+  out-prioritizes an earlier one, **excluding same-sender pairs** (nonce ordering
+  legitimately forces those). Normalized to [0,1]. Adjacent (O(n)) rather than
+  full Kendall-tau so pathological large blocks stay cheap. One metric only —
+  tip- and cost-order are identical within a block (constant base fee).
+- **Burn share:** `burned / paid` — the cost-vs-revenue wedge.
 - **Over-prioritized gas by type:** gas of txns placed earlier than their
   tip-rank justifies, attributed legacy/modern — the literal "who jumped the
   queue" number.
@@ -115,8 +116,8 @@ From `eth_getBlockReceipts` (tip/gasUsed/type/index per tx) + the block header
 ### Aggregate (over the loaded window)
 
 Window-level rollups of all of the above: overall composition, total burned vs
-tipped (split by type), avg tip- and cost-inversion rates, the inversion wedge
-(cost − tip), the position heatmap, blocks analyzed, and time span.
+tipped (split by type), the burn share (burned / paid), the priority-inversion
+rate, the position heatmap, blocks analyzed, and time span.
 
 ## Honesty caveats (surfaced in UI)
 
@@ -177,21 +178,20 @@ CACHE_CAP      = 2560  // per-chain ring-buffer ceiling
   standard `apiUrl` + `scoped` client; load-more appends the next older 256
   (infinite-query style).
 - **Layout (top → bottom):**
-  - Summary cards: gas-weighted legacy vs modern %, total paid split into burned
-    vs tip, avg tip-inversion rate, the inversion wedge (cost − tip), blocks
-    analyzed + time span.
+  - Summary cards: gas-weighted legacy vs modern %, burn share (burned / paid),
+    priority-inversion rate, blocks analyzed + time span.
   - **Two lenses paired side-by-side** — User cost vs Validator revenue — each
     gas-weighted and split legacy/modern. (Paired, not toggled: the contrast is
     the point.)
   - Composition-over-blocks chart + position heatmap (readable through either
     lens).
   - Per-block table: block #, time, tx count, gas used, legacy gas %, burned vs
-    tip, tip-inversion, cost-inversion, over-prioritized gas — with **Load more**.
+    tip, priority-inversion, over-prioritized gas — with **Load more**.
 
 ## Testing
 
 - **`compute.ts` unit tests** (the correctness core): known receipts + header →
-  expected composition, positions, tip/cost-inversions, burn/tip totals,
+  expected composition, positions, priority-inversions, burn/tip totals,
   over-prioritized attribution. Include same-sender nonce-exclusion cases and the
   `burnsBaseFee: false` path.
 - **Cache shell test:** warm / head-topup / load-more / eviction with a faked

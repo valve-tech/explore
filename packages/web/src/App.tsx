@@ -20,6 +20,7 @@ const TestNetDashboard = lazy(() => import("./components/testnets/TestNetDashboa
 const RpcPage = lazy(() => import("./pages/RpcPage"));
 const ExplorerPanel = lazy(() => import("./components/explorer/ExplorerPanel"));
 const MempoolView = lazy(() => import("./components/mempool/MempoolView"));
+const NetworkHealthPage = lazy(() => import("./pages/NetworkHealthPage"));
 const DebuggerView = lazy(() => import("./components/debugger/DebuggerView"));
 const ActionsDashboard = lazy(() => import("./components/actions/ActionsDashboard"));
 const ForkSimulator = lazy(() => import("./components/ForkSimulator"));
@@ -112,6 +113,7 @@ export default function App() {
           <Route path="/address/:address" element={<ExplorerPanel />} />
           <Route path="/token/:address" element={<ExplorerPanel />} />
           <Route path="/mempool" element={<MempoolView />} />
+          <Route path="/health" element={<NetworkHealthPage />} />
           <Route path="/debugger" element={<DebuggerView />} />
           <Route path="/debugger/:txHash/:tab" element={<DebuggerView />} />
           <Route path="/debugger/:txHash" element={<DebuggerView />} />

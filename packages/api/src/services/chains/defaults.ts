@@ -27,6 +27,7 @@ export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
     rethSnapshotUrl: "https://evm1-snapshot-reth.valve.city",
     substreamsEndpoint: "evm-1-substreams.valve.city",
     sourcifyEnabled: true,
+    burnsBaseFee: true,
     viemChain: mainnet,
     explorerSlug: "ethereum",
     defaultBlockTimeSeconds: 12,
@@ -46,6 +47,7 @@ export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
     blockscoutBase:
       process.env.BLOCKSCOUT_API_URL || "https://api.scan.pulsechain.com/api",
     sourcifyEnabled: true,
+    burnsBaseFee: true,
     viemChain: pulsechain,
     explorerSlug: "pulsechain",
     defaultBlockTimeSeconds: 10,
@@ -65,6 +67,7 @@ export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
       process.env.PULSECHAIN_V4_BLOCKSCOUT_URL ||
       "https://api.scan.v4.testnet.pulsechain.com/api",
     sourcifyEnabled: false,
+    burnsBaseFee: true,
     viemChain: pulsechainV4,
     explorerSlug: "pulsechain-testnet",
     defaultBlockTimeSeconds: 10,

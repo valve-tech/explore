@@ -35,6 +35,12 @@ export const NAV_GROUPS: NavGroup[] = [
         desc: "Pending transactions in node inclusion order.",
       },
       {
+        to: "/health",
+        label: "Network Health",
+        icon: "heroicons:chart-bar",
+        desc: "Tx prioritization, fee burn, and mining-order health.",
+      },
+      {
         to: "/debugger",
         label: "Debugger",
         icon: "heroicons:bug-ant",

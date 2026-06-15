@@ -1,0 +1,85 @@
+import type { WindowAggregate } from "../../api/networkHealth";
+import { SplitBar, TypeLegend } from "./SplitBar";
+import { nativeAmount, pct, shareOf } from "./format";
+
+/**
+ * The two lenses, paired. Same per-gas amount split at the base-fee line:
+ *   paid (user cost) = burned (destroyed) + tips (validator revenue).
+ * The contrast is the point — burn is the wedge between what users spend and
+ * what validators actually earn.
+ */
+export function LensPanels({
+  aggregate,
+  symbol,
+  burnsBaseFee,
+}: {
+  aggregate: WindowAggregate;
+  symbol: string;
+  burnsBaseFee: boolean;
+}) {
+  const tipsShareOfPaid = shareOf(aggregate.tips, aggregate.paid);
+
+  return (
+    <div className="space-y-stack">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm uppercase tracking-wide theme-text-secondary">
+          User cost vs validator revenue
+        </h2>
+        <TypeLegend />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-row">
+        <Lens
+          title="User cost"
+          help="what senders paid, per gas × gas used"
+          total={nativeAmount(aggregate.paid, symbol)}
+          legacyFraction={shareOf(aggregate.paidByType.legacy, aggregate.paid)}
+          footer={
+            burnsBaseFee
+              ? `${pct(aggregate.burnedShare)} burned · ${pct(tipsShareOfPaid)} to validators`
+              : "base fee retained by validator on this chain"
+          }
+          accent="var(--color-text-primary)"
+        />
+        <Lens
+          title="Validator revenue"
+          help={burnsBaseFee ? "tips kept — base fee is burned" : "full fees kept"}
+          total={nativeAmount(aggregate.tips, symbol)}
+          legacyFraction={shareOf(aggregate.tipsByType.legacy, aggregate.tips)}
+          footer={`${pct(tipsShareOfPaid)} of what users spent`}
+          accent="var(--color-success)"
+        />
+      </div>
+    </div>
+  );
+}
+
+function Lens({
+  title,
+  help,
+  total,
+  legacyFraction,
+  footer,
+  accent,
+}: {
+  title: string;
+  help: string;
+  total: string;
+  legacyFraction: number;
+  footer: string;
+  accent: string;
+}) {
+  return (
+    <div className="card p-4 space-y-stack">
+      <div>
+        <div className="text-sm theme-text">{title}</div>
+        <div className="text-xs theme-text-muted">{help}</div>
+      </div>
+      <div className="text-2xl theme-mono" style={{ color: accent }}>
+        {total}
+      </div>
+      <SplitBar legacyFraction={legacyFraction} height="h-2.5" />
+      <div className="text-xs theme-text-secondary">{footer}</div>
+    </div>
+  );
+}

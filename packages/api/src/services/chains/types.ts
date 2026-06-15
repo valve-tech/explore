@@ -33,6 +33,15 @@ export interface ChainConfig {
 
   viemChain: Chain;
 
+  /**
+   * True when the chain burns the EIP-1559 base fee (validator earns only the
+   * tip). Drives the "validator revenue per gas" axis in the network-health
+   * analysis: revenue = effectiveGasPrice − baseFee when burning, else the full
+   * effectiveGasPrice. Optional — defaults to `true` (standard 1559) when a
+   * self-hoster's CHAINS_JSON omits it, since burn is the common case.
+   */
+  burnsBaseFee?: boolean;
+
   /** URL path prefix once chainid routing lands on the web side. */
   explorerSlug: string;
   defaultBlockTimeSeconds: number;
