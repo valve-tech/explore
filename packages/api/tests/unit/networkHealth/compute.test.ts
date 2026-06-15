@@ -199,6 +199,7 @@ describe("computeLadder", () => {
     assert.equal(l.txs[2]!.status, "ordered");
     assert.equal(l.txs[1]!.type, "legacy");
     assert.equal(l.txs[0]!.position, 0);
+    assert.equal(l.txs[0]!.gasUsed, "100"); // carried through for bar width
     assert.ok(Math.abs(l.priorityInversionRate! - 2 / 3) < 1e-9);
   });
 

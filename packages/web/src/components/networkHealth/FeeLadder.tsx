@@ -25,6 +25,14 @@ const PLOT_H = H - PAD_T - PAD_B;
 const BASELINE = PAD_T + PLOT_H;
 const ZERO_LANE = BASELINE + 8;
 
+function safeGwei(wei: string): number {
+  try {
+    return Number(BigInt(wei)) / 1e9;
+  } catch {
+    return 0;
+  }
+}
+
 export function FeeLadder({ blockNumber }: { blockNumber: string }) {
   const { data, isPending, isError, error } = useBlockLadder(blockNumber);
 
@@ -49,9 +57,15 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
 
   const txs = data.txs;
   const n = txs.length;
-  const positives = txs.map((t) => t.tipGwei).filter((g) => g > 0);
-  const maxG = positives.length ? Math.max(...positives) : 1;
-  const minG = positives.length ? Math.min(...positives) : 1;
+  const plotW = W - PAD_L - PAD_R;
+  const baseFeeGwei = safeGwei(data.baseFeePerGas);
+
+  // Log y-range spans the tips and the base fee, so the base-fee line is always
+  // on-chart.
+  const rangeVals = txs.map((t) => t.tipGwei).filter((g) => g > 0);
+  if (baseFeeGwei > 0) rangeVals.push(baseFeeGwei);
+  const maxG = rangeVals.length ? Math.max(...rangeVals) : 1;
+  const minG = rangeVals.length ? Math.min(...rangeVals) : 1;
   let logMax = Math.log10(maxG);
   let logMin = Math.log10(minG);
   if (logMax - logMin < 0.5) {
@@ -59,7 +73,29 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
     logMin -= 0.5;
   }
   const span = logMax - logMin;
-  const barW = (W - PAD_L - PAD_R) / n;
+  const yFor = (g: number) => PAD_T + (1 - (Math.log10(g) - logMin) / span) * PLOT_H;
+
+  // Bar width ∝ gasUsed: x is cumulative block gas, so a tx's width is its
+  // share of block space. Falls back to equal widths if gas totals are zero.
+  const gas = txs.map((t) => {
+    try {
+      return BigInt(t.gasUsed);
+    } catch {
+      return 0n;
+    }
+  });
+  const totalGas = gas.reduce((a, b) => a + b, 0n);
+  const cumX: number[] = [];
+  let cum = 0n;
+  for (let i = 0; i < n; i += 1) {
+    cumX.push(
+      totalGas > 0n
+        ? PAD_L + (Number((cum * 1_000_000n) / totalGas) / 1_000_000) * plotW
+        : PAD_L + (i / n) * plotW,
+    );
+    cum += gas[i]!;
+  }
+  cumX.push(totalGas > 0n ? PAD_L + plotW : PAD_L + plotW); // right edge
 
   const counts = txs.reduce(
     (acc, t) => ({ ...acc, [t.status]: acc[t.status] + 1 }),
@@ -78,19 +114,20 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
       </div>
 
       <div className="text-xs theme-text-muted">
-        y = tip per gas (log scale) ={" "}
-        <code className="theme-mono">effectiveGasPrice − baseFee</code> · bars in
-        block position; ordered by tip, not by transaction type
+        y = tip per gas (log) ={" "}
+        <code className="theme-mono">effectiveGasPrice − baseFee</code> · bar
+        width = gas used · dashed line = base fee · ordered by tip, not type
       </div>
 
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "auto" }}>
         {/* baseline */}
         <line x1={PAD_L} y1={BASELINE} x2={W - PAD_R} y2={BASELINE} stroke="var(--color-border-muted)" strokeWidth={1} />
         {txs.map((t, i) => {
-          const x = PAD_L + i * barW;
-          const w = Math.max(1, barW - 0.4);
+          const x = cumX[i]!;
+          const w = Math.max(0.5, cumX[i + 1]! - x - 0.3);
           const fill = COLORS[t.status];
-          const title = `#${t.position} · ${t.status} · ${t.type} · ${t.tipGwei.toFixed(3)} gwei · ${t.sender.slice(0, 6)}…`;
+          const gasLabel = Number(gas[i]!).toLocaleString();
+          const title = `#${t.position} · ${t.status} · ${t.type} · ${t.tipGwei.toFixed(3)} gwei tip · ${gasLabel} gas · ${t.sender.slice(0, 6)}…`;
           if (t.tipGwei <= 0) {
             // zero-tip marker in the lane below the baseline
             return (
@@ -99,19 +136,39 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
               </rect>
             );
           }
-          const y = PAD_T + (1 - (Math.log10(t.tipGwei) - logMin) / span) * PLOT_H;
+          const y = yFor(t.tipGwei);
           return (
             <rect key={i} x={x} y={y} width={w} height={BASELINE - y} fill={fill}>
               <title>{title}</title>
             </rect>
           );
         })}
+        {/* base-fee reference line — bars above it out-tip the burn, below it burn more */}
+        {baseFeeGwei > 0 && (
+          <>
+            <line
+              x1={PAD_L}
+              x2={W - PAD_R}
+              y1={yFor(baseFeeGwei)}
+              y2={yFor(baseFeeGwei)}
+              stroke="var(--color-accent)"
+              strokeWidth={1}
+              strokeDasharray="4 3"
+            />
+            <text
+              x={W - PAD_R}
+              y={yFor(baseFeeGwei) - 3}
+              fontSize={11}
+              textAnchor="end"
+              fill="var(--color-accent)"
+            >
+              base fee {baseFeeGwei >= 100 ? baseFeeGwei.toFixed(0) : baseFeeGwei.toFixed(2)} gwei
+            </text>
+          </>
+        )}
         {/* y-axis range hints */}
         <text x={PAD_L} y={PAD_T + 4} fontSize={11} fill="var(--color-text-muted)">
           {maxG.toFixed(maxG >= 100 ? 0 : 2)} gwei
-        </text>
-        <text x={PAD_L} y={BASELINE - 3} fontSize={11} fill="var(--color-text-muted)">
-          {minG.toFixed(minG >= 100 ? 0 : 2)} gwei
         </text>
         {/* x-axis labels */}
         <text x={PAD_L} y={H - 6} fontSize={11} fill="var(--color-text-muted)">

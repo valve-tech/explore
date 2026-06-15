@@ -183,6 +183,8 @@ export interface LadderTx {
   tip: string;
   /** Tip in gwei as a number, for plotting on a log axis. */
   tipGwei: number;
+  /** Raw gas used — drives the bar width (the tx's block-space footprint). */
+  gasUsed: string;
   status: "ordered" | "jumped" | "nonce";
 }
 

@@ -73,6 +73,7 @@ export interface LadderTx {
   type: "legacy" | "modern";
   tip: string;
   tipGwei: number;
+  gasUsed: string;
   status: "ordered" | "jumped" | "nonce";
 }
 

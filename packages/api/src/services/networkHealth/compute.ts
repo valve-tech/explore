@@ -311,6 +311,7 @@ export function computeLadder(
       type: t.type <= 1 ? "legacy" : "modern",
       tip: rev[i]!.toString(),
       tipGwei: Number(rev[i]!) / 1e9,
+      gasUsed: t.gasUsed.toString(),
       status,
     };
   });
