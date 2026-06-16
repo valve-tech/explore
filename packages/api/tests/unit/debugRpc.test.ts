@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import { makeDebugRpc, debugRpcUrl, debugRpcBearer } from "../../src/services/tracer/debugRpc.js";
+import { getChain, DEFAULT_CHAIN_ID } from "../../src/services/chains/registry.js";
 
 interface CapturedRequest {
   url: string;
@@ -83,15 +84,12 @@ describe("debugRpc env resolution", () => {
     assert.equal(debugRpcUrl(), "https://example.test/pls");
   });
 
-  it("debugRpcUrl falls back to the registry's valve 369 endpoint when nothing is set", () => {
+  it("debugRpcUrl falls back to the registry's default-chain endpoint when nothing is set", () => {
     delete process.env.DEBUG_RPC_URL;
     delete process.env.PULSECHAIN_RPC_URL;
-    // No env overrides → the default chain's registry rpcUrl (a valve
-    // endpoint), never rpc.pulsechain.com.
-    assert.equal(
-      debugRpcUrl(),
-      "https://evm-369-rpc.valve.city/v1/vk_demo/evm/369",
-    );
+    // No env overrides → the default chain's registry rpcUrl (whatever keyed
+    // valve endpoint it was configured with), never rpc.pulsechain.com.
+    assert.equal(debugRpcUrl(), getChain(DEFAULT_CHAIN_ID).rpcUrl);
   });
 
   it("debugRpcBearer is empty by default", () => {

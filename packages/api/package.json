@@ -9,8 +9,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/integration.test.ts",
-    "test:unit": "tsx --test \"tests/unit/**/*.test.ts\"",
-    "test:coverage": "node --experimental-test-coverage --test-coverage-include='src/**/*.ts' --import tsx --test $(find tests/unit -name '*.test.ts')"
+    "test:unit": "PULSECHAIN_RPC_URL=${PULSECHAIN_RPC_URL:-https://rpc.valve.city/v1/test/evm/369} tsx --test \"tests/unit/**/*.test.ts\"",
+    "test:coverage": "PULSECHAIN_RPC_URL=${PULSECHAIN_RPC_URL:-https://rpc.valve.city/v1/test/evm/369} node --experimental-test-coverage --test-coverage-include='src/**/*.ts' --import tsx --test $(find tests/unit -name '*.test.ts')"
   },
   "dependencies": {
     "@valve-tech/auth-lite": "^0.18.0",

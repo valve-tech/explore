@@ -2,13 +2,13 @@ import { mainnet, pulsechain, pulsechainV4 } from "viem/chains";
 import { type ChainConfig } from "./types.js";
 
 /**
- * Default RPC URL for a valve chain. If `PULSECHAIN_RPC_URL` is a valve endpoint
- * carrying a key (the prod unlimited key, shape `…/v1/<key>/evm/369`), reuse that
- * same key for sibling chains by swapping the chain id — so one env var covers
- * every valve chain and Ethereum/Testnet don't silently fall back to the
- * per-IP-rate-limited `vk_demo` key. Otherwise (unset, or a self-hoster's own
- * non-valve node), fall back to `vk_demo`. An explicit per-chain env var
- * (`ETH_RPC_URL`, `PULSECHAIN_V4_RPC_URL`) still wins at the call site below.
+ * Default RPC URL for a sibling valve chain, derived from `PULSECHAIN_RPC_URL`
+ * when it's a valve endpoint carrying a key (shape `…/v1/<key>/evm/369`): swap
+ * the chain id so the one prod key covers every valve chain. Returns `""` when
+ * it can't derive — there is deliberately NO demo-key fallback. A silent
+ * `vk_demo` fallback is what let prod 429 on Ethereum unnoticed; instead an
+ * unconfigured chain fails loudly at `getRpcClient`. An explicit per-chain env
+ * var (`ETH_RPC_URL`, `PULSECHAIN_V4_RPC_URL`) still wins at the call site.
  */
 export function valveRpcUrl(chainId: number): string {
   const pls = process.env.PULSECHAIN_RPC_URL;
@@ -17,7 +17,7 @@ export function valveRpcUrl(chainId: number): string {
       .replace(/evm-369-/g, `evm-${chainId}-`) // host segment, e.g. evm-369-rpc.…
       .replace(/\/evm\/369(\/?)$/, `/evm/${chainId}$1`); // trailing path /evm/369
   }
-  return `https://evm-${chainId}-rpc.valve.city/v1/vk_demo/evm/${chainId}`;
+  return "";
 }
 
 /**
@@ -41,7 +41,7 @@ export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
     nativeDecimals: 18,
     chifraChain: "mainnet",
     // Explicit ETH_RPC_URL wins; otherwise reuse the PULSECHAIN_RPC_URL key
-    // (valveRpcUrl), falling back to the per-IP-rate-limited vk_demo key.
+    // (valveRpcUrl). No key → "" → getRpcClient fails loudly (no demo fallback).
     rpcUrl: process.env.ETH_RPC_URL || valveRpcUrl(1),
     rethSnapshotUrl: "https://evm1-snapshot-reth.valve.city",
     substreamsEndpoint: "evm-1-substreams.valve.city",

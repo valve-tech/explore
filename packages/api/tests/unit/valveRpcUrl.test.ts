@@ -26,13 +26,13 @@ describe("valveRpcUrl — sibling-chain key reuse", () => {
     assert.equal(valveRpcUrl(1), "https://evm-1-rpc.valve.city/v1/SECRET/evm/1");
   });
 
-  it("falls back to vk_demo when PULSECHAIN_RPC_URL is unset", () => {
+  it("returns '' when PULSECHAIN_RPC_URL is unset (no demo fallback)", () => {
     delete process.env.PULSECHAIN_RPC_URL;
-    assert.equal(valveRpcUrl(1), "https://evm-1-rpc.valve.city/v1/vk_demo/evm/1");
+    assert.equal(valveRpcUrl(1), "");
   });
 
-  it("falls back to vk_demo for a non-valve PULSECHAIN_RPC_URL", () => {
+  it("returns '' for a non-valve PULSECHAIN_RPC_URL (no demo fallback)", () => {
     process.env.PULSECHAIN_RPC_URL = "https://my-own-node.example/rpc";
-    assert.equal(valveRpcUrl(1), "https://evm-1-rpc.valve.city/v1/vk_demo/evm/1");
+    assert.equal(valveRpcUrl(1), "");
   });
 });
