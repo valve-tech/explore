@@ -151,6 +151,17 @@ function StackedLadder({ data }: { data: BlockLadder }) {
   const totalGas = gas.reduce((a, b) => a + b, 0n);
   const cumX = gasLayout(gas, plotW);
   const baseFeeGwei = safeGwei(data.baseFeePerGas);
+  let baseFeeWei = 0n;
+  try {
+    baseFeeWei = BigInt(data.baseFeePerGas);
+  } catch {
+    baseFeeWei = 0n;
+  }
+  const gasLabel = Number(totalGas).toLocaleString();
+  const blockBurnLabel = formatAmountDisplay((baseFeeWei * totalGas).toString(), 18, {
+    maxFractionDigits: 4,
+    symbol,
+  });
   const tips = txs.map((t) => Math.max(0, t.tipGwei));
 
   // Log scale for tip depth — full range, no clamping / cut-off.
@@ -225,7 +236,10 @@ function StackedLadder({ data }: { data: BlockLadder }) {
             );
           })}
           <text x={PAD_L + 4} y={PAD_T + 17} fontSize={11} fill="var(--color-bg-primary)">
-            burned {fmtGwei(baseFeeGwei)} gwei
+            base fee {fmtGwei(baseFeeGwei)} gwei
+          </text>
+          <text x={W - PAD_R - 2} y={PAD_T + 17} fontSize={11} textAnchor="end" fill="var(--color-bg-primary)">
+            {gasLabel} gas used · {blockBurnLabel} burned
           </text>
           <text x={W - PAD_R} y={lineY + 12} fontSize={11} textAnchor="end" fill="var(--color-text-muted)">
             tips (log) {fmtGwei(maxT)} → {fmtGwei(minT)} gwei
@@ -244,6 +258,7 @@ function StackedLadder({ data }: { data: BlockLadder }) {
             gas={gas[hovered]!}
             totalGas={totalGas}
             baseFeeGwei={baseFeeGwei}
+            baseFeeWei={baseFeeWei}
             symbol={symbol}
             deltaPrev={hovered > 0 ? tips[hovered]! - tips[hovered - 1]! : null}
             deltaNext={hovered < n - 1 ? tips[hovered]! - tips[hovered + 1]! : null}
@@ -265,6 +280,7 @@ function TxTooltip({
   gas,
   totalGas,
   baseFeeGwei,
+  baseFeeWei,
   symbol,
   deltaPrev,
   deltaNext,
@@ -274,6 +290,7 @@ function TxTooltip({
   gas: bigint;
   totalGas: bigint;
   baseFeeGwei: number;
+  baseFeeWei: bigint;
   symbol: string;
   deltaPrev: number | null;
   deltaNext: number | null;
@@ -324,6 +341,13 @@ function TxTooltip({
         <span className="theme-text-muted">burned</span>
         <span className="theme-mono text-right" style={{ color: BURN_COLOR }}>
           {fmtGwei(baseFeeGwei)} gwei
+        </span>
+        <span className="theme-text-muted">burn total</span>
+        <span className="theme-mono text-right" style={{ color: BURN_COLOR }}>
+          {formatAmountDisplay((baseFeeWei * gas).toString(), 18, {
+            maxFractionDigits: 6,
+            symbol,
+          })}
         </span>
         <span className="theme-text-muted">cost</span>
         <span className="theme-mono theme-text text-right">{fmtGwei(cost)} gwei</span>
