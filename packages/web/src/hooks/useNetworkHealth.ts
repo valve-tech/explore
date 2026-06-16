@@ -16,6 +16,10 @@ export function useNetworkHealth(limit: number) {
     placeholderData: keepPreviousData,
     staleTime: 10_000,
     refetchInterval: 20_000,
+    // One bounded retry, then surface the error (a rate-limited / slow chain
+    // should show a clear failure with a Retry, not loop on the loader forever).
+    retry: 1,
+    retryDelay: 1_000,
   });
 }
 

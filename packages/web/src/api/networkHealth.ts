@@ -110,6 +110,10 @@ interface Envelope {
 }
 
 const FETCH_TIMEOUT_MS = 20_000;
+// The window's first hit on a cold cache warms up to `limit` blocks server-side
+// (2 RPC calls each), so give it real headroom — a too-tight abort kills the
+// in-progress warm and the next attempt restarts it cold, never converging.
+const WINDOW_TIMEOUT_MS = 60_000;
 
 /**
  * Fetch the latest `limit` blocks' health stats for `chainId`. Throws on any
@@ -121,7 +125,7 @@ export async function fetchNetworkHealth(
   limit: number,
 ): Promise<NetworkHealthResult> {
   const url = scoped(`${API_BASE}?limit=${limit}`, chainId);
-  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  const res = await fetch(url, { signal: AbortSignal.timeout(WINDOW_TIMEOUT_MS) });
   const data = (await res.json().catch(() => null)) as Envelope | null;
   if (!res.ok || !data?.ok || !data.result) {
     throw new Error(data?.error || `network-health HTTP ${res.status}`);

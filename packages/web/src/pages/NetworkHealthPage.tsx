@@ -17,7 +17,8 @@ export default function NetworkHealthPage() {
   const chainId = useActiveChainId();
   const chainName = chainById(chainId)?.name ?? `chain ${chainId}`;
   const symbol = chainSymbol(chainId);
-  const { data, isPending, isError, error, isFetching } = useNetworkHealth(limit);
+  const { data, isPending, isError, error, isFetching, refetch } =
+    useNetworkHealth(limit);
 
   return (
     <div className="space-y-section p-4">
@@ -46,18 +47,32 @@ export default function NetworkHealthPage() {
       )}
 
       {isPending && (
-        <div className="flex flex-col items-center justify-center min-h-[300px] p-4">
-          <div className="spinner mb-3" />
+        <div className="flex flex-col items-center justify-center min-h-[300px] p-4 space-y-stack">
+          <div className="spinner" />
           <span className="text-sm theme-text-secondary">
             Loading {limit} blocks…
+          </span>
+          <span className="text-xs theme-text-muted">
+            First load warms the cache (can take ~30s on slower chains); later
+            loads are instant.
           </span>
         </div>
       )}
 
       {isError && (
-        <div className="card p-4 theme-danger">
-          Couldn't load network health:{" "}
-          {error instanceof Error ? error.message : "unknown error"}
+        <div className="card p-4 space-y-stack">
+          <div className="text-sm theme-danger">
+            Couldn't load network health:{" "}
+            {error instanceof Error ? error.message : "unknown error"}
+          </div>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="px-4 py-2 text-sm theme-text bs hover:theme-accent disabled:opacity-50"
+          >
+            {isFetching ? "Retrying…" : "Retry"}
+          </button>
         </div>
       )}
 
