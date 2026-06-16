@@ -5,6 +5,7 @@ import { formatGwei } from "../../lib/format/tokenAmount";
 import { useNowSeconds } from "../../hooks/useNow";
 import { SplitBar } from "./SplitBar";
 import { FeeLadder } from "./FeeLadder";
+import { Tooltip } from "./Tooltip";
 import { pct, shareOf, timeAgo } from "./format";
 
 const COLS = 7;
@@ -82,9 +83,11 @@ function BlockRow({
         </Td>
         <Td>
           {hasJump ? (
-            <div className="w-20" title="over-prioritized gas, legacy vs modern">
-              <SplitBar legacyFraction={shareOf(over.legacy, overTotal)} />
-            </div>
+            <Tooltip label="over-prioritized gas — legacy vs modern">
+              <div className="w-20">
+                <SplitBar legacyFraction={shareOf(over.legacy, overTotal)} />
+              </div>
+            </Tooltip>
           ) : (
             <span className="theme-text-muted">—</span>
           )}

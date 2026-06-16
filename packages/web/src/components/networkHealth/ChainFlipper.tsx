@@ -2,6 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { CHAINS, DEFAULT_CHAIN_ID } from "../../lib/chains";
 import { useActiveChainId } from "../../lib/activeChain";
 import { ChainGlyph } from "../ChainSelector";
+import { Tooltip } from "./Tooltip";
 
 /**
  * Inline chain flipper for the network-health page — one pill per chain, writes
@@ -24,18 +25,18 @@ export function ChainFlipper() {
       {CHAINS.map((c) => {
         const on = c.id === active;
         return (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => pick(c.id)}
-            title={c.name}
-            className={`flex items-center gap-tight px-2 h-8 text-xs ${
-              on ? "theme-text bs-b-accent" : "theme-text-muted hover:theme-text"
-            }`}
-          >
-            <ChainGlyph chainId={c.id} />
-            <span className="hidden sm:inline">{c.name}</span>
-          </button>
+          <Tooltip key={c.id} label={`${c.name} · chain ${c.id}`}>
+            <button
+              type="button"
+              onClick={() => pick(c.id)}
+              className={`flex items-center gap-tight px-2 h-8 text-xs ${
+                on ? "theme-text bs-b-accent" : "theme-text-muted hover:theme-text"
+              }`}
+            >
+              <ChainGlyph chainId={c.id} />
+              <span className="hidden sm:inline">{c.name}</span>
+            </button>
+          </Tooltip>
         );
       })}
     </div>
