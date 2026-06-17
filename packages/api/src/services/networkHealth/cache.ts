@@ -28,7 +28,7 @@ import {
   type NetworkHealthResponse,
 } from "./types.js";
 
-export const INITIAL_WINDOW = 256;
+export const INITIAL_WINDOW = 64; // cold-warm size; matches the page's initial limit
 export const LOAD_CHUNK = 256;
 export const CACHE_CAP = 2560;
 export const MAX_LIMIT = 512;

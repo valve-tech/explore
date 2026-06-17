@@ -9,11 +9,12 @@ import { MinersPanel } from "../components/networkHealth/MinersPanel";
 import { BlockTable } from "../components/networkHealth/BlockTable";
 import { ChainFlipper } from "../components/networkHealth/ChainFlipper";
 
-const STEP = 256;
+const INITIAL = 64; // cheap cold warm; matches the API's INITIAL_WINDOW
+const STEP = 256; // load-more increment
 const MAX = 2560;
 
 export default function NetworkHealthPage() {
-  const [limit, setLimit] = useState(STEP);
+  const [limit, setLimit] = useState(INITIAL);
   const chainId = useActiveChainId();
   const chainName = chainById(chainId)?.name ?? `chain ${chainId}`;
   const symbol = chainSymbol(chainId);
@@ -50,7 +51,7 @@ export default function NetworkHealthPage() {
         <div className="flex flex-col items-center justify-center min-h-[300px] p-4 space-y-stack">
           <div className="spinner" />
           <span className="text-sm theme-text-secondary">
-            Loading {limit} blocks…
+            Loading {limit} block{limit === 1 ? "" : "s"}…
           </span>
           <span className="text-xs theme-text-muted">
             First load warms the cache (can take ~30s on slower chains); later
