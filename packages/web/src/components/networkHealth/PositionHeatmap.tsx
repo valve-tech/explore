@@ -1,5 +1,5 @@
 import type { TypeSplit, WindowAggregate } from "../../api/networkHealth";
-import { Tooltip } from "./Tooltip";
+import { Tooltip } from "../primitives/Tooltip";
 import { pct } from "./format";
 
 /**
@@ -69,9 +69,13 @@ function Row({
       <div className="w-16 shrink-0 text-xs theme-text-secondary">{label}</div>
       <div className="flex grow gap-tight">
         {buckets.map((v, i) => (
-          <Tooltip key={i} label={`bucket ${i + 1}/10 · ${pct(v)} of ${label} gas`}>
+          <Tooltip
+            key={i}
+            className="grow"
+            label={`bucket ${i + 1}/10 · ${pct(v)} of ${label} gas`}
+          >
             <div
-              className="h-6 grow bs-in-muted"
+              className="h-6 w-full bs-in-muted"
               style={{
                 backgroundColor: color,
                 opacity: 0.12 + 0.88 * (v / max),

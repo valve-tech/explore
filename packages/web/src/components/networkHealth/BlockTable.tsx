@@ -5,7 +5,7 @@ import { formatGwei } from "../../lib/format/tokenAmount";
 import { useNowSeconds } from "../../hooks/useNow";
 import { SplitBar } from "./SplitBar";
 import { FeeLadder } from "./FeeLadder";
-import { Tooltip } from "./Tooltip";
+import { Tooltip } from "../primitives/Tooltip";
 import { pct, shareOf, timeAgo } from "./format";
 
 const COLS = 7;

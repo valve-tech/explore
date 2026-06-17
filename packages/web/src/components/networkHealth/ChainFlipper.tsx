@@ -2,7 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { CHAINS, DEFAULT_CHAIN_ID } from "../../lib/chains";
 import { useActiveChainId } from "../../lib/activeChain";
 import { ChainGlyph } from "../ChainSelector";
-import { Tooltip } from "./Tooltip";
+import { Tooltip } from "../primitives/Tooltip";
 
 /**
  * Inline chain flipper for the network-health page — one pill per chain, writes

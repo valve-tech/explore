@@ -1,13 +1,18 @@
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 type Side = "top" | "bottom";
 
 /**
- * Themed hover/focus tooltip. Replaces the ad-hoc `role="tooltip"` CSS hack in
- * AppShell and gives every feature one accessible label-on-hover primitive.
+ * Themed hover/focus tooltip — the one label-on-hover primitive for every
+ * feature, replacing native `title=` so the UI never mixes browser-default and
+ * styled tooltips.
  *
- * Visibility is driven by React state (not CSS `:hover`) so it also responds to
- * keyboard focus — the trigger should be a focusable element (button/link).
+ * Visibility is React state (not CSS `:hover`) so it also responds to keyboard
+ * focus — the trigger should be focusable (button/link). The bubble is rendered
+ * through a portal with `position: fixed`, anchored to the trigger's rect, so it
+ * never clips inside `overflow` containers (tables, scroll areas, cards). The
+ * wrapper is `inline-flex`; pass `className` (e.g. "grow") to fit flex layouts.
  */
 export function Tooltip({
   label,
@@ -20,39 +25,48 @@ export function Tooltip({
   children: ReactNode;
   className?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
   const id = useId();
 
-  const pos =
-    side === "top"
-      ? "bottom-[calc(100%+7px)]"
-      : "top-[calc(100%+7px)]";
+  const open = () => {
+    const r = ref.current?.getBoundingClientRect();
+    if (r) setRect(r);
+  };
+  const close = () => setRect(null);
 
   return (
     <span
-      className={`relative inline-flex ${className}`}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-      aria-describedby={open ? id : undefined}
+      ref={ref}
+      className={`inline-flex ${className}`}
+      onMouseEnter={open}
+      onMouseLeave={close}
+      onFocus={open}
+      onBlur={close}
+      aria-describedby={rect ? id : undefined}
     >
       {children}
-      {open && (
-        <span
-          id={id}
-          role="tooltip"
-          className={`absolute left-1/2 -translate-x-1/2 ${pos} z-30 whitespace-nowrap text-[11px] px-2.5 py-1.5 pointer-events-none`}
-          style={{
-            backgroundColor: "var(--color-bg-tertiary)",
-            color: "var(--color-text-primary)",
-            boxShadow:
-              "0 0 0 1px var(--color-border-default), 0 6px 18px rgba(0,0,0,0.5)",
-          }}
-        >
-          {label}
-        </span>
-      )}
+      {rect &&
+        createPortal(
+          <span
+            id={id}
+            role="tooltip"
+            className="fixed z-50 whitespace-nowrap text-[11px] px-2.5 py-1.5 pointer-events-none"
+            style={{
+              left: rect.left + rect.width / 2,
+              top: side === "top" ? rect.top - 7 : rect.bottom + 7,
+              transform:
+                side === "top" ? "translate(-50%, -100%)" : "translate(-50%, 0)",
+              backgroundColor: "var(--color-bg-tertiary)",
+              color: "var(--color-text-primary)",
+              boxShadow:
+                "0 0 0 1px var(--color-border-default), 0 6px 18px rgba(0,0,0,0.5)",
+            }}
+          >
+            {label}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }
