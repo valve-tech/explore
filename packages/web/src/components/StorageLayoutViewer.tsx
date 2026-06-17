@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { isAddress, pad, toHex } from "viem";
+import { Tooltip } from "./primitives/Tooltip";
 import type {
   StorageEntry,
   StorageLayoutResponse,
@@ -453,22 +454,30 @@ function DecompiledLayoutPanel({
                 // slots are immediately legible even though the contract
                 // isn't verified.
                 const displayName = s.known?.label ?? s.name;
+                const nameContent = (
+                  <>
+                    {displayName ?? <span className="theme-text-muted">—</span>}
+                    {s.known && (
+                      <span className="ml-1 text-[9px] uppercase tracking-wider font-semibold theme-accent">
+                        ★ known
+                      </span>
+                    )}
+                  </>
+                );
                 return (
                   <tr
                     key={s.slot}
                     onClick={() => void handleRead(s.slot)}
                     className={`cursor-pointer${isSelected ? " theme-accent-bg" : ""}`}
-                    title={s.known?.hint}
                   >
                     <td className="px-3 py-1.5 theme-text-muted">
                       {truncateSlot(s.slot)}
                     </td>
                     <td className="px-3 py-1.5 theme-text">
-                      {displayName ?? <span className="theme-text-muted">—</span>}
-                      {s.known && (
-                        <span className="ml-1 text-[9px] uppercase tracking-wider font-semibold theme-accent">
-                          ★ known
-                        </span>
+                      {s.known?.hint ? (
+                        <Tooltip label={s.known.hint}>{nameContent}</Tooltip>
+                      ) : (
+                        nameContent
                       )}
                     </td>
                     <td className="px-3 py-1.5 theme-text-secondary">

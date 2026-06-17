@@ -94,7 +94,7 @@ describe("StepDebugger", () => {
 
   it("steps forward when clicking the > button", () => {
     render(<StepDebugger steps={SAMPLE_STEPS} />, { wrapper: Wrapper });
-    const forwardBtn = screen.getByTitle("Step forward (Right arrow / Space)");
+    const forwardBtn = screen.getByRole("button", { name: "Step forward (Right arrow / Space)" });
     fireEvent.click(forwardBtn);
     expect(screen.getByText(/2 \/ 8/)).toBeInTheDocument();
   });
@@ -102,20 +102,20 @@ describe("StepDebugger", () => {
   it("steps backward when clicking the < button", () => {
     render(<StepDebugger steps={SAMPLE_STEPS} />, { wrapper: Wrapper });
     // Go forward first
-    const forwardBtn = screen.getByTitle("Step forward (Right arrow / Space)");
+    const forwardBtn = screen.getByRole("button", { name: "Step forward (Right arrow / Space)" });
     fireEvent.click(forwardBtn);
     fireEvent.click(forwardBtn);
     expect(screen.getByText(/3 \/ 8/)).toBeInTheDocument();
 
     // Then backward
-    const backBtn = screen.getByTitle("Step back (Left arrow)");
+    const backBtn = screen.getByRole("button", { name: "Step back (Left arrow)" });
     fireEvent.click(backBtn);
     expect(screen.getByText(/2 \/ 8/)).toBeInTheDocument();
   });
 
   it("jumps to next CALL opcode", () => {
     render(<StepDebugger steps={SAMPLE_STEPS} />, { wrapper: Wrapper });
-    const callBtn = screen.getByTitle("Next CALL (C)");
+    const callBtn = screen.getByRole("button", { name: "Next CALL (C)" });
     fireEvent.click(callBtn);
     // CALL is at index 5
     expect(screen.getByText(/6 \/ 8/)).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe("StepDebugger", () => {
 
   it("jumps to next storage op (SLOAD/SSTORE)", () => {
     render(<StepDebugger steps={SAMPLE_STEPS} />, { wrapper: Wrapper });
-    const sstoreBtn = screen.getByTitle("Next SSTORE (S)");
+    const sstoreBtn = screen.getByRole("button", { name: "Next SSTORE (S)" });
     fireEvent.click(sstoreBtn);
     // SLOAD is at index 3 (first storage op)
     expect(screen.getByText(/4 \/ 8/)).toBeInTheDocument();
@@ -131,11 +131,11 @@ describe("StepDebugger", () => {
 
   it("jumps to start and end", () => {
     render(<StepDebugger steps={SAMPLE_STEPS} />, { wrapper: Wrapper });
-    const endBtn = screen.getByTitle("Jump to end (End)");
+    const endBtn = screen.getByRole("button", { name: "Jump to end (End)" });
     fireEvent.click(endBtn);
     expect(screen.getByText(/8 \/ 8/)).toBeInTheDocument();
 
-    const startBtn = screen.getByTitle("Jump to start (Home)");
+    const startBtn = screen.getByRole("button", { name: "Jump to start (Home)" });
     fireEvent.click(startBtn);
     expect(screen.getByText(/1 \/ 8/)).toBeInTheDocument();
   });
@@ -150,7 +150,7 @@ describe("StepDebugger", () => {
 
   it("shows stack entries when panel is expanded and stepped", () => {
     render(<StepDebugger steps={SAMPLE_STEPS} />, { wrapper: Wrapper });
-    const forwardBtn = screen.getByTitle("Step forward (Right arrow / Space)");
+    const forwardBtn = screen.getByRole("button", { name: "Step forward (Right arrow / Space)" });
     fireEvent.click(forwardBtn);
     // Step 1 has stack: ["0x80"]
     expect(screen.queryByText("Stack is empty")).not.toBeInTheDocument();
@@ -160,7 +160,7 @@ describe("StepDebugger", () => {
     // txHash enables the lazy per-step detail fetch (mocked above).
     render(<StepDebugger steps={SAMPLE_STEPS} txHash="0xabc" />, { wrapper: Wrapper });
     // Navigate to SSTORE (index 4) by clicking Next twice (first hits SLOAD at 3)
-    const sstoreBtn = screen.getByTitle("Next SSTORE (S)");
+    const sstoreBtn = screen.getByRole("button", { name: "Next SSTORE (S)" });
     fireEvent.click(sstoreBtn); // SLOAD at index 3
     fireEvent.click(sstoreBtn); // SSTORE at index 4
     // Storage panel reflects the change once the detail window resolves.
@@ -185,14 +185,16 @@ describe("StepDebugger", () => {
     // The opcode pane (and its frequency rail) is part of the default split —
     // no tab click required. PUSH1 occurs twice in SAMPLE_STEPS.
     expect(
-      screen.getByTitle("PUSH1 — 2 occurrences"),
+      screen.getByRole("button", { name: "PUSH1 — 2 occurrences" }),
     ).toBeInTheDocument();
-    expect(screen.getByTitle("SLOAD — 1 occurrence")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "SLOAD — 1 occurrence" }),
+    ).toBeInTheDocument();
   });
 
   it("filters the trace to a single opcode when its tag is clicked", () => {
     render(<StepDebugger steps={SAMPLE_STEPS} />, { wrapper: Wrapper });
-    fireEvent.click(screen.getByTitle("PUSH1 — 2 occurrences"));
+    fireEvent.click(screen.getByRole("button", { name: "PUSH1 — 2 occurrences" }));
     // ControlsBar reports the filtered match count (exact: 2 PUSH1, not PUSH-family).
     expect(screen.getByText(/2 matches/)).toBeInTheDocument();
   });

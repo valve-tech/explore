@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { NAV_GROUPS } from "../../lib/navGroups";
 import { useWatchRules } from "../../hooks/useWatchRules";
 import { isRuleActionable } from "../../lib/watcher/rules";
+import { Tooltip } from "../primitives/Tooltip";
 
 /** The nav item watches live under — the only one that carries a live badge. */
 const WATCH_BADGE_ROUTE = "/workspace";
@@ -53,11 +54,10 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                 </div>
               )}
             </div>
-            {group.items.map((item) => (
+            {group.items.map((item) => {
+              const link = (
               <NavLink
-                key={item.to}
                 to={item.to}
-                title={collapsed ? item.label : undefined}
                 className="relative flex items-center transition-colors overflow-hidden"
                 style={({ isActive }) =>
                   collapsed
@@ -104,29 +104,49 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                 {item.to === WATCH_BADGE_ROUTE &&
                   activeWatches > 0 &&
                   (collapsed ? (
-                    <span
-                      className="absolute top-1 right-1.5 w-1.5 h-1.5"
-                      style={{ backgroundColor: "var(--color-accent)" }}
-                      title={`${activeWatches} active watch${
-                        activeWatches === 1 ? "" : "es"
-                      }`}
-                    />
-                  ) : (
-                    <span
-                      className="text-[10px] font-semibold px-1.5 py-0.5 shrink-0 tabular-nums"
-                      style={{
-                        backgroundColor: "var(--color-accent-muted)",
-                        color: "var(--color-accent)",
-                      }}
-                      title={`${activeWatches} active watch${
+                    <Tooltip
+                      className="absolute top-1 right-1.5"
+                      label={`${activeWatches} active watch${
                         activeWatches === 1 ? "" : "es"
                       }`}
                     >
-                      {activeWatches}
-                    </span>
+                      <span
+                        className="w-1.5 h-1.5"
+                        style={{ backgroundColor: "var(--color-accent)" }}
+                      />
+                    </Tooltip>
+                  ) : (
+                    <Tooltip
+                      className="shrink-0"
+                      label={`${activeWatches} active watch${
+                        activeWatches === 1 ? "" : "es"
+                      }`}
+                    >
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 tabular-nums"
+                        style={{
+                          backgroundColor: "var(--color-accent-muted)",
+                          color: "var(--color-accent)",
+                        }}
+                      >
+                        {activeWatches}
+                      </span>
+                    </Tooltip>
                   ))}
               </NavLink>
-            ))}
+              );
+              return collapsed ? (
+                <Tooltip
+                  key={item.to}
+                  className="w-full justify-center"
+                  label={item.label}
+                >
+                  {link}
+                </Tooltip>
+              ) : (
+                <div key={item.to}>{link}</div>
+              );
+            })}
           </div>
         ))}
       </nav>
@@ -140,35 +160,43 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
           justifyContent: collapsed ? "center" : "flex-start",
         }}
       >
-        <NavLink
-          to="/settings"
-          title={collapsed ? "Settings" : undefined}
-          className="flex items-center transition-colors"
-          style={({ isActive }) =>
-            collapsed
-              ? {
-                  width: 40,
-                  height: 40,
-                  justifyContent: "center",
-                  color: isActive ? "var(--color-accent)" : "var(--color-text-muted)",
-                  textDecoration: "none",
-                }
-              : {
-                  flex: 1,
-                  gap: 8,
-                  paddingLeft: 8,
-                  paddingRight: 8,
-                  paddingTop: 6,
-                  paddingBottom: 6,
-                  fontSize: 12,
-                  color: isActive ? "var(--color-accent)" : "var(--color-text-muted)",
-                  textDecoration: "none",
-                }
-          }
-        >
-          <Icon icon="heroicons:cog-6-tooth" className="w-5 h-5 shrink-0" />
-          {!collapsed && <span>Settings</span>}
-        </NavLink>
+        {(() => {
+          const settingsLink = (
+            <NavLink
+              to="/settings"
+              className="flex items-center transition-colors"
+              style={({ isActive }) =>
+                collapsed
+                  ? {
+                      width: 40,
+                      height: 40,
+                      justifyContent: "center",
+                      color: isActive ? "var(--color-accent)" : "var(--color-text-muted)",
+                      textDecoration: "none",
+                    }
+                  : {
+                      flex: 1,
+                      gap: 8,
+                      paddingLeft: 8,
+                      paddingRight: 8,
+                      paddingTop: 6,
+                      paddingBottom: 6,
+                      fontSize: 12,
+                      color: isActive ? "var(--color-accent)" : "var(--color-text-muted)",
+                      textDecoration: "none",
+                    }
+              }
+            >
+              <Icon icon="heroicons:cog-6-tooth" className="w-5 h-5 shrink-0" />
+              {!collapsed && <span>Settings</span>}
+            </NavLink>
+          );
+          return collapsed ? (
+            <Tooltip label="Settings">{settingsLink}</Tooltip>
+          ) : (
+            settingsLink
+          );
+        })()}
         {!collapsed && (
           <>
             <NavLink

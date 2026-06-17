@@ -8,6 +8,7 @@ import { chainById } from "../../../lib/chains";
 import { ruleLabel, type WatchRule } from "../../../lib/watcher/types";
 import { renderWatchSummary } from "../../../lib/watcher/summary";
 import type { Workspace } from "../../../lib/workspace/types";
+import { Tooltip } from "../../primitives/Tooltip";
 import { WatchRuleForm } from "./WatchRuleForm";
 
 /**
@@ -47,22 +48,25 @@ export function WatchRulesPanel({ workspace }: { workspace: Workspace }) {
         </div>
         <div className="flex items-center gap-tight shrink-0">
           {myRules.length > 1 && (
-            <button
-              onClick={() =>
-                setWorkspaceEnabled.mutate({
-                  workspaceId: workspace.id,
-                  enabled: !anyEnabled,
-                })
-              }
-              className="text-xs px-2 py-1 flex items-center gap-tight theme-text-muted"
-              title={anyEnabled ? "Pause every watch here" : "Resume every watch here"}
+            <Tooltip
+              label={anyEnabled ? "Pause every watch here" : "Resume every watch here"}
             >
-              <Icon
-                icon={anyEnabled ? "heroicons:pause" : "heroicons:play"}
-                className="w-4 h-4"
-              />
-              {anyEnabled ? "Pause all" : "Resume all"}
-            </button>
+              <button
+                onClick={() =>
+                  setWorkspaceEnabled.mutate({
+                    workspaceId: workspace.id,
+                    enabled: !anyEnabled,
+                  })
+                }
+                className="text-xs px-2 py-1 flex items-center gap-tight theme-text-muted"
+              >
+                <Icon
+                  icon={anyEnabled ? "heroicons:pause" : "heroicons:play"}
+                  className="w-4 h-4"
+                />
+                {anyEnabled ? "Pause all" : "Resume all"}
+              </button>
+            </Tooltip>
           )}
           <button
             onClick={() => setShowForm((v) => !v)}
@@ -169,20 +173,23 @@ function RuleRow({
         )}
       </div>
       <div className="flex items-center gap-tight shrink-0">
-        <button
-          onClick={onToggle}
-          className="px-2 py-1"
-          title={rule.enabled ? "Pause" : "Resume"}
-          style={{ color: rule.enabled ? "var(--color-accent)" : "var(--color-text-muted)" }}
-        >
-          <Icon
-            icon={rule.enabled ? "heroicons:pause" : "heroicons:play"}
-            className="w-4 h-4"
-          />
-        </button>
-        <button onClick={onRemove} className="px-2 py-1 theme-text-muted" title="Remove">
-          <Icon icon="heroicons:trash" className="w-4 h-4" />
-        </button>
+        <Tooltip label={rule.enabled ? "Pause" : "Resume"}>
+          <button
+            onClick={onToggle}
+            className="px-2 py-1"
+            style={{ color: rule.enabled ? "var(--color-accent)" : "var(--color-text-muted)" }}
+          >
+            <Icon
+              icon={rule.enabled ? "heroicons:pause" : "heroicons:play"}
+              className="w-4 h-4"
+            />
+          </button>
+        </Tooltip>
+        <Tooltip label="Remove">
+          <button onClick={onRemove} className="px-2 py-1 theme-text-muted">
+            <Icon icon="heroicons:trash" className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </div>
     </li>
   );

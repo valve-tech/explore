@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
+import { Tooltip } from "../../primitives/Tooltip";
 import { useRecentDebuggerTxs } from "../../../hooks/useRecentDebuggerTxs";
 import {
   removeDebuggerTx,
@@ -59,25 +60,25 @@ export function EmptyState() {
                 className="bs-b-muted group flex items-center justify-between gap-row px-4 py-2.5 cursor-pointer hover:opacity-90"
                 onClick={() => navigate(`/debugger/${t.hash}`)}
               >
-                <span
-                  className="font-mono text-xs truncate theme-accent"
-                  title={t.hash}
-                >
-                  {short(t.hash)}
-                </span>
+                <Tooltip label={t.hash} className="min-w-0">
+                  <span className="font-mono text-xs truncate theme-accent">
+                    {short(t.hash)}
+                  </span>
+                </Tooltip>
                 <div className="flex items-center gap-row shrink-0">
                   <span className="text-[11px] theme-text-muted">{ago(t.lastSeen)}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeDebuggerTx(t.hash);
-                    }}
-                    title="Remove"
-                    aria-label="Remove"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-5 h-5 theme-text-muted bg-transparent"
-                  >
-                    <Icon icon="heroicons:x-mark" className="w-3.5 h-3.5" />
-                  </button>
+                  <Tooltip label="Remove">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeDebuggerTx(t.hash);
+                      }}
+                      aria-label="Remove"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-5 h-5 theme-text-muted bg-transparent"
+                    >
+                      <Icon icon="heroicons:x-mark" className="w-3.5 h-3.5" />
+                    </button>
+                  </Tooltip>
                 </div>
               </li>
             ))}

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { getOpcodeColor } from "@valve-tech/trace-sdk";
+import { Tooltip } from "../../primitives/Tooltip";
 import type { OpcodeStep } from "../../../api/debugger";
 
 const ROW_HEIGHT = 26;
@@ -109,17 +110,20 @@ export function FrameOpcodesOverlay({
               explicitly so the user understands why the list doesn't reflect
               their current position. */}
           {(currentStep < from || currentStep >= to) && (
-            <span
-              className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 theme-warning theme-mono"
-              title={`Cursor is at step ${currentStep.toLocaleString()}, outside this frame's range.`}
-              style={{ boxShadow: "inset 0 0 0 1px var(--color-warning)" }}
-            >
-              cursor outside · step {currentStep.toLocaleString()}
-            </span>
+            <Tooltip label={`Cursor is at step ${currentStep.toLocaleString()}, outside this frame's range.`}>
+              <span
+                className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 theme-warning theme-mono"
+                style={{ boxShadow: "inset 0 0 0 1px var(--color-warning)" }}
+              >
+                cursor outside · step {currentStep.toLocaleString()}
+              </span>
+            </Tooltip>
           )}
-          <button onClick={onClose} className="ml-auto flex-shrink-0 theme-text-muted" title="Close (Esc)">
-            <Icon icon="heroicons:x-mark" className="w-4 h-4" />
-          </button>
+          <Tooltip label="Close (Esc)" className="ml-auto flex-shrink-0">
+            <button onClick={onClose} className="flex-shrink-0 theme-text-muted">
+              <Icon icon="heroicons:x-mark" className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </div>
 
         <div

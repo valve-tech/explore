@@ -15,6 +15,7 @@
 
 import type { ReactNode, CSSProperties } from "react";
 import { scanPath, type ScanKind } from "../../lib/scanRoutes";
+import { Tooltip } from "../primitives/Tooltip";
 
 interface ExplorerTargetLike {
   type: string; // "tx" | "address" | "block" | "contract"
@@ -45,10 +46,9 @@ export function ExplorerLink<T extends ExplorerTargetLike>({
   style?: CSSProperties;
   children: ReactNode;
 }) {
-  return (
+  const link = (
     <a
       href={hrefForTarget(target)}
-      title={title}
       className={className}
       style={style}
       onClick={(e) => {
@@ -61,4 +61,6 @@ export function ExplorerLink<T extends ExplorerTargetLike>({
       {children}
     </a>
   );
+
+  return title ? <Tooltip label={title}>{link}</Tooltip> : link;
 }

@@ -178,7 +178,7 @@ describe("<AlertDashboard />", () => {
     renderWithProviders(<AlertDashboard />);
     await screen.findByText("alert-42");
 
-    const toggle = screen.getByTitle(/Disable/i);
+    const toggle = screen.getByRole("button", { name: /Disable/i });
     fireEvent.click(toggle);
 
     await waitFor(() => {

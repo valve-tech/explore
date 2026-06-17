@@ -14,6 +14,7 @@ import { ExplorerLink } from "../explorer/ExplorerLink";
 import { truncateAddr } from "../explorer/format";
 import { Badge } from "../primitives/Badge";
 import { EmptyState } from "../primitives/EmptyState";
+import { Tooltip } from "../primitives/Tooltip";
 import { useTrackedTxs } from "../../hooks/useTrackedTxs";
 import {
   resolveTracked,
@@ -173,23 +174,28 @@ function TrackedRow({
 
       <span className="flex-1" />
 
-      <span
-        className={`text-xs font-mono tabular-nums shrink-0 ${tx.status === "pending" ? "theme-warning" : "theme-text-secondary"}`}
-        title={tx.status === "pending" ? "elapsed since pinned" : "time to resolve"}
+      <Tooltip
+        label={tx.status === "pending" ? "elapsed since pinned" : "time to resolve"}
+        className="shrink-0"
       >
-        {tx.status === "pending" ? "" : "took "}
-        {fmtDur(elapsedMs)}
-      </span>
+        <span
+          className={`text-xs font-mono tabular-nums ${tx.status === "pending" ? "theme-warning" : "theme-text-secondary"}`}
+        >
+          {tx.status === "pending" ? "" : "took "}
+          {fmtDur(elapsedMs)}
+        </span>
+      </Tooltip>
 
-      <button
-        onClick={() => untrackTx(tx.hash)}
-        title="Stop tracking"
-        aria-label="Stop tracking"
-        className="shrink-0 flex items-center justify-center w-6 h-6 transition-colors theme-text-muted"
-        style={{ backgroundColor: "transparent" }}
-      >
-        <Icon icon="heroicons:x-mark" className="w-3.5 h-3.5" />
-      </button>
+      <Tooltip label="Stop tracking" className="shrink-0">
+        <button
+          onClick={() => untrackTx(tx.hash)}
+          aria-label="Stop tracking"
+          className="flex items-center justify-center w-6 h-6 transition-colors theme-text-muted"
+          style={{ backgroundColor: "transparent" }}
+        >
+          <Icon icon="heroicons:x-mark" className="w-3.5 h-3.5" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

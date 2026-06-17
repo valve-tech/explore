@@ -1,6 +1,7 @@
 import type { AddressToken } from "../../../api/explorer";
 import { truncateAddr } from "../format";
 import type { AddressNavTarget } from "./TransactionsTab";
+import { Tooltip } from "../../primitives/Tooltip";
 
 export function TokensTab({
   tokens,
@@ -56,18 +57,19 @@ export function TokensTab({
                   {token.formattedBalance}
                 </td>
                 <td className="px-3 py-2">
-                  <button
-                    onClick={() =>
-                      onNavigate({
-                        type: "address",
-                        value: token.contractAddress,
-                      })
-                    }
-                    className="font-mono text-xs hover:underline cursor-pointer theme-accent"
-                    title={token.contractAddress}
-                  >
-                    {truncateAddr(token.contractAddress)}
-                  </button>
+                  <Tooltip label={token.contractAddress}>
+                    <button
+                      onClick={() =>
+                        onNavigate({
+                          type: "address",
+                          value: token.contractAddress,
+                        })
+                      }
+                      className="font-mono text-xs hover:underline cursor-pointer theme-accent"
+                    >
+                      {truncateAddr(token.contractAddress)}
+                    </button>
+                  </Tooltip>
                 </td>
                 <td className="px-3 py-2">
                   <span

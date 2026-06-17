@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { Tooltip } from "../../primitives/Tooltip";
 import { nodeKey, type ExecNode } from "./executionScopes";
 import type { TreeShared } from "./TreeNode";
 
@@ -49,12 +50,11 @@ export function LogRow({
           {params}
         </span>
       )}
-      <span
-        className="flex-shrink-0 text-[9px] font-semibold tracking-wide px-1 py-0.5 theme-text-muted bs-in-muted"
-        title={`${node.topicCount} indexed topic${node.topicCount === 1 ? "" : "s"}`}
-      >
-        LOG{node.topicCount}
-      </span>
+      <Tooltip label={`${node.topicCount} indexed topic${node.topicCount === 1 ? "" : "s"}`} className="flex-shrink-0">
+        <span className="flex-shrink-0 text-[9px] font-semibold tracking-wide px-1 py-0.5 theme-text-muted bs-in-muted">
+          LOG{node.topicCount}
+        </span>
+      </Tooltip>
     </div>
   );
 }

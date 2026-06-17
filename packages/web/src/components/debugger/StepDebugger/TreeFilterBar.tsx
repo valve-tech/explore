@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Tooltip } from "../../primitives/Tooltip";
 
 /**
  * Opcodes offered as quick chips. State + transient + control-flow ops — the
@@ -18,10 +19,9 @@ function Chip({ label, active, onClick, title }: {
   onClick: () => void;
   title?: string;
 }) {
-  return (
+  const button = (
     <button
       onClick={onClick}
-      title={title}
       className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 flex-shrink-0 theme-mono ${active ? "theme-accent theme-accent-bg" : "theme-text-muted"}`}
       style={{
         boxShadow: `inset 0 0 0 1px ${active ? "var(--color-accent)" : "var(--color-border-muted)"}`,
@@ -30,6 +30,7 @@ function Chip({ label, active, onClick, title }: {
       {label}
     </button>
   );
+  return title ? <Tooltip label={title}>{button}</Tooltip> : button;
 }
 
 /**

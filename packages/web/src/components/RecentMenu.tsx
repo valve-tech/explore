@@ -17,6 +17,7 @@ import {
   primaryLabel,
   secondaryLabel,
 } from "../lib/recentEntityView";
+import { Tooltip } from "./primitives/Tooltip";
 
 export function BackHistoryControl({
   canGoBack,
@@ -50,31 +51,33 @@ export function BackHistoryControl({
 
   return (
     <div ref={ref} className="relative flex items-stretch shrink-0">
-      <button
-        onClick={onBack}
-        disabled={!canGoBack}
-        title="Back"
-        aria-label="Go back"
-        className="flex items-center justify-center w-10 h-12 transition-opacity enabled:hover:opacity-80 disabled:opacity-30 disabled:cursor-default bs-r-muted bg-transparent theme-text-secondary"
-      >
-        <Icon icon="heroicons:arrow-left" className="w-4 h-4" />
-      </button>
+      <Tooltip label="Back">
+        <button
+          onClick={onBack}
+          disabled={!canGoBack}
+          aria-label="Go back"
+          className="flex items-center justify-center w-10 h-12 transition-opacity enabled:hover:opacity-80 disabled:opacity-30 disabled:cursor-default bs-r-muted bg-transparent theme-text-secondary"
+        >
+          <Icon icon="heroicons:arrow-left" className="w-4 h-4" />
+        </button>
+      </Tooltip>
 
-      <button
-        onClick={() => setOpen((o) => !o)}
-        title="Recent & pinned history"
-        aria-label="Recent and pinned history"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={`relative flex items-center justify-center w-6 h-12 transition-opacity hover:opacity-100 bs-r-muted bg-transparent ${open ? "theme-accent" : "theme-text-muted"}`}
-      >
-        <Icon icon="heroicons:chevron-down" className="w-3.5 h-3.5" />
-        {pinned.length > 0 && (
-          <span
-            className="absolute top-2 right-1 w-1.5 h-1.5 theme-warning-solid"
-          />
-        )}
-      </button>
+      <Tooltip label="Recent & pinned history">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Recent and pinned history"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className={`relative flex items-center justify-center w-6 h-12 transition-opacity hover:opacity-100 bs-r-muted bg-transparent ${open ? "theme-accent" : "theme-text-muted"}`}
+        >
+          <Icon icon="heroicons:chevron-down" className="w-3.5 h-3.5" />
+          {pinned.length > 0 && (
+            <span
+              className="absolute top-2 right-1 w-1.5 h-1.5 theme-warning-solid"
+            />
+          )}
+        </button>
+      </Tooltip>
 
       {open && (
         <div
@@ -159,23 +162,24 @@ function Row({
           {secondaryLabel(entity)}
         </div>
       </div>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          togglePin(entity.kind, entity.value);
-        }}
-        title={entity.pinned ? "Unpin" : "Pin"}
-        aria-label={entity.pinned ? "Unpin" : "Pin"}
-        className={`shrink-0 transition-opacity bg-transparent ${
-          entity.pinned ? "opacity-100 theme-warning" : "opacity-0 group-hover:opacity-100 theme-text-muted"
-        }`}
-      >
-        <Icon
-          icon={entity.pinned ? "heroicons:star-solid" : "heroicons:star"}
-          className="w-3.5 h-3.5"
-        />
-      </button>
+      <Tooltip className="shrink-0" label={entity.pinned ? "Unpin" : "Pin"}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            togglePin(entity.kind, entity.value);
+          }}
+          aria-label={entity.pinned ? "Unpin" : "Pin"}
+          className={`shrink-0 transition-opacity bg-transparent ${
+            entity.pinned ? "opacity-100 theme-warning" : "opacity-0 group-hover:opacity-100 theme-text-muted"
+          }`}
+        >
+          <Icon
+            icon={entity.pinned ? "heroicons:star-solid" : "heroicons:star"}
+            className="w-3.5 h-3.5"
+          />
+        </button>
+      </Tooltip>
     </div>
   );
 }

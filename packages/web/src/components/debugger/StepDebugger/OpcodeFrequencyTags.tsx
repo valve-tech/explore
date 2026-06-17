@@ -1,4 +1,5 @@
 import { getOpcodeColor } from "@valve-tech/trace-sdk";
+import { Tooltip } from "../../primitives/Tooltip";
 import type { OpcodeFrequency } from "./opcodeStats";
 
 /**
@@ -34,22 +35,26 @@ export function OpcodeFrequencyTags({
         const active = f.op === activeOp;
         const color = getOpcodeColor(f.op);
         return (
-          <button
+          <Tooltip
             key={f.op}
-            type="button"
-            onClick={() => onToggle(f.op)}
-            aria-pressed={active}
-            title={`${f.op} — ${f.count} occurrence${f.count === 1 ? "" : "s"}`}
-            className="inline-flex items-center gap-tight text-[10px] font-mono px-1.5 py-0.5 transition-colors"
-            style={{
-              color: active ? "#fff" : color,
-              backgroundColor: active ? color : `${color}20`,
-              boxShadow: `inset 0 0 0 1px ${color}${active ? "" : "40"}`,
-            }}
+            label={`${f.op} — ${f.count} occurrence${f.count === 1 ? "" : "s"}`}
           >
-            <span className="font-semibold">{f.op}</span>
-            <span style={{ opacity: 0.85 }}>{f.count}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onToggle(f.op)}
+              aria-pressed={active}
+              aria-label={`${f.op} — ${f.count} occurrence${f.count === 1 ? "" : "s"}`}
+              className="inline-flex items-center gap-tight text-[10px] font-mono px-1.5 py-0.5 transition-colors"
+              style={{
+                color: active ? "#fff" : color,
+                backgroundColor: active ? color : `${color}20`,
+                boxShadow: `inset 0 0 0 1px ${color}${active ? "" : "40"}`,
+              }}
+            >
+              <span className="font-semibold">{f.op}</span>
+              <span style={{ opacity: 0.85 }}>{f.count}</span>
+            </button>
+          </Tooltip>
         );
       })}
     </div>

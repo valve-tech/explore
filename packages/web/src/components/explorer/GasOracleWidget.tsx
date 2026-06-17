@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { fetchGasOracle, type TierName, type Trend } from "../../api/gas";
 import { useActiveChainId } from "../../lib/activeChain";
 import { formatGwei } from "../../lib/format/tokenAmount";
+import { Tooltip } from "../primitives/Tooltip";
 
 const TIERS: { key: TierName; label: string }[] = [
   { key: "slow", label: "Slow" },
@@ -183,25 +184,28 @@ function TierGauge({
           const isActive = t.key === tier;
           const tip = gweiNum(data.tiers[t.key].maxPriorityFeePerGas);
           return (
-            <button
+            <Tooltip
               key={t.key}
-              type="button"
-              aria-label={`${t.label} priority fee`}
-              aria-pressed={isActive}
-              title={`${t.label} · tip ${gwei(
+              label={`${t.label} · tip ${gwei(
                 data.tiers[t.key].maxPriorityFeePerGas,
               )} / cap ${gwei(data.tiers[t.key].maxFeePerGas)} gwei`}
-              onMouseEnter={() => onSelect(t.key)}
-              onFocus={() => onSelect(t.key)}
-              className="appearance-none border-0 p-0 cursor-pointer w-[7px] transition-opacity"
-              style={{
-                height: `${barHeight(tip, maxTip)}px`,
-                backgroundColor: isActive
-                  ? "var(--color-accent)"
-                  : "var(--color-text-muted)",
-                opacity: isActive ? 1 : 0.4,
-              }}
-            />
+            >
+              <button
+                type="button"
+                aria-label={`${t.label} priority fee`}
+                aria-pressed={isActive}
+                onMouseEnter={() => onSelect(t.key)}
+                onFocus={() => onSelect(t.key)}
+                className="appearance-none border-0 p-0 cursor-pointer w-[7px] transition-opacity"
+                style={{
+                  height: `${barHeight(tip, maxTip)}px`,
+                  backgroundColor: isActive
+                    ? "var(--color-accent)"
+                    : "var(--color-text-muted)",
+                  opacity: isActive ? 1 : 0.4,
+                }}
+              />
+            </Tooltip>
           );
         })}
       </span>

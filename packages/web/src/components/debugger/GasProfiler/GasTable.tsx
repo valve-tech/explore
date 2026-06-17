@@ -1,4 +1,5 @@
 import type { FlatGasEntry } from "../../../api/debugger";
+import { Tooltip } from "../../primitives/Tooltip";
 import { formatGas, getCallTypeColor, truncateAddress } from "./colors";
 
 const HEADERS: Array<{ label: string; align: "left" | "right" }> = [
@@ -38,11 +39,10 @@ export function GasTable({ flat }: { flat: FlatGasEntry[] }) {
               >
                 {entry.function}
               </td>
-              <td
-                className="py-2 px-3 font-mono theme-accent"
-                title={entry.address}
-              >
-                {truncateAddress(entry.address)}
+              <td className="py-2 px-3 font-mono theme-accent">
+                <Tooltip label={entry.address}>
+                  {truncateAddress(entry.address)}
+                </Tooltip>
               </td>
               <td className="py-2 px-3">
                 <span

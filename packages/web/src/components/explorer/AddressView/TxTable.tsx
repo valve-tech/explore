@@ -7,6 +7,7 @@ import type { AddressNavTarget } from "./TransactionsTab";
 import TxRowActions from "../TxRowActions";
 import { ExplorerLink } from "../ExplorerLink";
 import { TxGasInfo } from "../TxGasInfo";
+import { Tooltip } from "../../primitives/Tooltip";
 
 const HEADERS = ["Tx Hash", "Block", "Age", "From", "To", "Value", "Gas / Type", "Status", ""];
 
@@ -129,16 +130,17 @@ function TxRow({
         />
       </td>
       <td className="px-3 py-2">
-        <span
-          className="inline-block w-2 h-2 rounded-full"
-          style={{
-            backgroundColor:
-              tx.isError === "0"
-                ? "var(--color-success)"
-                : "var(--color-danger)",
-          }}
-          title={tx.isError === "0" ? "Success" : "Error"}
-        />
+        <Tooltip label={tx.isError === "0" ? "Success" : "Error"}>
+          <span
+            className="inline-block w-2 h-2 rounded-full"
+            style={{
+              backgroundColor:
+                tx.isError === "0"
+                  ? "var(--color-success)"
+                  : "var(--color-danger)",
+            }}
+          />
+        </Tooltip>
       </td>
       <td className="px-3 py-2 text-right relative">
         <TxRowActions

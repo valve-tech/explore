@@ -52,6 +52,7 @@ import { OperandBar } from "./StepDebugger/OperandBar";
 import { describeOperands } from "./StepDebugger/opcodeOperands";
 import { FrameOpcodesOverlay } from "./StepDebugger/FrameOpcodesOverlay";
 import { DebuggerWorkspaceSuggest } from "./DebuggerWorkspaceSuggest";
+import { Tooltip } from "../primitives/Tooltip";
 
 interface DecodedLog {
   eventName: string;
@@ -907,41 +908,44 @@ export default function StepDebugger({
                 questions: ← / → walks the browser-style trail; Recent jumps
                 anywhere you've been without losing your spot. */}
             <div className="ml-auto flex items-center gap-tight pr-2 relative">
-              <button
-                onClick={navGoBack}
-                disabled={!canBack}
-                title="Back (⌘[)"
-                className={`px-2 py-1 text-xs font-mono transition-opacity ${canBack ? "theme-text-secondary" : "theme-text-muted"}`}
-                style={{
-                  opacity: canBack ? 1 : 0.35,
-                  cursor: canBack ? "pointer" : "not-allowed",
-                }}
-              >
-                <Icon icon="heroicons:chevron-left" className="w-4 h-4" aria-hidden />
-              </button>
-              <button
-                onClick={navGoForward}
-                disabled={!canForward}
-                title="Forward (⌘])"
-                className={`px-2 py-1 text-xs font-mono transition-opacity ${canForward ? "theme-text-secondary" : "theme-text-muted"}`}
-                style={{
-                  opacity: canForward ? 1 : 0.35,
-                  cursor: canForward ? "pointer" : "not-allowed",
-                }}
-              >
-                <Icon icon="heroicons:chevron-right" className="w-4 h-4" aria-hidden />
-              </button>
-              {recents.length > 0 && (
+              <Tooltip label="Back (⌘[)">
                 <button
-                  onClick={() => setRecentsOpen((o) => !o)}
-                  title="Recent jumps"
-                  className={`px-2 py-1 text-xs font-mono transition-opacity ${recentsOpen ? "theme-accent" : "theme-text-secondary"}`}
+                  onClick={navGoBack}
+                  disabled={!canBack}
+                  className={`px-2 py-1 text-xs font-mono transition-opacity ${canBack ? "theme-text-secondary" : "theme-text-muted"}`}
                   style={{
-                    cursor: "pointer",
+                    opacity: canBack ? 1 : 0.35,
+                    cursor: canBack ? "pointer" : "not-allowed",
                   }}
                 >
-                  Recent
+                  <Icon icon="heroicons:chevron-left" className="w-4 h-4" aria-hidden />
                 </button>
+              </Tooltip>
+              <Tooltip label="Forward (⌘])">
+                <button
+                  onClick={navGoForward}
+                  disabled={!canForward}
+                  className={`px-2 py-1 text-xs font-mono transition-opacity ${canForward ? "theme-text-secondary" : "theme-text-muted"}`}
+                  style={{
+                    opacity: canForward ? 1 : 0.35,
+                    cursor: canForward ? "pointer" : "not-allowed",
+                  }}
+                >
+                  <Icon icon="heroicons:chevron-right" className="w-4 h-4" aria-hidden />
+                </button>
+              </Tooltip>
+              {recents.length > 0 && (
+                <Tooltip label="Recent jumps">
+                  <button
+                    onClick={() => setRecentsOpen((o) => !o)}
+                    className={`px-2 py-1 text-xs font-mono transition-opacity ${recentsOpen ? "theme-accent" : "theme-text-secondary"}`}
+                    style={{
+                      cursor: "pointer",
+                    }}
+                  >
+                    Recent
+                  </button>
+                </Tooltip>
               )}
               {recentsOpen && recents.length > 0 && (
                 <>
@@ -1006,18 +1010,19 @@ export default function StepDebugger({
           )}
 
           {navError && (
-            <div
-              role="alert"
-              onClick={() => setNavError(null)}
-              className="text-xs px-2 py-1 cursor-pointer theme-danger theme-mono"
-              style={{
-                backgroundColor: "rgba(248, 81, 73, 0.08)",
-                boxShadow: "0 1px 0 0 var(--color-danger)",
-              }}
-              title="Click to dismiss"
-            >
-              {navError}
-            </div>
+            <Tooltip label="Click to dismiss" className="w-full">
+              <div
+                role="alert"
+                onClick={() => setNavError(null)}
+                className="w-full text-xs px-2 py-1 cursor-pointer theme-danger theme-mono"
+                style={{
+                  backgroundColor: "rgba(248, 81, 73, 0.08)",
+                  boxShadow: "0 1px 0 0 var(--color-danger)",
+                }}
+              >
+                {navError}
+              </div>
+            </Tooltip>
           )}
 
           {contentView === "debugger" && (

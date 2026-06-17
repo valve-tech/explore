@@ -1,4 +1,5 @@
 import { isStorageOp } from "@valve-tech/trace-sdk/hooks";
+import { Tooltip } from "../../primitives/Tooltip";
 import { PanelHeader } from "./PanelHeader";
 import { formatWord, truncateWord } from "./format";
 
@@ -35,9 +36,11 @@ export function StoragePanel({
             {highlightSlot ? (
               <span className="flex items-center gap-tight theme-mono">
                 <span>{isStorageOp(currentOp) ? "reads slot" : "slot"}</span>
-                <span className="theme-warning" title={formatWord(highlightSlot)}>
-                  {truncateWord(highlightSlot)}
-                </span>
+                <Tooltip label={formatWord(highlightSlot)}>
+                  <span className="theme-warning">
+                    {truncateWord(highlightSlot)}
+                  </span>
+                </Tooltip>
                 <span>(no change)</span>
               </span>
             ) : (
@@ -52,23 +55,29 @@ export function StoragePanel({
               <div key={i} className="text-xs theme-mono">
                 <div className="flex items-center gap-tight">
                   <span className="theme-text-muted">slot:</span>
-                  <span className="truncate theme-warning" title={formatWord(d.slot)}>
-                    {truncateWord(d.slot)}
-                  </span>
+                  <Tooltip label={formatWord(d.slot)} className="truncate min-w-0">
+                    <span className="truncate theme-warning">
+                      {truncateWord(d.slot)}
+                    </span>
+                  </Tooltip>
                 </div>
                 {d.oldValue !== null && (
                   <div className="flex items-center gap-tight pl-4">
                     <span className="theme-danger">-</span>
-                    <span className="truncate theme-text-secondary" title={formatWord(d.oldValue)}>
-                      {truncateWord(d.oldValue)}
-                    </span>
+                    <Tooltip label={formatWord(d.oldValue)} className="truncate min-w-0">
+                      <span className="truncate theme-text-secondary">
+                        {truncateWord(d.oldValue)}
+                      </span>
+                    </Tooltip>
                   </div>
                 )}
                 <div className="flex items-center gap-tight pl-4">
                   <span className="theme-success">+</span>
-                  <span className="truncate theme-accent" title={formatWord(d.newValue)}>
-                    {truncateWord(d.newValue)}
-                  </span>
+                  <Tooltip label={formatWord(d.newValue)} className="truncate min-w-0">
+                    <span className="truncate theme-accent">
+                      {truncateWord(d.newValue)}
+                    </span>
+                  </Tooltip>
                 </div>
               </div>
             ))}

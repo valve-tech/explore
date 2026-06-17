@@ -10,6 +10,7 @@ import {
 import ActionEditor from "./ActionEditor";
 import ActionLogs from "./ActionLogs";
 import { useActiveChainId } from "../../lib/activeChain";
+import { Tooltip } from "../primitives/Tooltip";
 
 // ---------------------------------------------------------------------------
 // Trigger type badge colors
@@ -323,23 +324,24 @@ function ActionCard({
         {/* Right: actions */}
         <div className="flex items-center gap-inline ml-4 flex-shrink-0">
           {/* Enabled toggle */}
-          <button
-            onClick={onToggle}
-            className="relative w-10 h-5 rounded-full transition-colors"
-            style={{
-              backgroundColor: action.enabled
-                ? "var(--color-success)"
-                : "var(--color-border-default)",
-            }}
-            title={action.enabled ? "Disable" : "Enable"}
-          >
-            <div
-              className="absolute top-0.5 w-4 h-4 rounded-full transition-transform bg-white"
+          <Tooltip label={action.enabled ? "Disable" : "Enable"}>
+            <button
+              onClick={onToggle}
+              className="relative w-10 h-5 rounded-full transition-colors"
               style={{
-                left: action.enabled ? "calc(100% - 1.125rem)" : "0.125rem",
+                backgroundColor: action.enabled
+                  ? "var(--color-success)"
+                  : "var(--color-border-default)",
               }}
-            />
-          </button>
+            >
+              <div
+                className="absolute top-0.5 w-4 h-4 rounded-full transition-transform bg-white"
+                style={{
+                  left: action.enabled ? "calc(100% - 1.125rem)" : "0.125rem",
+                }}
+              />
+            </button>
+          </Tooltip>
 
           <button
             onClick={onViewLogs}

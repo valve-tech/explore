@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { Tooltip } from "../primitives/Tooltip";
 
 /**
  * Topbar wallet button.
@@ -41,20 +42,21 @@ export function WalletConnectButton() {
     // popover if no provider is found.
     return (
       <div className="relative">
-        <button
-          type="button"
-          onClick={() => void handleConnect()}
-          disabled={isPending || !injected}
-          className="text-xs px-3 py-1.5 inline-flex items-center gap-tight theme-tertiary-bg theme-text-secondary"
-          style={{
-            boxShadow: "inset 0 0 0 1px var(--color-border-muted)",
-            opacity: isPending || !injected ? 0.5 : 1,
-          }}
-          title="Connect a wallet to enable Workspace sync"
-        >
-          <Icon icon="heroicons:wallet" className="w-3.5 h-3.5" />
-          {isPending ? "Connecting…" : "Connect wallet"}
-        </button>
+        <Tooltip label="Connect a wallet to enable Workspace sync">
+          <button
+            type="button"
+            onClick={() => void handleConnect()}
+            disabled={isPending || !injected}
+            className="text-xs px-3 py-1.5 inline-flex items-center gap-tight theme-tertiary-bg theme-text-secondary"
+            style={{
+              boxShadow: "inset 0 0 0 1px var(--color-border-muted)",
+              opacity: isPending || !injected ? 0.5 : 1,
+            }}
+          >
+            <Icon icon="heroicons:wallet" className="w-3.5 h-3.5" />
+            {isPending ? "Connecting…" : "Connect wallet"}
+          </button>
+        </Tooltip>
         {error && (
           <div
             className="absolute right-0 mt-1 p-2 text-[11px] theme-danger-bg theme-danger w-64"
@@ -77,16 +79,17 @@ export function WalletConnectButton() {
 
   return (
     <div className="relative">
-      <button
-        type="button"
-        onClick={() => setPopoverOpen((v) => !v)}
-        className="text-xs px-3 py-1.5 inline-flex items-center gap-tight font-mono theme-tertiary-bg theme-text"
-        style={{ boxShadow: "inset 0 0 0 1px var(--color-border-muted)" }}
-        title={account.address}
-      >
-        <Icon icon="heroicons:wallet" className="w-3.5 h-3.5 theme-accent" />
-        {addressShort}
-      </button>
+      <Tooltip label="Wallet — click for full address">
+        <button
+          type="button"
+          onClick={() => setPopoverOpen((v) => !v)}
+          className="text-xs px-3 py-1.5 inline-flex items-center gap-tight font-mono theme-tertiary-bg theme-text"
+          style={{ boxShadow: "inset 0 0 0 1px var(--color-border-muted)" }}
+        >
+          <Icon icon="heroicons:wallet" className="w-3.5 h-3.5 theme-accent" />
+          {addressShort}
+        </button>
+      </Tooltip>
       {popoverOpen && (
         <div
           className="absolute right-0 z-50 mt-1 w-64 card p-2 space-y-tight"

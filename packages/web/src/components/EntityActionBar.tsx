@@ -99,9 +99,7 @@ export function EntityActionBar({
             </button>
           </Tooltip>
         ))}
-        <Tooltip label={copyTitle}>
-          <CopyButton value={value} title={copyTitle} size={28} />
-        </Tooltip>
+        <CopyButton value={value} title={copyTitle} size={28} />
       </div>
     );
   }
@@ -129,14 +127,12 @@ export function EntityActionBar({
           </button>
         );
       })}
-      <Tooltip label={copyTitle}>
-        <CopyButton
-          value={value}
-          title={copyTitle}
-          size={30}
-          className="bs-muted"
-        />
-      </Tooltip>
+      <CopyButton
+        value={value}
+        title={copyTitle}
+        size={30}
+        className="bs-muted"
+      />
     </div>
   );
 }

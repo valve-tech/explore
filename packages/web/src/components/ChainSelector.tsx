@@ -7,6 +7,7 @@ import {
   chainLogoUrl,
   type ChainSelection,
 } from "../lib/chains";
+import { Tooltip } from "./primitives/Tooltip";
 
 /**
  * Chain picker — drives the "which chain are we searching / displaying"
@@ -47,30 +48,33 @@ export function ChainSelector({
 
   return (
     <div ref={ref} className="relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-tight px-2.5 h-8 text-xs font-medium theme-tertiary-bg theme-text-secondary"
-        title={current ? `Searching ${current.name}` : "Searching all chains"}
+      <Tooltip
+        label={current ? `Searching ${current.name}` : "Searching all chains"}
       >
-        {current ? (
-          <ChainGlyph chainId={current.id} />
-        ) : (
-          <Icon
-            icon="heroicons:globe-alt"
-            className="w-3.5 h-3.5 theme-text-secondary"
-          />
-        )}
-        <span
-          className={variant === "compact" ? "hidden sm:inline" : "inline"}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-tight px-2.5 h-8 text-xs font-medium theme-tertiary-bg theme-text-secondary"
         >
-          {current ? current.name : "All chains"}
-        </span>
-        <Icon
-          icon={open ? "heroicons:chevron-up" : "heroicons:chevron-down"}
-          className="w-3 h-3 theme-text-muted"
-        />
-      </button>
+          {current ? (
+            <ChainGlyph chainId={current.id} />
+          ) : (
+            <Icon
+              icon="heroicons:globe-alt"
+              className="w-3.5 h-3.5 theme-text-secondary"
+            />
+          )}
+          <span
+            className={variant === "compact" ? "hidden sm:inline" : "inline"}
+          >
+            {current ? current.name : "All chains"}
+          </span>
+          <Icon
+            icon={open ? "heroicons:chevron-up" : "heroicons:chevron-down"}
+            className="w-3 h-3 theme-text-muted"
+          />
+        </button>
+      </Tooltip>
 
       {open && (
         <div

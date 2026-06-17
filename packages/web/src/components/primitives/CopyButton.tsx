@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { copyToClipboard } from "../../lib/clipboard";
+import { Tooltip } from "./Tooltip";
 
 /**
  * Copy-to-clipboard icon button with transient ✓ feedback. Replaces the copy
@@ -31,23 +32,24 @@ export function CopyButton({
   };
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={copied ? "Copied!" : title}
-      aria-label={title}
-      className={`inline-flex items-center justify-center transition-colors ${className}`}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: "transparent",
-        color: copied ? "var(--color-success)" : "var(--color-text-muted)",
-      }}
-    >
-      <Icon
-        icon={copied ? "heroicons:check" : "heroicons:clipboard-document"}
-        className="w-3.5 h-3.5"
-      />
-    </button>
+    <Tooltip label={copied ? "Copied!" : title}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={title}
+        className={`inline-flex items-center justify-center transition-colors ${className}`}
+        style={{
+          width: size,
+          height: size,
+          backgroundColor: "transparent",
+          color: copied ? "var(--color-success)" : "var(--color-text-muted)",
+        }}
+      >
+        <Icon
+          icon={copied ? "heroicons:check" : "heroicons:clipboard-document"}
+          className="w-3.5 h-3.5"
+        />
+      </button>
+    </Tooltip>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { Tooltip } from "../../primitives/Tooltip";
 
 /**
  * A fixed-width panel with a draggable handle on its right edge. Used to make
@@ -50,11 +51,12 @@ export function ResizablePanel({
     <div className="flex flex-shrink-0" style={{ width, height }}>
       <div className="flex-1 min-w-0 overflow-hidden">{children}</div>
       {/* Drag handle — a hairline that widens its hit area on hover. */}
-      <div
-        onPointerDown={onPointerDown}
-        className="w-1 flex-shrink-0 cursor-col-resize bs-r-in"
-        title="Drag to resize"
-      />
+      <Tooltip label="Drag to resize" className="w-1 flex-shrink-0">
+        <div
+          onPointerDown={onPointerDown}
+          className="w-1 flex-shrink-0 cursor-col-resize bs-r-in"
+        />
+      </Tooltip>
     </div>
   );
 }

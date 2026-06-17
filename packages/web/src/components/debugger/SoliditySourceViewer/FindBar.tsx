@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { type RefObject } from "react";
+import { Tooltip } from "../../primitives/Tooltip";
 
 /**
  * The Cmd/Ctrl+F bar that floats top-right of the source pane. Pure
@@ -66,32 +67,35 @@ export function FindBar({
       >
         {counterText}
       </span>
-      <button
-        onClick={() => onStep(-1)}
-        title="Previous match (Shift+Enter)"
-        className="flex-shrink-0 theme-text-muted"
-        disabled={!matchCount}
-        aria-label="Previous match"
-      >
-        <Icon icon="heroicons:chevron-up" className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={() => onStep(1)}
-        title="Next match (Enter)"
-        className="flex-shrink-0 theme-text-muted"
-        disabled={!matchCount}
-        aria-label="Next match"
-      >
-        <Icon icon="heroicons:chevron-down" className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={onClose}
-        title="Close (Esc)"
-        className="flex-shrink-0 theme-text-muted"
-        aria-label="Close find"
-      >
-        <Icon icon="heroicons:x-mark" className="w-3.5 h-3.5" />
-      </button>
+      <Tooltip label="Previous match (Shift+Enter)" className="flex-shrink-0">
+        <button
+          onClick={() => onStep(-1)}
+          className="flex-shrink-0 theme-text-muted"
+          disabled={!matchCount}
+          aria-label="Previous match"
+        >
+          <Icon icon="heroicons:chevron-up" className="w-3.5 h-3.5" />
+        </button>
+      </Tooltip>
+      <Tooltip label="Next match (Enter)" className="flex-shrink-0">
+        <button
+          onClick={() => onStep(1)}
+          className="flex-shrink-0 theme-text-muted"
+          disabled={!matchCount}
+          aria-label="Next match"
+        >
+          <Icon icon="heroicons:chevron-down" className="w-3.5 h-3.5" />
+        </button>
+      </Tooltip>
+      <Tooltip label="Close (Esc)" className="flex-shrink-0">
+        <button
+          onClick={onClose}
+          className="flex-shrink-0 theme-text-muted"
+          aria-label="Close find"
+        >
+          <Icon icon="heroicons:x-mark" className="w-3.5 h-3.5" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

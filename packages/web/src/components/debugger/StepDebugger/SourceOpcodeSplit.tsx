@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { Icon } from "@iconify/react";
+import { Tooltip } from "../../primitives/Tooltip";
 import type { ContractSource, SlitherFinding } from "../../../api/source";
 import type { OpcodeStep } from "../../../api/debugger";
 import type { HighlightSpan } from "../SoliditySourceViewer";
@@ -110,16 +111,17 @@ export function SourceOpcodeSplit({
       {collapsed ? (
         // Collapsed rail: a thin column with a single button to restore the
         // opcode pane. Persisted so the rail keeps showing on reload.
-        <button
-          onClick={toggleCollapsed}
-          title="Show opcode pane"
-          className="hidden lg:flex items-start justify-center pt-3 flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-card-bg theme-text-muted theme-mono bs"
-          style={{
-            width: "20px",
-          }}
-        >
-          <Icon icon="heroicons:chevron-left" className="w-3 h-3" aria-hidden />
-        </button>
+        <Tooltip label="Show opcode pane" className="hidden lg:flex flex-shrink-0">
+          <button
+            onClick={toggleCollapsed}
+            className="hidden lg:flex items-start justify-center pt-3 flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-card-bg theme-text-muted theme-mono bs"
+            style={{
+              width: "20px",
+            }}
+          >
+            <Icon icon="heroicons:chevron-left" className="w-3 h-3" aria-hidden />
+          </button>
+        </Tooltip>
       ) : (
         // Opcode trace — synced companion. The `.card` class already provides
         // the bg-card surface + outset border + 1px margin; no need to repeat
@@ -133,17 +135,18 @@ export function SourceOpcodeSplit({
                 onToggle={onToggleOpcode}
               />
             </div>
-            <button
-              onClick={toggleCollapsed}
-              title="Hide opcode pane"
-              className="hidden lg:flex items-center justify-center self-stretch flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-text-muted theme-mono"
-              style={{
-                width: "20px",
-                boxShadow: "inset 1px 0 0 0 var(--color-border-default)",
-              }}
-            >
-              <Icon icon="heroicons:chevron-right" className="w-3 h-3" aria-hidden />
-            </button>
+            <Tooltip label="Hide opcode pane" className="hidden lg:flex self-stretch flex-shrink-0">
+              <button
+                onClick={toggleCollapsed}
+                className="hidden lg:flex items-center justify-center self-stretch flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-text-muted theme-mono"
+                style={{
+                  width: "20px",
+                  boxShadow: "inset 1px 0 0 0 var(--color-border-default)",
+                }}
+              >
+                <Icon icon="heroicons:chevron-right" className="w-3 h-3" aria-hidden />
+              </button>
+            </Tooltip>
           </div>
           <div className="flex-1 min-h-0">
             <OpcodeTracePane

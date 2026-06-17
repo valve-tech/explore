@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getOpcodeColor } from "@valve-tech/trace-sdk";
+import { Tooltip } from "../../primitives/Tooltip";
 import type { OpcodeStep } from "../../../api/debugger";
 
 const VISIBLE_ROWS = 30;
@@ -61,10 +62,16 @@ export function OpcodeTracePane({
         className="flex items-center text-[10px] uppercase tracking-wider flex-shrink-0 bs-b-muted py-1 theme-mono theme-text-muted"
         style={{ paddingLeft: 8, paddingRight: 12 }}
       >
-        <span className="w-14 text-right mr-3 flex-shrink-0" title="Execution step index">Step</span>
-        <span className="w-10 text-right mr-3 flex-shrink-0" title="Program counter — byte offset of this opcode within the contract's bytecode">Offset</span>
+        <Tooltip label="Execution step index" className="w-14 flex-shrink-0 mr-3">
+          <span className="w-14 text-right">Step</span>
+        </Tooltip>
+        <Tooltip label="Program counter — byte offset of this opcode within the contract's bytecode" className="w-10 flex-shrink-0 mr-3">
+          <span className="w-10 text-right">Offset</span>
+        </Tooltip>
         <span className="w-28 mr-3 flex-shrink-0">Opcode</span>
-        <span className="flex-shrink-0" title="Gas this opcode costs (not cumulative)">Gas cost</span>
+        <Tooltip label="Gas this opcode costs (not cumulative)" className="flex-shrink-0">
+          <span>Gas cost</span>
+        </Tooltip>
       </div>
 
       <div ref={listRef} className="overflow-y-auto flex-1" onScroll={handleScroll}>

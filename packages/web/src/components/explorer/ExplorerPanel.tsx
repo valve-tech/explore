@@ -9,6 +9,7 @@ import ExplorerHome from "./ExplorerHome";
 import { recordVisit } from "../../lib/recentEntities";
 import { scanPath } from "../../lib/scanRoutes";
 import { truncateAddr } from "./format";
+import { Tooltip } from "../primitives/Tooltip";
 
 type ExplorerView =
   | { type: "none" }
@@ -219,15 +220,16 @@ function Breadcrumb({
       aria-label="Explorer trail"
     >
       {history.length > 0 && (
-        <button
-          onClick={onBack}
-          title="Back"
-          aria-label="Back"
-          className="flex items-center justify-center w-6 h-6 mr-1 transition-colors hover:opacity-100 theme-text-muted"
-          style={{ backgroundColor: "transparent" }}
-        >
-          <Icon icon="heroicons:chevron-left" className="w-4 h-4" />
-        </button>
+        <Tooltip label="Back">
+          <button
+            onClick={onBack}
+            aria-label="Back"
+            className="flex items-center justify-center w-6 h-6 mr-1 transition-colors hover:opacity-100 theme-text-muted"
+            style={{ backgroundColor: "transparent" }}
+          >
+            <Icon icon="heroicons:chevron-left" className="w-4 h-4" />
+          </button>
+        </Tooltip>
       )}
 
       {collapsed.map((node, i) => (
@@ -238,14 +240,15 @@ function Breadcrumb({
           {/* Insert the "…" expander right after Home when collapsed. */}
           {hasGap && i === 1 && (
             <>
-              <button
-                onClick={() => setExpanded(true)}
-                title="Show full trail"
-                className="px-1.5 py-1 font-mono transition-colors hover:opacity-100 theme-text-muted"
-                style={{ backgroundColor: "transparent" }}
-              >
-                …
-              </button>
+              <Tooltip label="Show full trail">
+                <button
+                  onClick={() => setExpanded(true)}
+                  className="px-1.5 py-1 font-mono transition-colors hover:opacity-100 theme-text-muted"
+                  style={{ backgroundColor: "transparent" }}
+                >
+                  …
+                </button>
+              </Tooltip>
               <Icon icon="heroicons:chevron-right" className="w-3.5 h-3.5 theme-text-muted" aria-hidden />
             </>
           )}

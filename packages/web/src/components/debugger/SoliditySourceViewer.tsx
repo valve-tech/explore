@@ -10,6 +10,7 @@ import {
 } from "./SoliditySourceViewer/tokenize";
 import { useFindInSource } from "./SoliditySourceViewer/useFindInSource";
 import { FindBar } from "./SoliditySourceViewer/FindBar";
+import { Tooltip } from "../primitives/Tooltip";
 
 // Re-export `HighlightSpan` and `splitTokensBySpan` so existing importers
 // (SourceTabContent, SourceOpcodeSplit, the splitTokensBySpan unit test)
@@ -225,10 +226,9 @@ export default function SourceViewer({
               {(() => {
                 const isExecutable = executableLines?.has(lineNum) ?? false;
                 const clickable = !!onLineClick && isExecutable;
-                return (
+                const gutter = (
               <span
                 onClick={clickable ? () => onLineClick(lineNum) : undefined}
-                title={clickable ? `Jump to first opcode on line ${lineNum}` : undefined}
                 className="w-12 text-right pr-3 flex-shrink-0 select-none"
                 style={{
                   color: isCurrentLine
@@ -241,15 +241,21 @@ export default function SourceViewer({
                 }}
               >
                 {lineFindings && (
-                  <span
-                    className="inline-block w-2 h-2 mr-1"
-                    title={lineFindings.map((f) => `[${f.severity}] ${f.message}`).join("\n")}
-                    style={{ backgroundColor: severityColors[lineFindings[0]?.severity ?? ""] ?? "#60A5FA" }}
-                  />
+                  <Tooltip label={lineFindings.map((f) => `[${f.severity}] ${f.message}`).join("\n")}>
+                    <span
+                      className="inline-block w-2 h-2 mr-1"
+                      style={{ backgroundColor: severityColors[lineFindings[0]?.severity ?? ""] ?? "#60A5FA" }}
+                    />
+                  </Tooltip>
                 )}
                 {lineNum}
               </span>
                 );
+                return clickable ? (
+                  <Tooltip label={`Jump to first opcode on line ${lineNum}`} className="w-12 flex-shrink-0">
+                    {gutter}
+                  </Tooltip>
+                ) : gutter;
               })()}
 
               {/* Code with interactive tokens. Tokens are split by the active

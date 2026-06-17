@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useWorkspaces } from "../../hooks/useWorkspaces";
 import { useActiveChainId } from "../../lib/activeChain";
 import type { WorkspaceItemKind } from "../../lib/workspace/types";
+import { Tooltip } from "../primitives/Tooltip";
 
 /**
  * Drop-in button (used inside detail-page headers, next to EntityActionBar)
@@ -52,16 +53,17 @@ export function AddToWorkspaceButton({
   };
 
   const trigger = compact ? (
-    <button
-      type="button"
-      onClick={() => setOpen((v) => !v)}
-      title="Add to Workspace"
-      aria-label="Add to Workspace"
-      className="flex items-center justify-center w-7 h-7 transition-colors theme-text-muted"
-      style={{ backgroundColor: "transparent", boxShadow: "inset 0 0 0 1px var(--color-border-muted)" }}
-    >
-      <Icon icon="heroicons:folder-plus" className="w-3.5 h-3.5" />
-    </button>
+    <Tooltip label="Add to Workspace">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Add to Workspace"
+        className="flex items-center justify-center w-7 h-7 transition-colors theme-text-muted"
+        style={{ backgroundColor: "transparent", boxShadow: "inset 0 0 0 1px var(--color-border-muted)" }}
+      >
+        <Icon icon="heroicons:folder-plus" className="w-3.5 h-3.5" />
+      </button>
+    </Tooltip>
   ) : (
     <button
       type="button"

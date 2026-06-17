@@ -1,4 +1,5 @@
 import type { OpcodeCategory } from "../../../api/debugger";
+import { Tooltip } from "../../primitives/Tooltip";
 import { formatGas, getCategoryColor } from "./colors";
 
 export function OpcodeCategoryBreakdown({
@@ -15,16 +16,20 @@ export function OpcodeCategoryBreakdown({
           const pct = totalGas > 0 ? (cat.gas / totalGas) * 100 : 0;
           if (pct < 0.5) return null;
           return (
-            <div
+            <Tooltip
               key={cat.category}
-              className="h-full transition-all relative group"
-              style={{
-                width: `${pct}%`,
-                backgroundColor: getCategoryColor(cat.category),
-                opacity: 0.75,
-              }}
-              title={`${cat.category}: ${formatGas(cat.gas)} gas (${pct.toFixed(1)}%)`}
-            />
+              label={`${cat.category}: ${formatGas(cat.gas)} gas (${pct.toFixed(1)}%)`}
+              className="h-full"
+            >
+              <div
+                className="h-full transition-all relative group"
+                style={{
+                  width: `${pct}%`,
+                  backgroundColor: getCategoryColor(cat.category),
+                  opacity: 0.75,
+                }}
+              />
+            </Tooltip>
           );
         })}
       </div>

@@ -1,5 +1,6 @@
 import type { ForkSimulationResult } from "../../api/simulate";
 import { DiffSection } from "./primitives";
+import { Tooltip } from "../primitives/Tooltip";
 
 export function BalanceChangesTable({
   changes,
@@ -25,11 +26,10 @@ export function BalanceChangesTable({
               key={i}
               className="bs-t"
             >
-              <td
-                className="py-1.5 px-2 theme-text"
-                title={bc.address}
-              >
-                {bc.address.slice(0, 8)}...{bc.address.slice(-6)}
+              <td className="py-1.5 px-2 theme-text">
+                <Tooltip label={bc.address}>
+                  {bc.address.slice(0, 8)}...{bc.address.slice(-6)}
+                </Tooltip>
               </td>
               <td
                 className="text-right py-1.5 px-2 theme-text-muted"
@@ -84,30 +84,22 @@ export function StorageChangesTable({
               key={i}
               className="bs-t"
             >
-              <td
-                className="py-1.5 px-2 theme-text"
-                title={sc.address}
-              >
-                {sc.contractName ??
-                  `${sc.address.slice(0, 8)}...${sc.address.slice(-4)}`}
+              <td className="py-1.5 px-2 theme-text">
+                <Tooltip label={sc.address}>
+                  {sc.contractName ??
+                    `${sc.address.slice(0, 8)}...${sc.address.slice(-4)}`}
+                </Tooltip>
               </td>
-              <td
-                className="py-1.5 px-2 theme-text-muted"
-                title={sc.slot}
-              >
-                {sc.decodedName ?? `${sc.slot.slice(0, 10)}...`}
+              <td className="py-1.5 px-2 theme-text-muted">
+                <Tooltip label={sc.slot}>
+                  {sc.decodedName ?? `${sc.slot.slice(0, 10)}...`}
+                </Tooltip>
               </td>
-              <td
-                className="py-1.5 px-2 theme-danger"
-                title={sc.before}
-              >
-                {sc.before.slice(0, 14)}...
+              <td className="py-1.5 px-2 theme-danger">
+                <Tooltip label={sc.before}>{sc.before.slice(0, 14)}...</Tooltip>
               </td>
-              <td
-                className="py-1.5 px-2 theme-success"
-                title={sc.after}
-              >
-                {sc.after.slice(0, 14)}...
+              <td className="py-1.5 px-2 theme-success">
+                <Tooltip label={sc.after}>{sc.after.slice(0, 14)}...</Tooltip>
               </td>
             </tr>
           ))}

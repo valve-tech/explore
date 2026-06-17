@@ -1,6 +1,7 @@
 import { Icon } from "@iconify/react";
 import { useWorkspaceSync } from "../../hooks/useWorkspaceSync";
 import { useWalletSigner } from "../../hooks/useWalletSigner";
+import { Tooltip } from "../primitives/Tooltip";
 
 /**
  * Topbar widget that reflects the workspace-sync state.
@@ -30,16 +31,17 @@ export function WorkspaceSyncStatus() {
 
   if (status.kind === "disabled") {
     return (
-      <button
-        type="button"
-        onClick={() => void enable()}
-        className="text-xs px-3 py-1.5 inline-flex items-center gap-tight theme-tertiary-bg theme-text-secondary"
-        style={{ boxShadow: "inset 0 0 0 1px var(--color-border-muted)" }}
-        title="Sign a message to enable cross-device workspace sync"
-      >
-        <Icon icon="heroicons:cloud-arrow-up" className="w-3.5 h-3.5" />
-        Enable sync
-      </button>
+      <Tooltip label="Sign a message to enable cross-device workspace sync">
+        <button
+          type="button"
+          onClick={() => void enable()}
+          className="text-xs px-3 py-1.5 inline-flex items-center gap-tight theme-tertiary-bg theme-text-secondary"
+          style={{ boxShadow: "inset 0 0 0 1px var(--color-border-muted)" }}
+        >
+          <Icon icon="heroicons:cloud-arrow-up" className="w-3.5 h-3.5" />
+          Enable sync
+        </button>
+      </Tooltip>
     );
   }
 
@@ -63,14 +65,15 @@ export function WorkspaceSyncStatus() {
 
   if (status.kind === "in-sync") {
     return (
-      <div
-        className="text-xs px-3 py-1.5 inline-flex items-center gap-tight theme-tertiary-bg theme-text-secondary"
-        style={{ boxShadow: "inset 0 0 0 1px var(--color-border-muted)" }}
-        title={`Last server update ${new Date(status.serverUpdatedAt).toLocaleString()}`}
-      >
-        <span className="w-2 h-2 theme-success-bg" />
-        Synced
-      </div>
+      <Tooltip label={`Last server update ${new Date(status.serverUpdatedAt).toLocaleString()}`}>
+        <div
+          className="text-xs px-3 py-1.5 inline-flex items-center gap-tight theme-tertiary-bg theme-text-secondary"
+          style={{ boxShadow: "inset 0 0 0 1px var(--color-border-muted)" }}
+        >
+          <span className="w-2 h-2 theme-success-bg" />
+          Synced
+        </div>
+      </Tooltip>
     );
   }
 
@@ -84,45 +87,53 @@ export function WorkspaceSyncStatus() {
       >
         <Icon icon="heroicons:exclamation-triangle" className="w-3.5 h-3.5" />
         <span>Conflict</span>
-        <button
-          type="button"
-          onClick={() => void resolveConflict("local")}
-          className="ml-2 px-2 py-0.5 theme-text"
-          style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-          title={`Keep this device's ${localCount} workspace${localCount === 1 ? "" : "s"}`}
+        <Tooltip
+          label={`Keep this device's ${localCount} workspace${localCount === 1 ? "" : "s"}`}
+          className="ml-2"
         >
-          Keep local
-        </button>
-        <button
-          type="button"
-          onClick={() => void resolveConflict("remote")}
-          className="px-2 py-0.5 theme-text"
-          style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-          title={`Use the server's ${remoteCount} workspace${remoteCount === 1 ? "" : "s"}`}
+          <button
+            type="button"
+            onClick={() => void resolveConflict("local")}
+            className="px-2 py-0.5 theme-text"
+            style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+          >
+            Keep local
+          </button>
+        </Tooltip>
+        <Tooltip
+          label={`Use the server's ${remoteCount} workspace${remoteCount === 1 ? "" : "s"}`}
         >
-          Use server
-        </button>
+          <button
+            type="button"
+            onClick={() => void resolveConflict("remote")}
+            className="px-2 py-0.5 theme-text"
+            style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+          >
+            Use server
+          </button>
+        </Tooltip>
       </div>
     );
   }
 
   // status.kind === "error"
   return (
-    <div
-      className="text-xs px-3 py-1.5 inline-flex items-center gap-tight theme-danger-bg theme-danger"
-      style={{ boxShadow: "inset 0 0 0 1px var(--color-danger)" }}
-      title={status.message}
-    >
-      <Icon icon="heroicons:x-circle" className="w-3.5 h-3.5" />
-      <span className="max-w-[14ch] truncate">{status.message}</span>
-      <button
-        type="button"
-        onClick={() => void enable()}
-        className="ml-2 px-2 py-0.5 theme-text"
-        style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+    <Tooltip label={status.message}>
+      <div
+        className="text-xs px-3 py-1.5 inline-flex items-center gap-tight theme-danger-bg theme-danger"
+        style={{ boxShadow: "inset 0 0 0 1px var(--color-danger)" }}
       >
-        Retry
-      </button>
-    </div>
+        <Icon icon="heroicons:x-circle" className="w-3.5 h-3.5" />
+        <span className="max-w-[14ch] truncate">{status.message}</span>
+        <button
+          type="button"
+          onClick={() => void enable()}
+          className="ml-2 px-2 py-0.5 theme-text"
+          style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+        >
+          Retry
+        </button>
+      </div>
+    </Tooltip>
   );
 }

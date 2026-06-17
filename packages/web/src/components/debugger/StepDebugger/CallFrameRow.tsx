@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { Tooltip } from "../../primitives/Tooltip";
 import { lookupWellKnown } from "../../../lib/wellKnownSignatures";
 import { bestMatchSignature } from "./callTreeHelpers";
 import { CALL_TYPE_BORDER } from "./theme";
@@ -157,68 +158,81 @@ export function CallFrameRow({
         )}
 
         {typeTag && (
-          <span
-            className="flex-shrink-0 text-[9px] font-semibold tracking-wide px-1 py-0.5"
-            style={{ color: typeColor, boxShadow: `inset 0 0 0 1px ${typeColor}` }}
-            title={frame.type}
-          >
-            {typeTag}
-          </span>
+          <Tooltip label={frame.type} className="flex-shrink-0">
+            <span
+              className="flex-shrink-0 text-[9px] font-semibold tracking-wide px-1 py-0.5"
+              style={{ color: typeColor, boxShadow: `inset 0 0 0 1px ${typeColor}` }}
+            >
+              {typeTag}
+            </span>
+          </Tooltip>
         )}
 
         {displayLabel && (
           <>
-            <span
-              className={contractName ? "theme-accent" : "theme-text-secondary"}
-              title={frame.to ?? ""}
-            >
-              {displayLabel}
-            </span>
+            {frame.to ? (
+              <Tooltip label={frame.to}>
+                <span className={contractName ? "theme-accent" : "theme-text-secondary"}>
+                  {displayLabel}
+                </span>
+              </Tooltip>
+            ) : (
+              <span className={contractName ? "theme-accent" : "theme-text-secondary"}>
+                {displayLabel}
+              </span>
+            )}
             <span className="theme-text-muted">.</span>
           </>
         )}
 
-        <span
-          className={`font-semibold ${frame.error ? "theme-danger" : "theme-text"}`}
-          title={frame.to ?? ""}
-        >
-          {funcName}
-        </span>
+        {frame.to ? (
+          <Tooltip label={frame.to}>
+            <span className={`font-semibold ${frame.error ? "theme-danger" : "theme-text"}`}>
+              {funcName}
+            </span>
+          </Tooltip>
+        ) : (
+          <span className={`font-semibold ${frame.error ? "theme-danger" : "theme-text"}`}>
+            {funcName}
+          </span>
+        )}
 
         {frame.error && (
-          <span
-            className="flex-shrink-0 px-1 theme-danger"
-            style={{ fontSize: "9px", fontWeight: 700 }}
-            title={frame.error}
-          >
-            REVERT
-          </span>
+          <Tooltip label={frame.error} className="flex-shrink-0">
+            <span
+              className="flex-shrink-0 px-1 theme-danger"
+              style={{ fontSize: "9px", fontWeight: 700 }}
+            >
+              REVERT
+            </span>
+          </Tooltip>
         )}
 
         {/* Always rendered (when expandable) so it reserves its slot — toggling
             on hover would change the row width and make the tree thrash. We fade
             it in and disable pointer events instead. */}
         {onExpand && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onExpand(
-                frame,
-                stepIndex,
-                `${displayLabel ? `${displayLabel}.` : ""}${funcName}`,
-              );
-            }}
-            className="flex-shrink-0 flex items-center transition-opacity theme-text-muted"
-            style={{
-              opacity: hovered ? 1 : 0,
-              pointerEvents: hovered ? "auto" : "none",
-            }}
-            title="Show this frame's opcodes"
-            aria-hidden={!hovered}
-            tabIndex={hovered ? 0 : -1}
-          >
-            <Icon icon="heroicons:arrows-pointing-out" className="w-3 h-3" />
-          </button>
+          <Tooltip label="Show this frame's opcodes" className="flex-shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onExpand(
+                  frame,
+                  stepIndex,
+                  `${displayLabel ? `${displayLabel}.` : ""}${funcName}`,
+                );
+              }}
+              className="flex-shrink-0 flex items-center transition-opacity theme-text-muted"
+              style={{
+                opacity: hovered ? 1 : 0,
+                pointerEvents: hovered ? "auto" : "none",
+              }}
+              aria-hidden={!hovered}
+              tabIndex={hovered ? 0 : -1}
+            >
+              <Icon icon="heroicons:arrows-pointing-out" className="w-3 h-3" />
+            </button>
+          </Tooltip>
         )}
 
         {valuePLS && (

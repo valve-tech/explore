@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { isCallOp } from "@valve-tech/trace-sdk/hooks";
+import { Tooltip } from "../../primitives/Tooltip";
 import type { OpcodeStep, CallFrame } from "../../../api/debugger";
 import type { SourceLocation } from "../../../api/source";
 import type { SignatureMatch } from "../../../api/signatures";
@@ -150,12 +151,15 @@ export function DecodedTrace({
               ? { funcName: funcNameOnly, contractAddr: entry.targetAddress }
               : undefined;
             return (
-              <div
+              <Tooltip
                 key={i}
+                label={entry.decodedName ? `${entry.targetAddress ?? ""}.${funcSig}` : entry.selector}
+                className="w-full"
+              >
+              <div
                 ref={isActive ? activeRowRef : null}
                 onClick={() => onJumpTo(entry.step, hint)}
-                className="flex items-center gap-tight px-3 py-1.5 cursor-pointer text-xs hover:opacity-80 theme-mono"
-                title={entry.decodedName ? `${entry.targetAddress ?? ""}.${funcSig}` : entry.selector}
+                className="w-full flex items-center gap-tight px-3 py-1.5 cursor-pointer text-xs hover:opacity-80 theme-mono"
                 style={{
                   paddingLeft: `${12 + (entry.depth - 1) * 16}px`,
                   backgroundColor: isActive ? "rgba(139, 92, 246, 0.12)" : bgColor,
@@ -174,9 +178,11 @@ export function DecodedTrace({
                           {displayLabel}
                         </span>
                       ) : null}
-                      <span className="theme-text-muted" title={entry.targetAddress}>
-                        ({addrShort})
-                      </span>
+                      <Tooltip label={entry.targetAddress}>
+                        <span className="theme-text-muted">
+                          ({addrShort})
+                        </span>
+                      </Tooltip>
                       <span className="theme-text-muted">.</span>
                     </>
                   );
@@ -196,6 +202,7 @@ export function DecodedTrace({
                   {entry.step}
                 </span>
               </div>
+              </Tooltip>
             );
           })
         )}

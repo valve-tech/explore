@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { copyToClipboard } from "../../lib/clipboard";
 import { scanPath } from "../../lib/scanRoutes";
+import { Tooltip } from "../primitives/Tooltip";
 
 interface Props {
   /** Transaction hash to act on. */
@@ -101,21 +102,22 @@ function ActionIcon({
   onClick: (e: React.MouseEvent) => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      className="flex items-center justify-center transition-colors hover:opacity-100"
-      style={{
-        width: compact ? 22 : 26,
-        height: compact ? 22 : 26,
-        color: "var(--color-text-muted)",
-        backgroundColor: "transparent",
-        opacity: 0.7,
-      }}
-    >
-      <Icon icon={icon} className={compact ? "w-3.5 h-3.5" : "w-4 h-4"} />
-    </button>
+    <Tooltip label={title}>
+      <button
+        onClick={onClick}
+        aria-label={title}
+        className="flex items-center justify-center transition-colors hover:opacity-100"
+        style={{
+          width: compact ? 22 : 26,
+          height: compact ? 22 : 26,
+          color: "var(--color-text-muted)",
+          backgroundColor: "transparent",
+          opacity: 0.7,
+        }}
+      >
+        <Icon icon={icon} className={compact ? "w-3.5 h-3.5" : "w-4 h-4"} />
+      </button>
+    </Tooltip>
   );
 }
 

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import type { WorkspaceItem } from "../../lib/workspace/types";
 import { chainById } from "../../lib/chains";
+import { Tooltip } from "../primitives/Tooltip";
 import { AddressPreview } from "./previews/AddressPreview";
 import { TxPreview } from "./previews/TxPreview";
 import { BlockPreview } from "./previews/BlockPreview";
@@ -48,16 +49,19 @@ export function WorkspaceItemRow({
           </div>
         </div>
         <div className="flex gap-tight shrink-0">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="text-xs px-1.5 py-1 theme-text-muted"
-            title={expanded ? "Collapse" : "Expand"}
-          >
-            <Icon icon={expanded ? "heroicons:chevron-up" : "heroicons:chevron-down"} className="w-4 h-4" />
-          </button>
-          <button onClick={onRemove} className="text-xs px-1.5 py-1 theme-text-muted" title="Remove from workspace">
-            <Icon icon="heroicons:x-mark" className="w-4 h-4" />
-          </button>
+          <Tooltip label={expanded ? "Collapse" : "Expand"}>
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="text-xs px-1.5 py-1 theme-text-muted"
+            >
+              <Icon icon={expanded ? "heroicons:chevron-up" : "heroicons:chevron-down"} className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Remove from workspace">
+            <button onClick={onRemove} className="text-xs px-1.5 py-1 theme-text-muted">
+              <Icon icon="heroicons:x-mark" className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </div>
       </div>
 

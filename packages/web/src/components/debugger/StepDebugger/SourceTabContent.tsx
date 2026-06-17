@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ContractSource, SlitherFinding } from "../../../api/source";
 import SourceViewer, { type HighlightSpan } from "../SoliditySourceViewer";
+import { Tooltip } from "../../primitives/Tooltip";
 
 type ContractSourceFile = ContractSource["files"][number];
 
@@ -121,27 +122,27 @@ export function SourceTabContent({
               const isDisplayed = displayedFile.name === f.name;
               const isActive = currentSourceFile?.name === f.name;
               return (
-                <button
-                  key={f.name}
-                  data-file-tab={f.name}
-                  onClick={() => setManualFile(f.name === currentSourceFile?.name ? null : f.name)}
-                  title={f.name}
-                  className={`px-3 py-1.5 text-[11px] whitespace-nowrap transition-colors flex-shrink-0 theme-mono ${isDisplayed ? "theme-text theme-card-bg" : "theme-text-muted"}`}
-                  style={{
-                    boxShadow: isDisplayed
-                      ? "inset 0 2px 0 0 var(--color-accent)"
-                      : undefined,
-                    cursor: "pointer",
-                  }}
-                >
-                  {/* Bullet marks the cursor's current file when it's not the
-                      file the user is viewing — so they can spot where
-                      execution actually is at a glance. */}
-                  {isActive && !isDisplayed && (
-                    <span className="theme-accent" style={{ marginRight: 4 }}>●</span>
-                  )}
-                  {basename(f.name)}
-                </button>
+                <Tooltip key={f.name} label={f.name} className="flex-shrink-0">
+                  <button
+                    data-file-tab={f.name}
+                    onClick={() => setManualFile(f.name === currentSourceFile?.name ? null : f.name)}
+                    className={`px-3 py-1.5 text-[11px] whitespace-nowrap transition-colors flex-shrink-0 theme-mono ${isDisplayed ? "theme-text theme-card-bg" : "theme-text-muted"}`}
+                    style={{
+                      boxShadow: isDisplayed
+                        ? "inset 0 2px 0 0 var(--color-accent)"
+                        : undefined,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {/* Bullet marks the cursor's current file when it's not the
+                        file the user is viewing — so they can spot where
+                        execution actually is at a glance. */}
+                    {isActive && !isDisplayed && (
+                      <span className="theme-accent" style={{ marginRight: 4 }}>●</span>
+                    )}
+                    {basename(f.name)}
+                  </button>
+                </Tooltip>
               );
             })}
           </div>

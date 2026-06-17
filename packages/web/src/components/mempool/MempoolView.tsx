@@ -9,6 +9,7 @@ import { truncateAddr } from "../explorer/format";
 import { Badge } from "../primitives/Badge";
 import { Dropdown } from "../primitives/Dropdown";
 import { EmptyState } from "../primitives/EmptyState";
+import { Tooltip } from "../primitives/Tooltip";
 import { TrackedTxPanel } from "./TrackedTxPanel";
 import { useTrackedTxs } from "../../hooks/useTrackedTxs";
 import { toggleTrack } from "../../lib/trackedTxs";
@@ -250,23 +251,24 @@ export default function MempoolView() {
 /** Pin/unpin a tx for lifecycle tracking. Filled icon when tracked. */
 function PinButton({ hash, tracked }: { hash: string; tracked: boolean }) {
   return (
-    <button
-      onClick={() => toggleTrack(hash)}
-      title={tracked ? "Stop tracking" : "Track this transaction"}
-      aria-label={tracked ? "Stop tracking" : "Track this transaction"}
-      aria-pressed={tracked}
-      className="flex items-center justify-center w-6 h-6 transition-opacity hover:opacity-100"
-      style={{
-        color: tracked ? "var(--color-accent)" : "var(--color-text-muted)",
-        opacity: tracked ? 1 : 0.6,
-        backgroundColor: "transparent",
-      }}
-    >
-      <Icon
-        icon={tracked ? "heroicons:map-pin-solid" : "heroicons:map-pin"}
-        className="w-3.5 h-3.5"
-      />
-    </button>
+    <Tooltip label={tracked ? "Stop tracking" : "Track this transaction"}>
+      <button
+        onClick={() => toggleTrack(hash)}
+        aria-label={tracked ? "Stop tracking" : "Track this transaction"}
+        aria-pressed={tracked}
+        className="flex items-center justify-center w-6 h-6 transition-opacity hover:opacity-100"
+        style={{
+          color: tracked ? "var(--color-accent)" : "var(--color-text-muted)",
+          opacity: tracked ? 1 : 0.6,
+          backgroundColor: "transparent",
+        }}
+      >
+        <Icon
+          icon={tracked ? "heroicons:map-pin-solid" : "heroicons:map-pin"}
+          className="w-3.5 h-3.5"
+        />
+      </button>
+    </Tooltip>
   );
 }
 

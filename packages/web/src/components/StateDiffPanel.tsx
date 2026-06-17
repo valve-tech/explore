@@ -14,6 +14,7 @@ import {
   isDeltaPositive,
   formatDecodedShort,
 } from "./StateDiffPanel/formatters";
+import { Tooltip } from "./primitives/Tooltip";
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -105,11 +106,10 @@ function BalanceChangesSection({ changes }: { changes: BalanceChange[] }) {
                     className="bs-b-muted last:shadow-none"
                     style={{}}
                   >
-                    <td
-                      className="px-3 py-2 theme-mono theme-text"
-                      title={change.address}
-                    >
-                      {truncateHex(change.address)}
+                    <td className="px-3 py-2 theme-mono theme-text">
+                      <Tooltip label={change.address}>
+                        {truncateHex(change.address)}
+                      </Tooltip>
                     </td>
                     <td
                       className="px-3 py-2 theme-text-secondary"
@@ -185,12 +185,12 @@ function StorageGroup({
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center justify-between px-3 py-2 text-left hover:opacity-80 theme-secondary-bg"
       >
-        <span
+        <Tooltip
           className="text-xs font-medium theme-mono theme-text"
-          title={address}
+          label={address}
         >
           {label}
-        </span>
+        </Tooltip>
         <div className="flex items-center gap-inline">
           <span
             className="text-xs px-1.5 py-0.5 rounded theme-accent-bg theme-accent"
@@ -224,26 +224,23 @@ function StorageGroup({
                       key={i}
                       className="bs-b-muted last:shadow-none"
                     >
-                      <td
-                        className="px-3 py-2 theme-mono theme-text-muted"
-                        title={row.slot}
-                      >
-                        {truncateHex(row.slot)}
+                      <td className="px-3 py-2 theme-mono theme-text-muted">
+                        <Tooltip label={row.slot}>
+                          {truncateHex(row.slot)}
+                        </Tooltip>
                       </td>
                       <td className="px-3 py-2 theme-text-secondary">
                         {row.decodedName ?? "—"}
                       </td>
-                      <td
-                        className="px-3 py-2 theme-mono theme-text-muted"
-                        title={row.before}
-                      >
-                        {truncateHex(row.before)}
+                      <td className="px-3 py-2 theme-mono theme-text-muted">
+                        <Tooltip label={row.before}>
+                          {truncateHex(row.before)}
+                        </Tooltip>
                       </td>
-                      <td
-                        className="px-3 py-2 theme-mono theme-accent"
-                        title={row.after}
-                      >
-                        {truncateHex(row.after)}
+                      <td className="px-3 py-2 theme-mono theme-accent">
+                        <Tooltip label={row.after}>
+                          {truncateHex(row.after)}
+                        </Tooltip>
                       </td>
                     </tr>,
                   ];
@@ -262,11 +259,10 @@ function StorageGroup({
                       key={`${i}-${j}`}
                       className="bs-b-muted last:shadow-none"
                     >
-                      <td
-                        className="px-3 py-2 theme-mono theme-text-muted align-top"
-                        title={row.slot}
-                      >
-                        {isFirst ? truncateHex(row.slot) : `+${dec.entry.offset}`}
+                      <td className="px-3 py-2 theme-mono theme-text-muted align-top">
+                        <Tooltip label={row.slot}>
+                          {isFirst ? truncateHex(row.slot) : `+${dec.entry.offset}`}
+                        </Tooltip>
                       </td>
                       <td className="px-3 py-2 theme-text align-top">
                         <div>{dec.entry.label}</div>
@@ -274,31 +270,29 @@ function StorageGroup({
                           {dec.type.label}
                         </div>
                       </td>
-                      <td
-                        className="px-3 py-2 theme-text-muted align-top"
-                        title={row.before}
-                      >
-                        <div className="theme-text">
-                          {beforeShort ?? truncateHex(row.before)}
-                        </div>
-                        {beforeShort !== null && (
-                          <div className="text-xs theme-mono theme-text-muted">
-                            {truncateHex(row.before)}
+                      <td className="px-3 py-2 theme-text-muted align-top">
+                        <Tooltip className="flex-col" label={row.before}>
+                          <div className="theme-text">
+                            {beforeShort ?? truncateHex(row.before)}
                           </div>
-                        )}
+                          {beforeShort !== null && (
+                            <div className="text-xs theme-mono theme-text-muted">
+                              {truncateHex(row.before)}
+                            </div>
+                          )}
+                        </Tooltip>
                       </td>
-                      <td
-                        className="px-3 py-2 align-top"
-                        title={row.after}
-                      >
-                        <div className="theme-accent">
-                          {afterShort ?? truncateHex(row.after)}
-                        </div>
-                        {afterShort !== null && (
-                          <div className="text-xs theme-mono theme-text-muted">
-                            {truncateHex(row.after)}
+                      <td className="px-3 py-2 align-top">
+                        <Tooltip className="flex-col" label={row.after}>
+                          <div className="theme-accent">
+                            {afterShort ?? truncateHex(row.after)}
                           </div>
-                        )}
+                          {afterShort !== null && (
+                            <div className="text-xs theme-mono theme-text-muted">
+                              {truncateHex(row.after)}
+                            </div>
+                          )}
+                        </Tooltip>
                       </td>
                     </tr>
                   );
@@ -383,11 +377,10 @@ function NonceChangesSection({ changes }: { changes: NonceChange[] }) {
                   className="bs-b-muted last:shadow-none"
                   style={{}}
                 >
-                  <td
-                    className="px-3 py-2 theme-mono theme-text"
-                    title={change.address}
-                  >
-                    {truncateHex(change.address)}
+                  <td className="px-3 py-2 theme-mono theme-text">
+                    <Tooltip label={change.address}>
+                      {truncateHex(change.address)}
+                    </Tooltip>
                   </td>
                   <td
                     className="px-3 py-2 theme-text-muted"

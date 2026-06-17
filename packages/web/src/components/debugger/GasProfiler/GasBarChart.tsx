@@ -1,4 +1,5 @@
 import type { GasEntry } from "../../../api/debugger";
+import { Tooltip } from "../../primitives/Tooltip";
 import { formatGas, getCallTypeColor } from "./colors";
 
 function flattenForChart(entries: GasEntry[]): GasEntry[] {
@@ -26,12 +27,11 @@ export function GasBarChart({ entries }: { entries: GasEntry[] }) {
             key={`${item.address}-${item.function}-${i}`}
             className="flex items-center gap-row"
           >
-            <div
-              className="w-28 flex-shrink-0 text-xs truncate text-right font-mono theme-text"
-              title={item.function}
-            >
-              {item.function}
-            </div>
+            <Tooltip label={item.function} className="w-28 flex-shrink-0">
+              <div className="w-28 text-xs truncate text-right font-mono theme-text">
+                {item.function}
+              </div>
+            </Tooltip>
             <div className="flex-1 h-6 rounded overflow-hidden relative theme-primary-bg">
               <div
                 className="h-full rounded transition-all"

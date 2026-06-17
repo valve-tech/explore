@@ -16,6 +16,7 @@ import {
   secondaryLabel,
 } from "../lib/recentEntityView";
 import { EmptyState } from "./primitives/EmptyState";
+import { Tooltip } from "./primitives/Tooltip";
 
 export function RecentRail() {
   const entities = useRecentEntities();
@@ -97,29 +98,30 @@ function Row({ entity }: { entity: RecentEntity }) {
           {secondaryLabel(entity)}
         </div>
       </div>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          togglePin(entity.kind, entity.value);
-        }}
-        title={entity.pinned ? "Unpin" : "Pin"}
-        aria-label={entity.pinned ? "Unpin" : "Pin"}
-        className={`shrink-0 transition-opacity ${
-          entity.pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-        }`}
-        style={{
-          color: entity.pinned
-            ? "var(--color-warning)"
-            : "var(--color-text-muted)",
-          backgroundColor: "transparent",
-        }}
-      >
-        <Icon
-          icon={entity.pinned ? "heroicons:star-solid" : "heroicons:star"}
-          className="w-3.5 h-3.5"
-        />
-      </button>
+      <Tooltip className="shrink-0" label={entity.pinned ? "Unpin" : "Pin"}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            togglePin(entity.kind, entity.value);
+          }}
+          aria-label={entity.pinned ? "Unpin" : "Pin"}
+          className={`shrink-0 transition-opacity ${
+            entity.pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+          style={{
+            color: entity.pinned
+              ? "var(--color-warning)"
+              : "var(--color-text-muted)",
+            backgroundColor: "transparent",
+          }}
+        >
+          <Icon
+            icon={entity.pinned ? "heroicons:star-solid" : "heroicons:star"}
+            className="w-3.5 h-3.5"
+          />
+        </button>
+      </Tooltip>
     </div>
   );
 }

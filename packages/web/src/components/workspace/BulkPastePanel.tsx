@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { parseBulkPaste, type ParsedItem } from "../../lib/workspace/bulkParse";
 import type { Workspace, WorkspaceItem } from "../../lib/workspace/types";
+import { Tooltip } from "../primitives/Tooltip";
 
 /**
  * Bulk-paste panel for a workspace. The user pastes a free-form blob — any mix
@@ -40,9 +41,11 @@ export function BulkPastePanel({
           <Icon icon="heroicons:clipboard-document-list" className="w-4 h-4 theme-accent" />
           <h3 className="text-sm font-semibold theme-text">Bulk paste</h3>
         </div>
-        <button onClick={onClose} className="text-xs px-2 py-1 theme-text-muted" title="Close">
-          <Icon icon="heroicons:x-mark" className="w-4 h-4" />
-        </button>
+        <Tooltip label="Close">
+          <button onClick={onClose} className="text-xs px-2 py-1 theme-text-muted">
+            <Icon icon="heroicons:x-mark" className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </div>
       <p className="text-xs theme-text-secondary">
         Paste a blob: addresses (0x…40), tx hashes (0x…64), or block numbers (one per line).

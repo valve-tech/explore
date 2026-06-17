@@ -6,6 +6,7 @@ import { WorkspaceSyncStatus } from "../wallet/WorkspaceSyncStatus";
 import { WorkspaceSyncAutoPush } from "../wallet/WorkspaceSyncAutoPush";
 import { ExploreLogo } from "./ExploreLogo";
 import { ValveLogo } from "./ValveLogo";
+import { Tooltip } from "../primitives/Tooltip";
 import type { ApiStatus } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -53,17 +54,18 @@ export function TopBar({
     <div
       className="bs-b flex items-stretch h-12 shrink-0 theme-secondary-bg"
     >
-      <button
-        onClick={onToggleCollapse}
-        title={toggleTitle}
-        aria-label={toggleTitle}
-        className={`${control} hover:opacity-80 theme-text-secondary bs-r-muted bg-transparent`}
-      >
-        <Icon
-          icon={collapsed ? "heroicons:bars-3" : "heroicons:chevron-double-left"}
-          className="w-5 h-5"
-        />
-      </button>
+      <Tooltip label={toggleTitle}>
+        <button
+          onClick={onToggleCollapse}
+          aria-label={toggleTitle}
+          className={`${control} hover:opacity-80 theme-text-secondary bs-r-muted bg-transparent`}
+        >
+          <Icon
+            icon={collapsed ? "heroicons:bars-3" : "heroicons:chevron-double-left"}
+            className="w-5 h-5"
+          />
+        </button>
+      </Tooltip>
 
       <BackHistoryControl canGoBack={canGoBack} onBack={() => navigate(-1)} />
 
@@ -73,16 +75,17 @@ export function TopBar({
           <h1 className="text-sm font-semibold theme-text">Explore</h1>
           <span className="text-xs uppercase tracking-wider font-semibold inline-flex items-center gap-tight theme-text-muted">
             by
-            <a
-              href="https://valve.city"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Valve City"
-              title="Valve City"
-              className="inline-flex items-center hover:opacity-70 transition-opacity"
-            >
-              <ValveLogo className="w-4 h-4" />
-            </a>
+            <Tooltip label="Valve City">
+              <a
+                href="https://valve.city"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Valve City"
+                className="inline-flex items-center hover:opacity-70 transition-opacity"
+              >
+                <ValveLogo className="w-4 h-4" />
+              </a>
+            </Tooltip>
           </span>
         </div>
       </div>

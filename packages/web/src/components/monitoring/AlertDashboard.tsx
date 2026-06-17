@@ -15,6 +15,7 @@ import AlertToast from "../AlertToast";
 import { resolveTypeInfo } from "./AlertDashboard/typeInfo";
 import { mergeIncomingAlert } from "./AlertDashboard/events";
 import { parseServerTimestamp } from "./AlertDashboard/timestamps";
+import { Tooltip } from "../primitives/Tooltip";
 
 // ---------------------------------------------------------------------------
 // Views
@@ -338,24 +339,26 @@ export default function AlertDashboard() {
                 {/* Right side - actions */}
                 <div className="flex items-center gap-inline shrink-0">
                   {/* Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => void handleToggleEnabled(a)}
-                    className="relative w-10 h-5 rounded-full transition-colors"
-                    title={a.enabled ? "Disable" : "Enable"}
-                    style={{
-                      backgroundColor: a.enabled
-                        ? "var(--color-success)"
-                        : "var(--color-border-default)",
-                    }}
-                  >
-                    <span
-                      className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                  <Tooltip label={a.enabled ? "Disable" : "Enable"}>
+                    <button
+                      type="button"
+                      onClick={() => void handleToggleEnabled(a)}
+                      aria-label={a.enabled ? "Disable" : "Enable"}
+                      className="relative w-10 h-5 rounded-full transition-colors"
                       style={{
-                        left: a.enabled ? "calc(100% - 18px)" : "2px",
+                        backgroundColor: a.enabled
+                          ? "var(--color-success)"
+                          : "var(--color-border-default)",
                       }}
-                    />
-                  </button>
+                    >
+                      <span
+                        className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                        style={{
+                          left: a.enabled ? "calc(100% - 18px)" : "2px",
+                        }}
+                      />
+                    </button>
+                  </Tooltip>
 
                   {/* History */}
                   <button

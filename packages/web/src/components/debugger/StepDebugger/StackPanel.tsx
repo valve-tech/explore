@@ -1,4 +1,5 @@
 import { CollapsiblePanel } from "./CollapsiblePanel";
+import { Tooltip } from "../../primitives/Tooltip";
 import { formatWord, truncateWord } from "./format";
 
 /** Collapsible panel showing the EVM stack at the current step.
@@ -40,20 +41,21 @@ export function StackPanel({
                 }}
               >
                 <span className="w-8 text-right mr-2 flex-shrink-0 theme-text-muted">{i}</span>
-                <span
-                  className="truncate"
-                  title={formatWord(word)}
-                  style={{
-                    color: isInput
-                      ? "var(--color-warning)"
-                      : changed
-                        ? "var(--color-accent)"
-                        : "var(--color-text-primary)",
-                    fontWeight: changed || isInput ? 600 : 400,
-                  }}
-                >
-                  {truncateWord(word)}
-                </span>
+                <Tooltip label={formatWord(word)} className="truncate min-w-0">
+                  <span
+                    className="truncate"
+                    style={{
+                      color: isInput
+                        ? "var(--color-warning)"
+                        : changed
+                          ? "var(--color-accent)"
+                          : "var(--color-text-primary)",
+                      fontWeight: changed || isInput ? 600 : 400,
+                    }}
+                  >
+                    {truncateWord(word)}
+                  </span>
+                </Tooltip>
                 {isInput && (
                   <span className="ml-auto flex-shrink-0 text-[9px] uppercase tracking-wide theme-warning">
                     in

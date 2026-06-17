@@ -6,6 +6,7 @@ import { useActiveChainId } from "../../lib/activeChain";
 import { DEFAULT_CHAIN_ID } from "../../lib/chains";
 import type { Workspace, WorkspaceItem } from "../../lib/workspace/types";
 import { scanPath } from "../../lib/scanRoutes";
+import { Tooltip } from "../primitives/Tooltip";
 import { WorkspaceItemRow } from "./WorkspaceItemRow";
 import { BulkPastePanel } from "./BulkPastePanel";
 import { PortfolioPanel } from "./PortfolioPanel";
@@ -177,16 +178,17 @@ function Header({
         </div>
       </div>
       <div className="flex gap-tight shrink-0">
-        <button
-          onClick={onBulkPaste}
-          className="text-xs px-2 py-1 flex items-center gap-tight"
-          title="Bulk paste"
-          style={{
-            color: bulkOpen ? "var(--color-accent)" : "var(--color-text-muted)",
-          }}
-        >
-          <Icon icon="heroicons:clipboard-document-list" className="w-4 h-4" />
-        </button>
+        <Tooltip label="Bulk paste">
+          <button
+            onClick={onBulkPaste}
+            className="text-xs px-2 py-1 flex items-center gap-tight"
+            style={{
+              color: bulkOpen ? "var(--color-accent)" : "var(--color-text-muted)",
+            }}
+          >
+            <Icon icon="heroicons:clipboard-document-list" className="w-4 h-4" />
+          </button>
+        </Tooltip>
         <button onClick={() => setEditing(true)} className="text-xs px-2 py-1 theme-text-muted">
           <Icon icon="heroicons:pencil" className="w-4 h-4" />
         </button>

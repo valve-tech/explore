@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useWorkspaces } from "../../hooks/useWorkspaces";
 import type { Workspace } from "../../lib/workspace/types";
+import { Tooltip } from "../primitives/Tooltip";
 
 /**
  * Index of named Workspaces. A Workspace is a bucket of heterogeneous items
@@ -170,13 +171,14 @@ function WorkspaceRow({ workspace, onDelete }: { workspace: Workspace; onDelete:
           </button>
         </div>
       ) : (
-        <button
-          onClick={() => setConfirming(true)}
-          title="Delete workspace"
-          className="text-xs theme-text-muted shrink-0"
-        >
-          <Icon icon="heroicons:trash" className="w-4 h-4" />
-        </button>
+        <Tooltip label="Delete workspace" className="shrink-0">
+          <button
+            onClick={() => setConfirming(true)}
+            className="text-xs theme-text-muted"
+          >
+            <Icon icon="heroicons:trash" className="w-4 h-4" />
+          </button>
+        </Tooltip>
       )}
     </div>
   );

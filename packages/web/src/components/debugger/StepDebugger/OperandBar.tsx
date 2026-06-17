@@ -1,4 +1,5 @@
 import { getOpcodeColor } from "@valve-tech/trace-sdk";
+import { Tooltip } from "../../primitives/Tooltip";
 import type { OperandInfo } from "./opcodeOperands";
 import { truncateWord } from "./format";
 
@@ -21,7 +22,7 @@ export function OperandBar({ op, operands }: { op: string; operands: OperandInfo
         <span key={a.name} className="flex items-center gap-tight">
           <span className="theme-text-muted">{a.name}</span>
           <span className="theme-text-muted">=</span>
-          <span title={a.value} className="theme-text">{truncateWord(a.value)}</span>
+          <Tooltip label={a.value}><span className="theme-text">{truncateWord(a.value)}</span></Tooltip>
         </span>
       ))}
 
@@ -30,25 +31,27 @@ export function OperandBar({ op, operands }: { op: string; operands: OperandInfo
       )}
 
       {operands?.memory && operands.memory.size > 0 && (
-        <span
-          className={`px-1.5 py-0.5 ${operands.memory.kind === "write" ? "theme-warning" : "theme-text-secondary"}`}
-          style={{
-            boxShadow: `inset 0 0 0 1px ${operands.memory.kind === "write" ? "var(--color-warning)" : "var(--color-border-default)"}`,
-          }}
-          title={`mem ${operands.memory.kind}`}
-        >
-          mem {operands.memory.kind} [0x{operands.memory.offset.toString(16)} … +{operands.memory.size}]
-        </span>
+        <Tooltip label={`mem ${operands.memory.kind}`}>
+          <span
+            className={`px-1.5 py-0.5 ${operands.memory.kind === "write" ? "theme-warning" : "theme-text-secondary"}`}
+            style={{
+              boxShadow: `inset 0 0 0 1px ${operands.memory.kind === "write" ? "var(--color-warning)" : "var(--color-border-default)"}`,
+            }}
+          >
+            mem {operands.memory.kind} [0x{operands.memory.offset.toString(16)} … +{operands.memory.size}]
+          </span>
+        </Tooltip>
       )}
 
       {operands?.storageSlot && (
-        <span
-          className="px-1.5 py-0.5 theme-warning"
-          style={{ boxShadow: "inset 0 0 0 1px var(--color-warning)" }}
-          title="storage slot"
-        >
-          slot {truncateWord(operands.storageSlot)}
-        </span>
+        <Tooltip label="storage slot">
+          <span
+            className="px-1.5 py-0.5 theme-warning"
+            style={{ boxShadow: "inset 0 0 0 1px var(--color-warning)" }}
+          >
+            slot {truncateWord(operands.storageSlot)}
+          </span>
+        </Tooltip>
       )}
     </div>
   );
