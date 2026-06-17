@@ -182,6 +182,36 @@ export const spec: OpenAPIObject = {
                     chain: { type: "string" },
                     chainId: { type: "integer" },
                     db: { type: "boolean" },
+                    chainsReady: {
+                      type: "boolean",
+                      description:
+                        "Soft readiness: true once every configured chain's block window has warmed. Does not affect the HTTP status.",
+                    },
+                    chains: {
+                      type: "array",
+                      description: "Per-chain boot warm status for the launch set.",
+                      items: {
+                        type: "object",
+                        properties: {
+                          chainId: { type: "integer" },
+                          name: { type: "string" },
+                          state: {
+                            type: "string",
+                            enum: ["warming", "ready", "degraded"],
+                          },
+                          blocks: { type: "integer" },
+                          rpcConfigured: { type: "boolean" },
+                          error: { type: "string" },
+                        },
+                        required: [
+                          "chainId",
+                          "name",
+                          "state",
+                          "blocks",
+                          "rpcConfigured",
+                        ],
+                      },
+                    },
                   },
                   required: ["status", "chain", "chainId", "db"],
                 },

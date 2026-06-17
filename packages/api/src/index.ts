@@ -50,6 +50,11 @@ import { startMonitor } from "./services/monitor.js";
 import { initScheduler } from "./services/actionScheduler.js";
 import { initWebSocket } from "./services/wsServer.js";
 import { startNonceVacuum, runVacuumOnce } from "./services/auth/nonceVacuum.js";
+import {
+  warmAllChains,
+  getChainWarmStatus,
+  allChainsReady,
+} from "./services/networkHealth/warmup.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 10100;
@@ -77,8 +82,20 @@ app.use(["/rpc", "/api"], chainContext);
 
 app.get("/health", async (_req, res) => {
   const dbOk = await checkHealth();
+  // Liveness is gated on the DB only — a single chain's RPC being down (or
+  // unconfigured) is surfaced per-chain in `chains` and via `chainsReady`
+  // without flipping the HTTP status, so one chain's outage can't restart-loop
+  // the whole API. `chainsReady` is a soft readiness signal a deploy can poll.
+  const chains = getChainWarmStatus();
   const status = dbOk ? "ok" : "degraded";
-  res.status(dbOk ? 200 : 503).json({ status, chain: "PulseChain", chainId: 369, db: dbOk });
+  res.status(dbOk ? 200 : 503).json({
+    status,
+    chain: "PulseChain",
+    chainId: 369,
+    db: dbOk,
+    chainsReady: allChainsReady(),
+    chains,
+  });
 });
 
 // OpenAPI federation surface — public, no auth, CORS open on the JSON.
@@ -256,6 +273,10 @@ async function start(): Promise<void> {
     // is small enough that even a cold restart finishes in milliseconds.
     void runVacuumOnce();
     startNonceVacuum();
+    // Best-effort, non-blocking warm of every launch-set chain's block window.
+    // Fast first paint + an immediate per-chain RPC health signal in /health.
+    // A chain that can't warm is marked degraded, never fatal (see warmup.ts).
+    warmAllChains();
   });
 
   process.on("SIGTERM", () => void gracefulShutdown(server, "SIGTERM"));
