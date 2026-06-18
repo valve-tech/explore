@@ -3,8 +3,9 @@ import { type ChainConfig } from "./types.js";
 
 /**
  * Default RPC URL for a sibling valve chain, derived from `PULSECHAIN_RPC_URL`
- * when it's a valve endpoint carrying a key (shape `…/v1/<key>/evm/369`): swap
- * the chain id so the one prod key covers every valve chain. Returns `""` when
+ * when it's a valve endpoint carrying a key (shape `…/v1/<key>/evm/369` or the
+ * newer `…/rpc/<key>/evm/369`): swap the chain id so the one prod key covers
+ * every valve chain. Returns `""` when
  * it can't derive — there is deliberately NO demo-key fallback. A silent
  * `vk_demo` fallback is what let prod 429 on Ethereum unnoticed; instead an
  * unconfigured chain fails loudly at `getRpcClient`. An explicit per-chain env
@@ -12,7 +13,7 @@ import { type ChainConfig } from "./types.js";
  */
 export function valveRpcUrl(chainId: number): string {
   const pls = process.env.PULSECHAIN_RPC_URL;
-  if (pls && /\/v1\/[^/]+\/evm\/369\/?$/.test(pls)) {
+  if (pls && /\/(?:v1|rpc)\/[^/]+\/evm\/369\/?$/.test(pls)) {
     return pls
       .replace(/evm-369-/g, `evm-${chainId}-`) // host segment, e.g. evm-369-rpc.…
       .replace(/\/evm\/369(\/?)$/, `/evm/${chainId}$1`); // trailing path /evm/369

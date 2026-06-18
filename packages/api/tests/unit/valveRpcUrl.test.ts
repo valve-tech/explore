@@ -20,6 +20,13 @@ describe("valveRpcUrl — sibling-chain key reuse", () => {
     assert.equal(valveRpcUrl(943), "https://rpc.valve.city/v1/SECRET/evm/943");
   });
 
+  it("reuses the key for siblings (one.valve.city/rpc/…/evm/369 shape)", () => {
+    process.env.PULSECHAIN_RPC_URL =
+      "https://one.valve.city/rpc/SECRET/evm/369";
+    assert.equal(valveRpcUrl(1), "https://one.valve.city/rpc/SECRET/evm/1");
+    assert.equal(valveRpcUrl(943), "https://one.valve.city/rpc/SECRET/evm/943");
+  });
+
   it("swaps the host segment too (evm-369-rpc shape)", () => {
     process.env.PULSECHAIN_RPC_URL =
       "https://evm-369-rpc.valve.city/v1/SECRET/evm/369";
