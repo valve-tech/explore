@@ -31,7 +31,10 @@ import {
 export const INITIAL_WINDOW = 64; // cold-warm size; matches the page's initial limit
 export const LOAD_CHUNK = 256;
 export const CACHE_CAP = 2560;
-export const MAX_LIMIT = 512;
+// Largest single window a client may request. Raised to 2048 so power users
+// (often pointed at their own node) can widen the view; the default stays 64 and
+// large windows warm lazily + cache, so the cost is opt-in.
+export const MAX_LIMIT = 2048;
 const HEAD_TTL_MS = 4_000; // sub-block-time; head is topped up at most this often
 const FETCH_CONCURRENCY = 10;
 

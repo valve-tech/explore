@@ -8,14 +8,12 @@ import { PositionHeatmap } from "../components/networkHealth/PositionHeatmap";
 import { MinersPanel } from "../components/networkHealth/MinersPanel";
 import { BlockTable } from "../components/networkHealth/BlockTable";
 import { ChainFlipper } from "../components/networkHealth/ChainFlipper";
+import { WindowSelector } from "../components/networkHealth/WindowSelector";
 import { NetworkHealthSkeleton } from "../components/networkHealth/NetworkHealthSkeleton";
-
-const INITIAL = 64; // cheap cold warm; matches the API's INITIAL_WINDOW
-const STEP = 256; // load-more increment
-const MAX = 2560;
+import { shareOf } from "../components/networkHealth/format";
 
 export default function NetworkHealthPage() {
-  const [limit, setLimit] = useState(INITIAL);
+  const [limit, setLimit] = useState(64); // matches the API's INITIAL_WINDOW
   const chainId = useActiveChainId();
   const chainName = chainById(chainId)?.name ?? `chain ${chainId}`;
   const symbol = chainSymbol(chainId);
@@ -34,18 +32,19 @@ export default function NetworkHealthPage() {
     <div className="space-y-section p-4">
       <header className="space-y-stack">
         <div className="flex flex-wrap items-center justify-between gap-row">
-          <h1 className="text-xl theme-text">Network Health</h1>
-          <ChainFlipper />
+          <div className="flex items-baseline gap-row">
+            <h1 className="text-xl theme-text">Network Health</h1>
+            <span className="text-sm theme-text-muted">{chainName}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-row">
+            <WindowSelector value={limit} onChange={setLimit} busy={isFetching} />
+            <ChainFlipper />
+          </div>
         </div>
-        <p className="max-w-3xl text-sm theme-text-secondary">
-          Who's getting prioritized in recent {chainName} blocks. Each tx's price
-          splits into a burned base fee and a tip the validator keeps — shown
-          here through both lenses, with how transaction types fall in mining
-          order. Inversions flag blocks ordered on something other than fee; a
-          signal to investigate, not proof of misbehavior.{" "}
-          <span className="theme-text-muted">
-            Click any block below to open its fee ladder.
-          </span>
+        <p className="text-sm theme-text-secondary">
+          Fee priority across recent blocks — what users paid vs. what validators
+          kept after the burn.{" "}
+          <span className="theme-text-muted">Click a block for its fee ladder.</span>
         </p>
       </header>
 
@@ -99,6 +98,14 @@ export default function NetworkHealthPage() {
           <PositionHeatmap
             histogram={data.aggregate.positionHistogram}
             avgPosition={data.aggregate.avgPositionByType}
+            modernBurnedFraction={
+              data.burnsBaseFee
+                ? shareOf(
+                    data.aggregate.burnedByType.modern,
+                    data.aggregate.paidByType.modern,
+                  )
+                : 0
+            }
           />
           <MinersPanel
             miners={data.miners}
@@ -107,21 +114,12 @@ export default function NetworkHealthPage() {
           />
           <BlockTable blocks={data.blocks} />
 
-          <div className="flex justify-center">
-            {data.hasMore && limit < MAX ? (
-              <button
-                type="button"
-                onClick={() => setLimit((l) => Math.min(MAX, l + STEP))}
-                disabled={isFetching}
-                className="px-4 py-2 text-sm theme-text bs hover:theme-accent disabled:opacity-50"
-              >
-                {isFetching ? "Loading…" : `Load ${STEP} more`}
-              </button>
-            ) : (
-              <span className="text-xs theme-text-muted">
-                {data.blocks.length} blocks loaded
-              </span>
-            )}
+          <div className="flex justify-center text-xs theme-text-muted">
+            {isFetching
+              ? "Loading window…"
+              : `${data.blocks.length.toLocaleString()} blocks · head #${Number(
+                  data.headBlock,
+                ).toLocaleString()}`}
           </div>
         </div>
       )}

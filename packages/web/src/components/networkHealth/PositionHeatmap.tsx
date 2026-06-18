@@ -10,9 +10,12 @@ import { pct } from "./format";
 export function PositionHeatmap({
   histogram,
   avgPosition,
+  modernBurnedFraction,
 }: {
   histogram: TypeSplit<number[]>;
   avgPosition: WindowAggregate["avgPositionByType"];
+  /** Burned share of modern txs' fees, hatched across the modern row. */
+  modernBurnedFraction?: number;
 }) {
   const max = Math.max(
     0.0001,
@@ -41,6 +44,7 @@ export function PositionHeatmap({
         max={max}
         color="var(--color-accent)"
         avg={avgPosition.modern}
+        burnedFraction={modernBurnedFraction}
       />
 
       <div className="flex justify-between text-xs theme-text-muted">
@@ -57,13 +61,20 @@ function Row({
   max,
   color,
   avg,
+  burnedFraction,
 }: {
   label: string;
   buckets: number[];
   max: number;
   color: string;
   avg: number | null;
+  burnedFraction?: number;
 }) {
+  const burnPct =
+    burnedFraction == null
+      ? 0
+      : Math.round(Math.min(1, Math.max(0, burnedFraction)) * 100);
+  const burnNote = burnPct > 0 ? ` · ${burnPct}% of fees burned` : "";
   return (
     <div className="flex items-center gap-inline">
       <div className="w-16 shrink-0 text-xs theme-text-secondary">{label}</div>
@@ -72,15 +83,22 @@ function Row({
           <Tooltip
             key={i}
             className="grow"
-            label={`bucket ${i + 1}/10 · ${pct(v)} of ${label} gas`}
+            label={`bucket ${i + 1}/10 · ${pct(v)} of ${label} gas${burnNote}`}
           >
             <div
-              className="h-6 w-full bs-in-muted"
+              className="relative h-6 w-full bs-in-muted"
               style={{
                 backgroundColor: color,
                 opacity: 0.12 + 0.88 * (v / max),
               }}
-            />
+            >
+              {burnPct > 0 && (
+                <div
+                  className="hatch-burn absolute inset-x-0 top-0"
+                  style={{ height: `${burnPct}%` }}
+                />
+              )}
+            </div>
           </Tooltip>
         ))}
       </div>

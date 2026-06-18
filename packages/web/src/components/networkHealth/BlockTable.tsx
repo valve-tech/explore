@@ -8,7 +8,7 @@ import { FeeLadder } from "./FeeLadder";
 import { Tooltip } from "../primitives/Tooltip";
 import { pct, shareOf, timeAgo } from "./format";
 
-const COLS = 7;
+const COLS = 6;
 
 /**
  * Per-block breakdown, newest first. Click a row to expand its fee ladder —
@@ -25,9 +25,8 @@ export function BlockTable({ blocks }: { blocks: BlockStats[] }) {
             <Th>Age</Th>
             <Th right>Txns</Th>
             <Th right>Base fee</Th>
-            <Th right>Legacy gas</Th>
+            <Th>Gas: legacy / modern · burned</Th>
             <Th right>Out of order</Th>
-            <Th>Queue-jump</Th>
           </tr>
         </thead>
         <tbody>
@@ -56,9 +55,14 @@ function BlockRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const over = block.overPrioritizedGasByType;
-  const overTotal = (BigInt(over.legacy) + BigInt(over.modern)).toString();
-  const hasJump = overTotal !== "0";
+  // Gas composition is meaningful for every block (unlike queue-jumps, which
+  // most blocks don't have) — so the bar always renders. Modern slice carries a
+  // burn hatch: how much of modern txs' fees were destroyed as base fee.
+  const modernBurned = shareOf(block.burnedByType.modern, block.paidByType.modern);
+  const compTip = `legacy ${pct(block.legacyGasShare, 0)} · modern ${pct(
+    1 - block.legacyGasShare,
+    0,
+  )} gas — ${pct(modernBurned, 0)} of modern fees burned`;
   return (
     <>
       <tr
@@ -77,20 +81,18 @@ function BlockRow({
         <Td muted><Age ts={block.timestamp} /></Td>
         <Td right>{block.txCount}</Td>
         <Td right>{formatGwei(block.baseFeePerGas) ?? "—"}</Td>
-        <Td right>{pct(block.legacyGasShare, 0)}</Td>
+        <Td>
+          <Tooltip label={compTip}>
+            <div className="min-w-32">
+              <SplitBar
+                legacyFraction={block.legacyGasShare}
+                modernBurnedFraction={modernBurned}
+              />
+            </div>
+          </Tooltip>
+        </Td>
         <Td right>
           <InversionCell rate={block.priorityInversionRate} />
-        </Td>
-        <Td>
-          {hasJump ? (
-            <Tooltip label="over-prioritized gas — legacy vs modern">
-              <div className="w-20">
-                <SplitBar legacyFraction={shareOf(over.legacy, overTotal)} />
-              </div>
-            </Tooltip>
-          ) : (
-            <span className="theme-text-muted">—</span>
-          )}
         </Td>
       </tr>
       {expanded && (

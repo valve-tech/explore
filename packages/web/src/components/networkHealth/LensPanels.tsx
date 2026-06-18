@@ -33,7 +33,7 @@ export function LensPanels({
             (revenue). So <Eq>paid = burned + tips</Eq>.
           </InfoTip>
         </h2>
-        <TypeLegend />
+        <TypeLegend showBurn />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-row">
@@ -43,6 +43,11 @@ export function LensPanels({
           total={nativeAmount(aggregate.paid, symbol)}
           period={period}
           legacyFraction={shareOf(aggregate.paidByType.legacy, aggregate.paid)}
+          modernBurnedFraction={
+            burnsBaseFee
+              ? shareOf(aggregate.burnedByType.modern, aggregate.paidByType.modern)
+              : 0
+          }
           footer={
             burnsBaseFee
               ? `${pct(aggregate.burnedShare)} burned · ${pct(tipsShareOfPaid)} to validators`
@@ -70,6 +75,7 @@ function Lens({
   total,
   period,
   legacyFraction,
+  modernBurnedFraction,
   footer,
   accent,
 }: {
@@ -78,6 +84,7 @@ function Lens({
   total: string;
   period: string;
   legacyFraction: number;
+  modernBurnedFraction?: number;
   footer: string;
   accent: string;
 }) {
@@ -93,7 +100,11 @@ function Lens({
         </div>
         <div className="text-xs theme-text-muted">{period}</div>
       </div>
-      <SplitBar legacyFraction={legacyFraction} height="h-2.5" />
+      <SplitBar
+        legacyFraction={legacyFraction}
+        modernBurnedFraction={modernBurnedFraction}
+        height="h-2.5"
+      />
       <div className="text-xs theme-text-secondary">{footer}</div>
     </div>
   );
