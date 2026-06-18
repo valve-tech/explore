@@ -32,7 +32,12 @@ export function getPublicClient(chainId: number): PublicClient {
   const existing = cache.get(key);
   if (existing) return existing;
   const client = createPublicClient({
-    transport: http(endpoint, { batch: true }),
+    // retryCount: 0 — on a failed poll we wait for the next interval rather than
+    // retrying immediately (a rate-limited node must not be hammered). The 8s
+    // interval is plenty for an ambient, tab-open watcher and halves the
+    // baseline load vs viem's 4s default.
+    transport: http(endpoint, { batch: true, retryCount: 0 }),
+    pollingInterval: 8_000,
   });
   cache.set(key, client);
   return client;

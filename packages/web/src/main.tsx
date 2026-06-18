@@ -33,12 +33,32 @@ if (!isIpfsBuild && window.location.hash.startsWith("#/")) {
   window.history.replaceState(null, "", newPath);
 }
 
+/**
+ * HTTP status embedded in our thrown error messages (api/* throw
+ * `new Error("… HTTP 429")`). Lets the retry policy refuse to hammer on a
+ * rate-limit / client error instead of retrying it blind.
+ */
+function statusFromError(error: unknown): number | null {
+  if (!(error instanceof Error)) return null;
+  const m = error.message.match(/\b(4\d\d|5\d\d)\b/);
+  return m ? Number(m[1]) : null;
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: Infinity,
       gcTime: Infinity,
-      retry: 1,
+      // Never retry immediately on an error — that's exactly how a rate-limited
+      // or slow upstream turns one failure into hundreds of requests/sec. A
+      // 429 or any 4xx is terminal (no retry at all); transient 5xx / network
+      // errors get at most two attempts, each on an exponential, capped backoff.
+      retry: (failureCount, error) => {
+        const status = statusFromError(error);
+        if (status === 429 || (status !== null && status < 500)) return false;
+        return failureCount < 2;
+      },
+      retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 30_000),
       refetchOnWindowFocus: false,
     },
   },
