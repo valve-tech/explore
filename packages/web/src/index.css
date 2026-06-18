@@ -142,8 +142,19 @@ body {
 .ekg-flow { animation: ekg-flow 2.4s linear infinite; will-change: transform; }
 .glow-pulse { animation: glow-pulse 4.5s ease-in-out infinite; }
 
+/* Loading skeleton — a muted block that gently breathes. Square corners and
+   the tertiary bg keep it in the house style; consumers size it with classes. */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.65; }
+}
+.skeleton {
+  background-color: var(--color-bg-tertiary);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ekg-flow, .glow-pulse { animation: none; }
+  .ekg-flow, .glow-pulse, .skeleton { animation: none; }
 }
 
 /* Focus styles */

@@ -8,6 +8,7 @@ import { PositionHeatmap } from "../components/networkHealth/PositionHeatmap";
 import { MinersPanel } from "../components/networkHealth/MinersPanel";
 import { BlockTable } from "../components/networkHealth/BlockTable";
 import { ChainFlipper } from "../components/networkHealth/ChainFlipper";
+import { NetworkHealthSkeleton } from "../components/networkHealth/NetworkHealthSkeleton";
 
 const INITIAL = 64; // cheap cold warm; matches the API's INITIAL_WINDOW
 const STEP = 256; // load-more increment
@@ -20,6 +21,14 @@ export default function NetworkHealthPage() {
   const symbol = chainSymbol(chainId);
   const { data, isPending, isError, error, isFetching, refetch } =
     useNetworkHealth(limit);
+
+  // keepPreviousData holds the prior chain's data while the new chain loads, so
+  // `isPending` is false on a chain switch and the old numbers would otherwise
+  // render next to the new chain's symbol. Treat data for a different chain as
+  // "not loaded yet" and show the skeleton — never stale numbers. (A load-more
+  // or background refetch keeps the same chainId, so it stays on the data view.)
+  const stale = !!data && data.chainId !== chainId;
+  const showSkeleton = (isPending || stale) && !isError;
 
   return (
     <div className="space-y-section p-4">
@@ -40,23 +49,21 @@ export default function NetworkHealthPage() {
         </p>
       </header>
 
-      {data && !data.burnsBaseFee && (
+      {data && !stale && !data.burnsBaseFee && (
         <div className="card p-2 text-xs theme-warning">
           Base fee is treated as retained (not burned) for this chain — the
           revenue lens shows full fees.
         </div>
       )}
 
-      {isPending && (
-        <div className="flex flex-col items-center justify-center min-h-[300px] p-4 space-y-stack">
-          <div className="spinner" />
-          <span className="text-sm theme-text-secondary">
-            Loading {limit} block{limit === 1 ? "" : "s"}…
-          </span>
-          <span className="text-xs theme-text-muted">
-            First load warms the cache (can take ~30s on slower chains); later
-            loads are instant.
-          </span>
+      {showSkeleton && (
+        <div className="space-y-stack">
+          <NetworkHealthSkeleton />
+          {isPending && (
+            <p className="text-center text-xs theme-text-muted">
+              First load warms the cache; later loads are instant.
+            </p>
+          )}
         </div>
       )}
 
@@ -77,7 +84,7 @@ export default function NetworkHealthPage() {
         </div>
       )}
 
-      {data && (
+      {data && !stale && (
         <div className="space-y-section">
           <SummaryCards
             aggregate={data.aggregate}
