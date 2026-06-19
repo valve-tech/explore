@@ -98,6 +98,14 @@ export default function NetworkHealthPage() {
           <PositionHeatmap
             histogram={data.aggregate.positionHistogram}
             avgPosition={data.aggregate.avgPositionByType}
+            legacyBurnedFraction={
+              data.burnsBaseFee
+                ? shareOf(
+                    data.aggregate.burnedByType.legacy,
+                    data.aggregate.paidByType.legacy,
+                  )
+                : 0
+            }
             modernBurnedFraction={
               data.burnsBaseFee
                 ? shareOf(

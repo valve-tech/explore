@@ -2,29 +2,43 @@
  * Two-segment bar: legacy (type 0/1, amber) vs modern (type ≥2, accent). The
  * shared visual vocabulary for every gas/cost/revenue split on the page.
  *
- * `modernBurnedFraction` (0–1), when given, scores the burned share of the
- * MODERN segment with a diagonal hatch — so you can see at a glance how much of
- * the modern slice was destroyed as base fee vs. kept as tips.
+ * `legacyBurnedFraction` / `modernBurnedFraction` (0–1), when given, score the
+ * burned share of each segment with a diagonal hatch — so you can see how much
+ * of each slice was destroyed as base fee vs. kept as tips. BOTH types burn the
+ * base fee (every tx pays ≥ baseFee), so both segments can carry a hatch; the
+ * fractions differ because legacy and modern txs tip differently.
  */
+function clampPct(v: number | undefined): number {
+  return v == null ? 0 : Math.round(Math.min(1, Math.max(0, v)) * 100);
+}
+
 export function SplitBar({
   legacyFraction,
+  legacyBurnedFraction,
   modernBurnedFraction,
   height = "h-2",
 }: {
   legacyFraction: number;
+  legacyBurnedFraction?: number;
   modernBurnedFraction?: number;
   height?: string;
 }) {
   const legacyPct = Math.round(Math.min(1, Math.max(0, legacyFraction)) * 100);
-  const burnPct =
-    modernBurnedFraction == null
-      ? 0
-      : Math.round(Math.min(1, Math.max(0, modernBurnedFraction)) * 100);
+  const legacyBurn = clampPct(legacyBurnedFraction);
+  const modernBurn = clampPct(modernBurnedFraction);
   return (
     <div className={`flex ${height} w-full overflow-hidden bs-in-muted`}>
       <div
+        className="relative"
         style={{ width: `${legacyPct}%`, backgroundColor: "var(--color-warning)" }}
-      />
+      >
+        {legacyBurn > 0 && (
+          <div
+            className="hatch-burn absolute inset-y-0 left-0"
+            style={{ width: `${legacyBurn}%` }}
+          />
+        )}
+      </div>
       <div
         className="relative"
         style={{
@@ -32,10 +46,10 @@ export function SplitBar({
           backgroundColor: "var(--color-accent)",
         }}
       >
-        {burnPct > 0 && (
+        {modernBurn > 0 && (
           <div
             className="hatch-burn absolute inset-y-0 left-0"
-            style={{ width: `${burnPct}%` }}
+            style={{ width: `${modernBurn}%` }}
           />
         )}
       </div>

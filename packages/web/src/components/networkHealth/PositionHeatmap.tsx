@@ -10,11 +10,14 @@ import { pct } from "./format";
 export function PositionHeatmap({
   histogram,
   avgPosition,
+  legacyBurnedFraction,
   modernBurnedFraction,
 }: {
   histogram: TypeSplit<number[]>;
   avgPosition: WindowAggregate["avgPositionByType"];
-  /** Burned share of modern txs' fees, hatched across the modern row. */
+  /** Burned share of each type's fees, hatched across that row. Both types burn
+   *  the base fee, so both rows can carry a band. */
+  legacyBurnedFraction?: number;
   modernBurnedFraction?: number;
 }) {
   const max = Math.max(
@@ -37,6 +40,7 @@ export function PositionHeatmap({
         max={max}
         color="var(--color-warning)"
         avg={avgPosition.legacy}
+        burnedFraction={legacyBurnedFraction}
       />
       <Row
         label="modern"

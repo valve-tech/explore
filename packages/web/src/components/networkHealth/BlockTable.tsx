@@ -58,11 +58,15 @@ function BlockRow({
   // Gas composition is meaningful for every block (unlike queue-jumps, which
   // most blocks don't have) — so the bar always renders. Modern slice carries a
   // burn hatch: how much of modern txs' fees were destroyed as base fee.
+  const legacyBurned = shareOf(block.burnedByType.legacy, block.paidByType.legacy);
   const modernBurned = shareOf(block.burnedByType.modern, block.paidByType.modern);
-  const compTip = `legacy ${pct(block.legacyGasShare, 0)} · modern ${pct(
-    1 - block.legacyGasShare,
+  const compTip = `legacy ${pct(block.legacyGasShare, 0)} gas (${pct(
+    legacyBurned,
     0,
-  )} gas — ${pct(modernBurned, 0)} of modern fees burned`;
+  )} burned) · modern ${pct(1 - block.legacyGasShare, 0)} gas (${pct(
+    modernBurned,
+    0,
+  )} burned)`;
   return (
     <>
       <tr
@@ -86,6 +90,7 @@ function BlockRow({
             <div className="min-w-32">
               <SplitBar
                 legacyFraction={block.legacyGasShare}
+                legacyBurnedFraction={legacyBurned}
                 modernBurnedFraction={modernBurned}
               />
             </div>

@@ -43,6 +43,11 @@ export function LensPanels({
           total={nativeAmount(aggregate.paid, symbol)}
           period={period}
           legacyFraction={shareOf(aggregate.paidByType.legacy, aggregate.paid)}
+          legacyBurnedFraction={
+            burnsBaseFee
+              ? shareOf(aggregate.burnedByType.legacy, aggregate.paidByType.legacy)
+              : 0
+          }
           modernBurnedFraction={
             burnsBaseFee
               ? shareOf(aggregate.burnedByType.modern, aggregate.paidByType.modern)
@@ -75,6 +80,7 @@ function Lens({
   total,
   period,
   legacyFraction,
+  legacyBurnedFraction,
   modernBurnedFraction,
   footer,
   accent,
@@ -84,6 +90,7 @@ function Lens({
   total: string;
   period: string;
   legacyFraction: number;
+  legacyBurnedFraction?: number;
   modernBurnedFraction?: number;
   footer: string;
   accent: string;
@@ -102,6 +109,7 @@ function Lens({
       </div>
       <SplitBar
         legacyFraction={legacyFraction}
+        legacyBurnedFraction={legacyBurnedFraction}
         modernBurnedFraction={modernBurnedFraction}
         height="h-2.5"
       />
