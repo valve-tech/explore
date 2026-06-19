@@ -34,7 +34,7 @@ export function SplitBar({
       >
         {legacyBurn > 0 && (
           <div
-            className="hatch-burn absolute inset-y-0 left-0"
+            className="burn-mark absolute inset-y-0 left-0"
             style={{ width: `${legacyBurn}%` }}
           />
         )}
@@ -48,7 +48,7 @@ export function SplitBar({
       >
         {modernBurn > 0 && (
           <div
-            className="hatch-burn absolute inset-y-0 left-0"
+            className="burn-mark absolute inset-y-0 left-0"
             style={{ width: `${modernBurn}%` }}
           />
         )}
@@ -78,7 +78,7 @@ export function TypeLegend({ showBurn = false }: { showBurn?: boolean }) {
       {showBurn && (
         <span className="flex items-center gap-tight">
           <span
-            className="hatch-burn inline-block h-2 w-2"
+            className="burn-mark inline-block h-2 w-2"
             style={{ backgroundColor: "var(--color-accent)" }}
           />
           burned

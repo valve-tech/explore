@@ -98,7 +98,7 @@ function Row({
             >
               {burnPct > 0 && (
                 <div
-                  className="hatch-burn absolute inset-x-0 top-0"
+                  className="burn-mark absolute inset-x-0 top-0"
                   style={{ height: `${burnPct}%` }}
                 />
               )}

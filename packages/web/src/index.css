@@ -153,14 +153,17 @@ body {
   animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 
-/* Burned-fee overlay — diagonal scoring laid over a colored bar segment to mark
-   the share that was burned (base fee). Reads as "struck out / destroyed"
-   regardless of the underlying segment color. */
-.hatch-burn {
+/* Burned-fee overlay — darkens the share of a colored bar segment that was
+   burned (base fee), leaving the kept (tip) part at full brightness. A solid
+   darken reads clearly at any size and over any hue (amber legacy or purple
+   modern) — unlike a fine hatch, which washes out on thin table rows. A faint
+   diagonal keeps the "struck out / destroyed" cue without hurting legibility. */
+.burn-mark {
+  background-color: rgba(0, 0, 0, 0.55);
   background-image: repeating-linear-gradient(
     -45deg,
-    rgba(0, 0, 0, 0.5) 0,
-    rgba(0, 0, 0, 0.5) 2px,
+    rgba(0, 0, 0, 0.22) 0,
+    rgba(0, 0, 0, 0.22) 2px,
     transparent 2px,
     transparent 5px
   );
