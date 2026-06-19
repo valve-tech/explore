@@ -130,12 +130,6 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: "heroicons:bolt",
         desc: "Serverless Web3 functions on chain triggers.",
       },
-      {
-        to: "/rpc",
-        label: "RPC",
-        icon: "heroicons:server",
-        desc: "Enhanced JSON-RPC proxy, tester, and method docs.",
-      },
     ],
   },
 ];

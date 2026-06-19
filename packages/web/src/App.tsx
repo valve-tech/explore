@@ -17,7 +17,6 @@ const SimulationPage = lazy(() => import("./pages/SimulationPage"));
 const BundleSimulator = lazy(() => import("./components/BundleSimulator"));
 const AlertDashboard = lazy(() => import("./components/monitoring/AlertDashboard"));
 const TestNetDashboard = lazy(() => import("./components/testnets/TestNetDashboard"));
-const RpcPage = lazy(() => import("./pages/RpcPage"));
 const ExplorerPanel = lazy(() => import("./components/explorer/ExplorerPanel"));
 const MempoolView = lazy(() => import("./components/mempool/MempoolView"));
 const NetworkHealthPage = lazy(() => import("./pages/NetworkHealthPage"));
@@ -105,7 +104,6 @@ export default function App() {
           <Route path="/bundle" element={<BundleSimulator />} />
           <Route path="/monitoring" element={<AlertDashboard />} />
           <Route path="/testnets" element={<TestNetDashboard />} />
-          <Route path="/rpc" element={<RpcPage />} />
           <Route path="/explorer" element={<ExplorerPanel />} />
           {/* EIP-3091 scan endpoints — shareable, back/forward-friendly. */}
           <Route path="/tx/:hash" element={<ExplorerPanel />} />
