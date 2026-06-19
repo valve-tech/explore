@@ -37,6 +37,10 @@ export default defineConfig({
   server: {
     port: 11800,
     host: true, // bind to 0.0.0.0 so the dev server is reachable from other devices on the LAN
+    // Allow access via a cloudflared quick tunnel (random *.trycloudflare.com
+    // host) so the dev server can be viewed off-box. localhost/LAN IPs are
+    // always permitted regardless.
+    allowedHosts: [".trycloudflare.com"],
     proxy: {
       "/health": {
         target: "http://localhost:10100",
