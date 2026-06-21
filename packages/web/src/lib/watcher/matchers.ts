@@ -105,8 +105,8 @@ export function matchAddressActivity(
 
 /**
  * ERC-20 `Transfer` matcher. The rule is already scoped to one token contract
- * at the subscription layer (viem's `watchEvent({ address })`), so here we only
- * apply the optional counterparty filter and phrase the summary.
+ * at the fetch layer (`/api/chifra/transfers?token`), so here we only apply the
+ * optional counterparty filter and phrase the summary.
  *
  * `meta` carries the token's decimals/symbol when known (the engine fetches it
  * once per token via `tokenMeta.ts`). We DON'T format here — the raw transfer

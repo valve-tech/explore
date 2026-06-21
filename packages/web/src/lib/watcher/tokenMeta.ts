@@ -4,23 +4,18 @@
  * The transfer matcher (`matchErc20Transfer`) is pure and renders whatever raw
  * value it's handed. This module is the SINGLE effect that turns a token address
  * into the decimals/symbol needed to show "1.5 USDC" instead of "1500000". It
- * rides the same bring-your-own-RPC client the subscriptions use (`getPublicClient`),
- * so the read lands on the user's node, never Explore's proxy.
+ * reads through the backend's `/api/token/:addr/meta` endpoint (server-side,
+ * cached) — the browser no longer hits an RPC directly for metadata.
  *
  * Memoized per (chainId, token): a token is read at most once per session no
- * matter how many rules — or how many re-subscriptions — reference it. `decimals()`
- * is required (a token that can't answer it isn't usable for human amounts);
- * `symbol()` is best-effort. A FAILED read is evicted rather than cached, so a
- * transient RPC hiccup self-heals on the next transfer instead of poisoning the
- * token's display for the rest of the session.
+ * matter how many rules reference it. A token that can't answer `decimals()`
+ * (the endpoint returns `decimals: null`) yields `null`; a FAILED request is
+ * evicted rather than cached, so a transient hiccup self-heals on the next
+ * transfer instead of poisoning the token's display for the rest of the session.
  */
 
-import { parseAbiItem } from "viem";
-import { getPublicClient } from "./client.js";
+import { fetchTokenMeta } from "../../api/explorer";
 import type { TokenMeta } from "./matchers.js";
-
-const DECIMALS_ABI = parseAbiItem("function decimals() view returns (uint8)");
-const SYMBOL_ABI = parseAbiItem("function symbol() view returns (string)");
 
 /** In-flight or resolved metadata per `${chainId}|${lowercased token}`. */
 const cache = new Map<string, Promise<TokenMeta | null>>();
@@ -32,8 +27,8 @@ function cacheKey(chainId: number, address: string): string {
 /**
  * Resolve a token's decimals (+ optional symbol), memoized per chain+token.
  * Returns `null` when the token can't answer `decimals()` (not an ERC-20, or
- * the RPC failed) — the caller falls back to raw base units. The null result is
- * NOT cached, so a later transfer of the same token retries the read.
+ * the request failed) — the caller falls back to raw base units. The null
+ * result is NOT cached, so a later transfer of the same token retries.
  */
 export function getTokenMeta(
   chainId: number,
@@ -43,7 +38,7 @@ export function getTokenMeta(
   const existing = cache.get(key);
   if (existing) return existing;
 
-  const pending = fetchTokenMeta(chainId, address);
+  const pending = load(chainId, address);
   cache.set(key, pending);
   // Self-heal: drop a failed read so the next event re-attempts it. A success
   // (decimals are immutable) stays cached for the life of the session.
@@ -53,39 +48,14 @@ export function getTokenMeta(
   return pending;
 }
 
-async function fetchTokenMeta(
-  chainId: number,
-  address: string,
-): Promise<TokenMeta | null> {
-  const client = getPublicClient(chainId);
-  const token = address as `0x${string}`;
-  let decimals: number;
+async function load(chainId: number, address: string): Promise<TokenMeta | null> {
   try {
-    const raw = await client.readContract({
-      address: token,
-      abi: [DECIMALS_ABI],
-      functionName: "decimals",
-    });
-    decimals = Number(raw);
+    const info = await fetchTokenMeta(address, chainId);
+    if (info.decimals === null) return null; // can't render a human amount; show raw.
+    return { decimals: info.decimals, symbol: info.symbol ?? undefined };
   } catch {
-    return null; // no decimals() → can't render a human amount; show raw.
+    return null; // transient failure → not cached, retried on next event.
   }
-
-  // Symbol is a nicety, not a requirement — a token with decimals but no
-  // symbol() still renders a scaled amount, just without the ticker.
-  let symbol: string | undefined;
-  try {
-    symbol =
-      (await client.readContract({
-        address: token,
-        abi: [SYMBOL_ABI],
-        functionName: "symbol",
-      })) || undefined;
-  } catch {
-    symbol = undefined;
-  }
-
-  return { decimals, symbol };
 }
 
 /** Drop all memoized metadata — used by tests and on hard endpoint resets. */

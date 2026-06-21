@@ -382,6 +382,52 @@ export async function fetchAddressTokens(
   return apiFetch<AddressToken[]>(scoped(`${API_BASE}/address/${address}/tokens`, chainId));
 }
 
+export interface TokenMetaInfo {
+  address: string;
+  decimals: number | null;
+  symbol: string | null;
+  name: string | null;
+}
+
+/** ERC-20/721 decimals/symbol/name — server-side read + cache (replaces the
+ *  old client-side viem read, so the browser never hits an RPC for metadata). */
+export async function fetchTokenMeta(
+  address: string,
+  chainId: number = DEFAULT_CHAIN_ID,
+): Promise<TokenMetaInfo> {
+  return apiFetch<TokenMetaInfo>(scoped(`${API_BASE}/token/${address}/meta`, chainId));
+}
+
+export interface ChifraTransfer {
+  blockNumber: number;
+  blockTimestamp: number;
+  txHash: string;
+  logIndex: number;
+  from: string;
+  to: string;
+  value: string;
+  variant: "erc20" | "erc721";
+  tokenId?: string;
+}
+export interface ChifraTransferWindow {
+  records: ChifraTransfer[];
+  firstBlock: number;
+  lastBlock: number;
+  truncated: boolean;
+}
+export type ChifraWindow = "24h" | "7d" | "30d";
+
+/** A token's normalized transfer history over a window (chifra-backed). */
+export async function fetchTokenTransfers(
+  token: string,
+  window: ChifraWindow = "24h",
+  chainId: number = DEFAULT_CHAIN_ID,
+): Promise<ChifraTransferWindow> {
+  return apiFetch<ChifraTransferWindow>(
+    scoped(`${API_BASE}/chifra/transfers?token=${token}&window=${window}`, chainId),
+  );
+}
+
 export async function fetchContractInfo(
   address: string,
   chainId: number = DEFAULT_CHAIN_ID,

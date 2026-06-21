@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import {
   formatTransaction,
   formatTransactionReceipt,
+  parseAbi,
   type RpcTransaction,
   type RpcTransactionReceipt,
 } from "viem";
@@ -17,10 +18,25 @@ import {
   getAddressBalance,
   isContract,
 } from "../services/explorer.js";
-import { chainClient } from "../services/chains/context.js";
+import { chainClient, currentChainId } from "../services/chains/context.js";
 import { ApiError, asyncRoute, respond } from "../lib/respond.js";
 
 const router = Router();
+
+// ERC-20/721 metadata reads for GET /token/:address/meta. decimals() is
+// immutable, so a successful read is cached for the process lifetime; symbol()
+// and name() are best-effort.
+const ERC20_META_ABI = parseAbi([
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+  "function name() view returns (string)",
+]);
+interface TokenMetaResult {
+  decimals: number | null;
+  symbol: string | null;
+  name: string | null;
+}
+const tokenMetaCache = new Map<string, TokenMetaResult>();
 
 const HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
@@ -177,6 +193,44 @@ router.get(
     const tokens = await getAddressTokens(address);
     respond.ok(res, { result: tokens });
   }, "explorer/address/tokens"),
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/token/:address/meta — ERC-20/721 decimals/symbol/name (cached).
+// Server-side replacement for the old client-side viem read, so the browser
+// never has to hit an RPC directly for token metadata.
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/token/:address/meta",
+  asyncRoute(async (req: Request, res: Response) => {
+    const address = requireAddress(req.params.address);
+    const key = `${currentChainId()}|${address.toLowerCase()}`;
+    let meta = tokenMetaCache.get(key);
+    if (!meta) {
+      const client = chainClient();
+      const read = async (fn: "decimals" | "symbol" | "name") => {
+        try {
+          return await client.readContract({
+            address: address as `0x${string}`,
+            abi: ERC20_META_ABI,
+            functionName: fn,
+          });
+        } catch {
+          return null;
+        }
+      };
+      const [d, s, n] = await Promise.all([read("decimals"), read("symbol"), read("name")]);
+      meta = {
+        decimals: d === null ? null : Number(d),
+        symbol: (s as string) || null,
+        name: (n as string) || null,
+      };
+      // decimals() is immutable — cache a real read; don't pin a failed one.
+      if (meta.decimals !== null) tokenMetaCache.set(key, meta);
+    }
+    respond.ok(res, { result: { address, ...meta } });
+  }, "explorer/token/meta"),
 );
 
 // ---------------------------------------------------------------------------

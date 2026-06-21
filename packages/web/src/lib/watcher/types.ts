@@ -2,11 +2,11 @@
  * Client-side watcher: watch rules + fired matches.
  *
  * A watch rule is a per-workspace, browser-local subscription to on-chain
- * activity. It runs entirely client-side (viem `watchBlocks` / `watchEvent`
- * over the bring-your-own-RPC seam, see `lib/rpcEndpoint.ts`) and only while a
- * tab is open — there is no server component, by design: the watch list and the
- * read pattern never leave the browser, and the polling cost lands on the
- * user's own RPC (their node or provider key), not on Explore.
+ * activity. It runs client-side and only while a tab is open — the watch list
+ * lives only in the browser, by design. Each enabled rule polls the backend's
+ * purpose-built REST endpoints (`/api/address/:addr/txs`, `/api/chifra/transfers`,
+ * `/api/token/:addr/meta`) and diffs new items; the browser never makes raw
+ * JSON-RPC calls (see `components/watcher/RuleWatcher` + `lib/watcher/engine`).
  *
  * Two storage blobs, both companions to the Workspace store (which stays at its
  * own `schemaVersion: 1`, untouched):

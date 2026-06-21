@@ -1,16 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 /**
- * tokenMeta is the watcher's single effectful read (decimals/symbol). We mock
- * the viem client factory it rides on so the memoization + failure-eviction
- * logic can be exercised without an RPC: assert it reads a token once, treats
- * symbol() as optional, and does NOT cache a failed decimals() read.
+ * tokenMeta is the watcher's single effectful read (decimals/symbol). It now
+ * reads through the backend `/api/token/:addr/meta` endpoint (one call returns
+ * decimals + symbol), so we mock that fetch and exercise the memoization +
+ * failure-eviction logic without a network: read a token once, key by chain,
+ * treat symbol as optional, and do NOT cache a failed (decimals: null) read.
  */
 
-const readContract = vi.fn();
+const fetchTokenMeta = vi.fn();
 
-vi.mock("../lib/watcher/client", () => ({
-  getPublicClient: () => ({ readContract }),
+vi.mock("../api/explorer", () => ({
+  fetchTokenMeta: (...args: unknown[]) => fetchTokenMeta(...args),
 }));
 
 import { getTokenMeta, resetTokenMeta } from "../lib/watcher/tokenMeta";
@@ -19,71 +20,80 @@ const TOKEN = "0xAbC0000000000000000000000000000000000001"; // mixed case
 
 beforeEach(() => {
   resetTokenMeta();
-  readContract.mockReset();
+  fetchTokenMeta.mockReset();
 });
 
 describe("watcher/tokenMeta", () => {
   it("reads decimals + symbol once and memoizes per (chain, token)", async () => {
-    readContract.mockImplementation(
-      async ({ functionName }: { functionName: string }) =>
-        functionName === "decimals" ? 6 : "USDC",
-    );
+    fetchTokenMeta.mockResolvedValue({
+      address: TOKEN.toLowerCase(),
+      decimals: 6,
+      symbol: "USDC",
+      name: "USD Coin",
+    });
 
     const a = await getTokenMeta(369, TOKEN);
     const b = await getTokenMeta(369, TOKEN.toLowerCase()); // same token, normalized
 
     expect(a).toEqual({ decimals: 6, symbol: "USDC" });
     expect(b).toBe(a); // same memoized promise resolution
-    expect(readContract).toHaveBeenCalledTimes(2); // decimals + symbol, once
+    expect(fetchTokenMeta).toHaveBeenCalledTimes(1);
   });
 
   it("keys the cache by chain — same token on two chains reads twice", async () => {
-    readContract.mockImplementation(
-      async ({ functionName }: { functionName: string }) =>
-        functionName === "decimals" ? 18 : "WPLS",
-    );
+    fetchTokenMeta.mockResolvedValue({
+      address: TOKEN.toLowerCase(),
+      decimals: 18,
+      symbol: "WPLS",
+      name: null,
+    });
 
     await getTokenMeta(1, TOKEN);
     await getTokenMeta(369, TOKEN);
 
-    expect(readContract).toHaveBeenCalledTimes(4); // (decimals+symbol) per chain
+    expect(fetchTokenMeta).toHaveBeenCalledTimes(2); // once per chain
   });
 
-  it("returns decimals with no symbol when symbol() reverts", async () => {
-    readContract.mockImplementation(
-      async ({ functionName }: { functionName: string }) => {
-        if (functionName === "decimals") return 18;
-        throw new Error("symbol() not implemented");
-      },
-    );
-
-    expect(await getTokenMeta(1, TOKEN)).toEqual({
+  it("returns decimals with no symbol when the token has none", async () => {
+    fetchTokenMeta.mockResolvedValue({
+      address: TOKEN.toLowerCase(),
       decimals: 18,
-      symbol: undefined,
+      symbol: null,
+      name: null,
     });
+
+    expect(await getTokenMeta(1, TOKEN)).toEqual({ decimals: 18, symbol: undefined });
   });
 
-  it("coerces an empty symbol string to undefined", async () => {
-    readContract.mockImplementation(
-      async ({ functionName }: { functionName: string }) =>
-        functionName === "decimals" ? 8 : "",
-    );
-
-    expect(await getTokenMeta(1, TOKEN)).toEqual({
-      decimals: 8,
-      symbol: undefined,
+  it("returns null and does NOT cache a failed (decimals: null) read", async () => {
+    fetchTokenMeta.mockResolvedValueOnce({
+      address: TOKEN.toLowerCase(),
+      decimals: null,
+      symbol: null,
+      name: null,
     });
-  });
-
-  it("returns null and does NOT cache a failed decimals() read", async () => {
-    readContract.mockRejectedValueOnce(new Error("rpc down"));
     expect(await getTokenMeta(1, TOKEN)).toBeNull();
 
     // Cache was evicted, so the next transfer of the same token retries.
-    readContract.mockImplementation(
-      async ({ functionName }: { functionName: string }) =>
-        functionName === "decimals" ? 8 : "OK",
-    );
+    fetchTokenMeta.mockResolvedValueOnce({
+      address: TOKEN.toLowerCase(),
+      decimals: 8,
+      symbol: "OK",
+      name: null,
+    });
+    expect(await getTokenMeta(1, TOKEN)).toEqual({ decimals: 8, symbol: "OK" });
+  });
+
+  it("returns null and does NOT cache when the request rejects", async () => {
+    fetchTokenMeta.mockRejectedValueOnce(new Error("network down"));
+    expect(await getTokenMeta(1, TOKEN)).toBeNull();
+
+    fetchTokenMeta.mockResolvedValueOnce({
+      address: TOKEN.toLowerCase(),
+      decimals: 8,
+      symbol: "OK",
+      name: null,
+    });
     expect(await getTokenMeta(1, TOKEN)).toEqual({ decimals: 8, symbol: "OK" });
   });
 });

@@ -1,105 +1,108 @@
 /**
- * The viem wiring for a single watch rule. This is the ONLY file that touches
- * viem's subscription primitives; it adapts their block/log shapes into the
- * minimal inputs the pure matchers expect, and forwards every produced match to
- * `onMatch`. Returns the unsubscribe function viem hands back, so the engine
- * hook can reconcile subscriptions as rules change.
+ * Watch engine helpers — fetch a rule's recent on-chain activity from the
+ * backend REST endpoints, normalize it into the pure matchers' minimal shapes,
+ * and run the matchers. NO viem, no raw RPC: the browser polls purpose-built
+ * endpoints (the open /rpc proxy is gone). The polling + new-vs-seen diffing
+ * lives in the `RuleWatcher` component; this file stays a bag of functions.
  *
- * Errors are swallowed (logged, not thrown): a transient RPC hiccup on the
- * user's node shouldn't tear down the watch — viem keeps polling and recovers.
+ * Errors propagate to the caller's query, where the global retry policy backs
+ * off instead of hammering — a slow/rate-limited upstream must never spin.
  */
 
-import { parseAbiItem } from "viem";
-import { getPublicClient } from "./client.js";
+import {
+  fetchAddressTransactions,
+  fetchTokenTransfers,
+} from "../../api/explorer";
+import { getTokenMeta } from "./tokenMeta.js";
 import {
   matchAddressActivity,
   matchErc20Transfer,
-  type TokenMeta,
+  type MinimalTransferLog,
+  type MinimalTx,
 } from "./matchers.js";
-import { getTokenMeta } from "./tokenMeta.js";
 import type { WatchMatchContent, WatchRule } from "./types.js";
 import { isRuleActionable } from "./rules.js";
 
-const TRANSFER_EVENT = parseAbiItem(
-  "event Transfer(address indexed from, address indexed to, uint256 value)",
-);
+/** A fetched, matchable item with a stable identity for new-vs-seen diffing. */
+export interface RuleItem {
+  /** Unique within a rule: tx hash, or `${txHash}:${logIndex}` for a log. */
+  key: string;
+  /** Matches this item produced for the rule (empty = didn't fire). */
+  contents: WatchMatchContent[];
+}
 
-export type MatchHandler = (rule: WatchRule, content: WatchMatchContent) => void;
+function safeBigInt(v: string): bigint {
+  try {
+    return BigInt(v);
+  } catch {
+    return 0n;
+  }
+}
 
-/** No-op unsubscribe, returned when a rule isn't actionable yet. */
-const NOOP = () => {};
+function safeBlock(v: string): bigint | null {
+  try {
+    return BigInt(v);
+  } catch {
+    return null;
+  }
+}
 
 /**
- * Open a subscription for `rule`, invoking `onMatch` for each fired match.
- * Idempotent contract: call the returned function to tear it down. A rule
- * missing its required condition (no address / no token) yields a no-op so the
- * caller doesn't special-case it.
+ * Poll one rule's recent activity from REST and return per-item matches, each
+ * tagged with a dedupe key so the caller emits only newly-seen ones. A rule
+ * that isn't actionable yet yields nothing.
  */
-export function subscribeRule(rule: WatchRule, onMatch: MatchHandler): () => void {
-  if (!isRuleActionable(rule)) return NOOP;
-  const client = getPublicClient(rule.chainId);
+export async function fetchRuleItems(rule: WatchRule): Promise<RuleItem[]> {
+  if (!isRuleActionable(rule)) return [];
 
   if (rule.kind === "address_activity") {
-    return client.watchBlocks({
-      includeTransactions: true,
-      emitMissed: true,
-      onBlock: (block) => {
-        const txs = block.transactions.map((t) => ({
-          hash: t.hash,
-          from: t.from,
-          to: t.to,
-          value: t.value,
-        }));
-        for (const content of matchAddressActivity(txs, rule, block.number)) {
-          onMatch(rule, content);
-        }
-      },
-      onError: (err) => console.warn("[watcher] watchBlocks error", err),
+    const { transactions } = await fetchAddressTransactions(
+      rule.address!,
+      1,
+      25,
+      rule.chainId,
+    );
+    return transactions.map((t) => {
+      const tx: MinimalTx = {
+        hash: t.hash,
+        from: t.from,
+        to: t.to || null,
+        value: safeBigInt(t.value),
+      };
+      return {
+        key: t.hash,
+        contents: matchAddressActivity([tx], rule, safeBlock(t.blockNumber)),
+      };
     });
   }
 
-  // erc20_transfer — poll-based so it rides eth_getLogs (which the /rpc proxy
-  // supports) instead of eth_newFilter (which it may not).
-  //
-  // Kick off the one-shot decimals/symbol read up front and stash the result in
-  // a closure. Until it resolves, `meta` is null and the matcher renders raw
-  // base units; once it lands, every subsequent transfer shows the human amount.
-  // The fetch is memoized per token, so toggling/re-subscribing never re-reads.
-  let meta: TokenMeta | null = null;
-  void getTokenMeta(rule.chainId, rule.contractAddress as `0x${string}`).then(
-    (m) => {
-      meta = m;
-    },
-  );
-  return client.watchEvent({
-    address: rule.contractAddress as `0x${string}`,
-    event: TRANSFER_EVENT,
-    poll: true,
-    onLogs: (logs) => {
-      for (const log of logs) {
-        const content = matchErc20Transfer(
-          {
-            transactionHash: log.transactionHash,
-            blockNumber: log.blockNumber,
-            from: log.args.from ?? "0x",
-            to: log.args.to ?? "0x",
-            value: log.args.value ?? 0n,
-          },
-          rule,
-          meta,
-        );
-        if (content) onMatch(rule, content);
-      }
-    },
-    onError: (err) => console.warn("[watcher] watchEvent error", err),
-  });
+  // erc20_transfer — token meta (decimals/symbol) and the transfer window load
+  // in parallel; a missing/slow meta read just renders raw base units.
+  const token = rule.contractAddress!;
+  const [meta, window] = await Promise.all([
+    getTokenMeta(rule.chainId, token),
+    fetchTokenTransfers(token, "24h", rule.chainId),
+  ]);
+  return window.records
+    .filter((r) => r.variant === "erc20")
+    .map((r) => {
+      const log: MinimalTransferLog = {
+        transactionHash: r.txHash,
+        blockNumber: safeBlock(String(r.blockNumber)),
+        from: r.from,
+        to: r.to,
+        value: safeBigInt(r.value),
+      };
+      const content = matchErc20Transfer(log, rule, meta);
+      return { key: `${r.txHash}:${r.logIndex}`, contents: content ? [content] : [] };
+    });
 }
 
 /**
  * A stable string identity for a rule's subscription. Two rules with the same
- * signature produce an identical subscription, so the engine can skip
- * re-subscribing when an unrelated rule changes. Includes every field that
- * affects what's watched (but NOT `label` or `id`, which don't).
+ * signature watch identically, so the engine skips re-subscribing on unrelated
+ * changes. Includes every field that affects what's watched (NOT `label`/`id`
+ * display fields — well, `id` is included so distinct rules stay distinct).
  */
 export function ruleSignature(rule: WatchRule): string {
   return [
