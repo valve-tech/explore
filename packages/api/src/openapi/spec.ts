@@ -18,7 +18,6 @@
  *     security (or empty for public).
  *   - The drift gate (drift.test.ts) asserts every Express route on
  *     the live app is either covered here or in the allow-list.
- *   - `/rpc` is JSON-RPC and described in prose in the appendix.
  */
 
 import { readFileSync } from "node:fs";
@@ -75,23 +74,11 @@ function buildAppendix(): string {
 # Surfaces
 
 \`${PUBLIC_HOST}\` exposes the ${BRAND_NAME} platform — transaction simulation,
-opcode debugger, virtual testnets (Anvil forks), monitoring/alerting,
-serverless Web3 Actions, and an enhanced JSON-RPC proxy for ${defaultChain.name}
-(chain ID ${defaultChain.chainId}).
-
-## /rpc — JSON-RPC proxy (${defaultChain.name})
-
-\`POST /rpc\` accepts any standard EVM JSON-RPC method (eth_*, debug_*,
-trace_*, …) and proxies to the configured upstream node. The proxy
-adds a small cache layer in front of expensive method families
-(\`eth_call\`, \`debug_traceTransaction\`) and rewrites a few methods to
-hit chifra for paginated history (\`ots_searchTransactionsBefore\` /
-\`...After\`).
-
-## /api/rpc — same as /rpc, authenticated
-
-Same upstream + cache as /rpc; gated on a project API key from
-\`POST /api/keys\` (out-of-scope today; covered in a follow-up tag).
+opcode debugger, virtual testnets (Anvil forks), monitoring/alerting, and
+serverless Web3 Actions for ${defaultChain.name} (chain ID ${defaultChain.chainId}).
+Chain data is served through purpose-built REST endpoints under \`/api\` (the
+explorer, network-health, chifra transfers, token metadata, …) — there is no
+open JSON-RPC proxy.
 
 ## /ws/alerts — WebSocket alert stream
 

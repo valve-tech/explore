@@ -1,16 +1,13 @@
-import { apiUrl } from "../lib/apiBase";
-import { scoped } from "./chainScope";
 import { DEFAULT_CHAIN_ID } from "../lib/chains";
 import { resolveRpcUrl } from "../lib/rpcEndpoint";
-// ---------------------------------------------------------------------------
-// API client for RPC management endpoints
-// ---------------------------------------------------------------------------
-
-const API_BASE = apiUrl("/api/rpc");
-
 
 // ---------------------------------------------------------------------------
-// Types
+// Raw JSON-RPC reads — BRING-YOUR-OWN-RPC only.
+//
+// There is no shared JSON-RPC proxy (it was removed). `sendRpcRequest` posts to
+// the user's per-chain RPC override (their own node). The explorer's raw read
+// paths call it ONLY when `isRpcOverridden(chainId)` is true; with no override
+// the app uses the backend's REST/dispatcher endpoints and never touches a node.
 // ---------------------------------------------------------------------------
 
 export interface JsonRpcRequest {
@@ -27,131 +24,26 @@ export interface JsonRpcResponse {
   error?: { code: number; message: string; data?: unknown };
 }
 
-export interface MethodStats {
-  count: number;
-  avgLatency: number;
-  errorCount: number;
-  lastCalled: number;
-}
-
-export interface RequestRecord {
-  method: string;
-  timestamp: number;
-  latencyMs: number;
-  success: boolean;
-}
-
-export interface RpcStatsResponse {
-  ok: boolean;
-  totalRequests: number;
-  methodBreakdown: Record<string, MethodStats>;
-  recentRequests: RequestRecord[];
-}
-
-export interface MethodDescription {
-  name: string;
-  namespace: string;
-  description: string;
-  params: string;
-  example: {
-    request: JsonRpcRequest;
-    response: JsonRpcResponse;
-  };
-}
-
-export interface RpcMethodsResponse {
-  ok: boolean;
-  methods: MethodDescription[];
-}
-
-export interface RpcTestResponse {
-  ok: boolean;
-  latencyMs: number;
-  response: JsonRpcResponse | JsonRpcResponse[];
-  error?: string;
-}
-
-// ---------------------------------------------------------------------------
-// API functions
-// ---------------------------------------------------------------------------
-
 /**
- * Fetch RPC analytics stats.
- */
-export async function fetchRpcStats(
-  chainId: number = DEFAULT_CHAIN_ID,
-): Promise<RpcStatsResponse> {
-  const res = await fetch(scoped(`${API_BASE}/stats`, chainId));
-  if (!res.ok) throw new Error(`Failed to fetch RPC stats: ${res.statusText}`);
-  return res.json();
-}
-
-/**
- * Fetch supported RPC methods with descriptions.
- */
-export async function fetchRpcMethods(
-  chainId: number = DEFAULT_CHAIN_ID,
-): Promise<RpcMethodsResponse> {
-  const res = await fetch(scoped(`${API_BASE}/methods`, chainId));
-  if (!res.ok) throw new Error(`Failed to fetch RPC methods: ${res.statusText}`);
-  return res.json();
-}
-
-/**
- * Send a raw JSON-RPC request through the tester endpoint (includes timing).
- */
-export async function testRpcRequest(
-  request: JsonRpcRequest | JsonRpcRequest[],
-  chainId: number = DEFAULT_CHAIN_ID,
-): Promise<RpcTestResponse> {
-  const res = await fetch(scoped(`${API_BASE}/test`, chainId), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  });
-  if (!res.ok) throw new Error(`RPC test failed: ${res.statusText}`);
-  return res.json();
-}
-
-/**
- * Send a raw JSON-RPC request. The endpoint is resolved per chain via
- * `resolveRpcUrl`: Explore's `/rpc` proxy by default, or the user's own node
- * when they've set a bring-your-own-RPC override in Settings. This is the seam
- * that makes every raw read (charts, transfer logs, the playground "send")
- * run on the user's infrastructure when they opt in.
+ * Send a raw JSON-RPC request to the user's per-chain RPC override. Throws if no
+ * override is configured for the chain — there is no fallback proxy, so callers
+ * must check `isRpcOverridden` first (the explorer's BYO-RPC read paths do).
  */
 export async function sendRpcRequest(
   request: JsonRpcRequest | JsonRpcRequest[],
   chainId: number = DEFAULT_CHAIN_ID,
 ): Promise<JsonRpcResponse | JsonRpcResponse[]> {
-  const res = await fetch(resolveRpcUrl(chainId), {
+  const endpoint = resolveRpcUrl(chainId);
+  if (!endpoint) {
+    throw new Error(
+      `No RPC endpoint for chain ${chainId}. Set a per-chain RPC URL in Settings to read directly from a node.`,
+    );
+  }
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
   });
   if (!res.ok) throw new Error(`RPC request failed: ${res.statusText}`);
   return res.json();
-}
-
-/**
- * Quick connectivity check — sends eth_chainId and checks for a valid response.
- */
-export async function checkRpcConnection(
-  chainId: number = DEFAULT_CHAIN_ID,
-): Promise<boolean> {
-  try {
-    const res = await sendRpcRequest(
-      {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "eth_chainId",
-        params: [],
-      },
-      chainId,
-    );
-    const single = res as JsonRpcResponse;
-    return !single.error && single.result !== undefined;
-  } catch {
-    return false;
-  }
 }

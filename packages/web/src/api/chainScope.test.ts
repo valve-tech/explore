@@ -1,17 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchGasOracle } from "./gas";
 import { fetchPending } from "./mempool";
-import {
-  fetchRpcStats,
-  fetchRpcMethods,
-  testRpcRequest,
-  sendRpcRequest,
-} from "./rpc";
 
 /**
- * Chain-coverage pass: gas / mempool / rpc API clients must append `?chainid=N`
- * for non-default chains and stay byte-identical (no param) for the default
- * chain (369) — matching explorer.ts's private `scoped` helper.
+ * Chain-coverage pass: gas / mempool API clients must append `?chainid=N` for
+ * non-default chains and stay byte-identical (no param) for the default chain
+ * (369) — matching explorer.ts's private `scoped` helper. (The raw JSON-RPC
+ * proxy + playground endpoints were removed; raw reads are BYO-RPC only and go
+ * to the user's node verbatim, so there's nothing chain-scoped to assert there.)
  */
 
 const DEFAULT_CHAIN = 369;
@@ -70,42 +66,5 @@ describe("mempool chain scoping", () => {
     vi.stubGlobal("fetch", spy);
     await fetchPending(OTHER_CHAIN);
     expect(lastUrl(spy)).toBe(`/api/mempool/pending?chainid=${OTHER_CHAIN}`);
-  });
-});
-
-describe("rpc playground chain scoping", () => {
-  it("scopes stats + methods (GET) only for non-default chains", async () => {
-    const spy = vi.fn(async () => okResponse());
-    vi.stubGlobal("fetch", spy);
-
-    await fetchRpcStats(DEFAULT_CHAIN);
-    expect(lastUrl(spy)).toBe("/api/rpc/stats");
-    await fetchRpcStats(OTHER_CHAIN);
-    expect(lastUrl(spy)).toBe(`/api/rpc/stats?chainid=${OTHER_CHAIN}`);
-
-    await fetchRpcMethods(OTHER_CHAIN);
-    expect(lastUrl(spy)).toBe(`/api/rpc/methods?chainid=${OTHER_CHAIN}`);
-  });
-
-  it("scopes the tester POST endpoint", async () => {
-    const spy = vi.fn(async () => okResponse());
-    vi.stubGlobal("fetch", spy);
-
-    const req = { jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] };
-    await testRpcRequest(req, DEFAULT_CHAIN);
-    expect(lastUrl(spy)).toBe("/api/rpc/test");
-    await testRpcRequest(req, OTHER_CHAIN);
-    expect(lastUrl(spy)).toBe(`/api/rpc/test?chainid=${OTHER_CHAIN}`);
-  });
-
-  it("scopes the raw /rpc endpoint", async () => {
-    const spy = vi.fn(async () => okResponse());
-    vi.stubGlobal("fetch", spy);
-
-    const req = { jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] };
-    await sendRpcRequest(req, DEFAULT_CHAIN);
-    expect(lastUrl(spy)).toBe("/rpc");
-    await sendRpcRequest(req, OTHER_CHAIN);
-    expect(lastUrl(spy)).toBe(`/rpc?chainid=${OTHER_CHAIN}`);
   });
 });

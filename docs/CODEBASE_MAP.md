@@ -49,8 +49,6 @@ graph TB
         Notif[notifier/]
         ActExec[actionExecutor/]
         ActSched[actionScheduler]
-        RpcProxy[rpcProxy/]
-        RpcAna[rpcAnalytics]
         Sigs[signatures]
         Source[sourceCode/ + sourceMap/]
         Solc[solcCompiler/]
@@ -174,7 +172,7 @@ Single source of truth for PulseChain network constants. Consumed directly via T
 | `routes/forkSimulate.ts` | `POST /api/simulate/fork`, `POST /api/simulate/from-hash` | Fork-based simulation with full state diffs |
 | `routes/explorer.ts` | `GET /api/tx/:hash`, `/api/address/*`, `/api/contract/:address`, `/api/block/:numberOrHash` | Blockchain explorer endpoints |
 | `routes/debugger.ts` | `GET /api/debug/tx/:hash/{trace,opcodes,gas-profile}`, `POST /api/debug/trace` | Call trace + opcode trace + gas profile (cache → debug RPC → anvil fallback chain) |
-| `routes/rpc.ts` | `POST /rpc`, `POST /api/rpc`, `GET /api/rpc/{stats,methods}`, `POST /api/rpc/test` | JSON-RPC proxy + analytics + method catalog + tester |
+| `routes/token.ts` (in `routes/explorer.ts`) | `GET /api/token/:addr/meta` | ERC-20/721 decimals/symbol/name, cached (server-side; replaced the client-side viem read) |
 | `routes/alerts.ts` (+ `alerts/{schemas,serialize}.ts`) | CRUD `/api/alerts` + history + test | Monitoring alert rules |
 | `routes/actions.ts` (+ `actions/{schemas,serialize}.ts`) | CRUD `/api/actions` + test + logs + `POST /api/actions/webhooks/:id` | Serverless action management + inbound webhooks |
 | `routes/testnets.ts` | CRUD `/api/testnets` + snapshot/revert/fund/mine/time-travel/rpc | Anvil fork lifecycle |
@@ -206,8 +204,6 @@ Single source of truth for PulseChain network constants. Consumed directly via T
 | `services/actionScheduler.ts` | Periodic (`setInterval`) + block + event + webhook action scheduling | `initScheduler`, `processBlock`, `registerAction`, `unregisterAction` |
 | `services/actionsDb.ts` | Actions + action_logs + per-action JSONB storage CRUD | `createAction`, `addLog`, `getActionStorage`, `setActionStorage`, ... |
 | `services/apiKeys.ts` | 32-byte hex key generation, SHA-256 hashing; `validateApiKey` uses `UPDATE … RETURNING` for atomic `last_used_at` | `createApiKey`, `validateApiKey`, ... |
-| `services/rpcProxy/` | JSON-RPC router: standard passthrough + `valve_*` custom methods (`simulateTransaction`, `simulateBundle`, `decodeTransaction`, `getAssetChanges`) | `handleRpcRequest` |
-| `services/rpcAnalytics.ts` | In-memory ring buffer (10k records) | `rpcAnalytics` (singleton) |
 | `services/signatures.ts` | 4byte lookup: Postgres `signature_cache` → Sourcify 4byte API → 4byte.directory; 1h negative cache | `lookupSelector`, `lookupSelectors` |
 | `services/sourceCode/` | Verified source fetch: cache → Sourcify → BlockScout fallback; negative cache for unverified addresses | `getVerifiedSource` |
 | `services/sourceMap/` | Decode Solidity source maps + PC→source-location indexing | `decodeSourceMap`, `mapPcToSource`, `precomputeSourceMap`, `lookupPc` |
@@ -287,7 +283,6 @@ A platform-independent npm package providing EVM trace loading, traversal, parsi
 | `/bundle` | Bundle | `BundleSimulator` |
 | `/monitoring` | Monitoring | `AlertDashboard` |
 | `/testnets` | TestNets | `TestNetDashboard` |
-| `/rpc` | RPC | `RpcPage` |
 | `/explorer/*` | Explorer | `ExplorerPanel` |
 | `/debugger` / `/debugger/:txHash` | Debugger | `DebuggerView` |
 | `/actions` | Actions | `ActionsDashboard` |
@@ -312,7 +307,6 @@ App (Router)
 ├── /testnets → TestNetDashboard
 │   ├── CreateForkDialog
 │   └── ForkControls/{RpcUrlPanel, FaucetPanel, MineBlocksPanel, TimeTravelPanel, SnapshotsPanel, DestroyPanel, styles}
-├── /rpc → RpcPage (RpcDashboard + MethodExplorer + RpcTester)
 ├── /explorer → ExplorerPanel
 │   ├── TxSearch
 │   ├── TxDetail/{OverviewSection, DecodedInputSection, EventsSection, InternalTxSection, TokenTransfersSection, RawDataSection, primitives}
@@ -348,7 +342,7 @@ App (Router)
 | `api/alerts.ts` | `/api/alerts` CRUD + history + test | Inline throws |
 | `api/actions.ts` | `/api/actions` CRUD + test + logs | Shared `handleResponse<T>`, throws |
 | `api/testnets.ts` | `/api/testnets` CRUD + operations | Shared `handleResponse<T>`, throws |
-| `api/rpc.ts` | `/api/rpc/*`, `/rpc` raw passthrough | Throws |
+| `api/rpc.ts` | `sendRpcRequest` — BYO-RPC raw reads straight to the user's override node (no shared proxy) | Throws (incl. when no override is set) |
 | `api/source.ts` | `/api/source/:address`, `:address/analyze`, `:address/map` | Never throws — `{ ok, ... }` envelope |
 | `api/signatures.ts` | `/api/signatures/:selector`, `/api/signatures/batch` | Never throws — returns empty on failure |
 | `api/contractNames.ts` | `/api/source/:address` | Module-level `Map` cache, 5-way concurrent batching, never throws |
@@ -478,7 +472,7 @@ sequenceDiagram
 |----------|---------|---------|
 | `PORT` | `10100` | `src/index.ts:28` |
 | `DATABASE_URL` | `postgres://valvetech:valvetech@localhost:5432/valvetech` | `services/pool.ts` |
-| `PULSECHAIN_RPC_URL` | `https://rpc.pulsechain.com` | `services/rpc.ts`, `forkManager`, `rpcProxy`, `tracer` |
+| `PULSECHAIN_RPC_URL` | `https://rpc.pulsechain.com` | `services/rpc.ts`, `forkManager`, `tracer` |
 | `DEBUG_RPC_URL` | Falls back to `PULSECHAIN_RPC_URL` | `tracer/debugRpc.ts` (debug_* methods) |
 | `BLOCKSCOUT_API_URL` | `https://api.scan.pulsechain.com/api` | `decoder`, `explorer`, `sourceCode` |
 
@@ -557,8 +551,6 @@ sequenceDiagram
 - **[fixed 2026-05-16]** AddressView null `tx.to` → "Contract Creation" badge.
 - **[fixed 2026-05-16]** RpcTester initial-request `useState(() => …)` → `useEffect` on `[initialRequest]`.
 
-### Stale claims (verified false)
-- The old map's "'Connected' badge is cosmetic" claim — `checkRpcConnection()` in `api/rpc.ts` actually sends `eth_chainId`.
 
 ## Navigation Guide
 
@@ -581,11 +573,6 @@ sequenceDiagram
 2. Extend Zod schema in `packages/api/src/routes/alerts/schemas.ts`
 3. Add condition fields in `AlertBuilder/ConditionsCard.tsx`
 4. Add test case in `integration.test.ts`
-
-**To add a new custom RPC method:**
-1. Add handler in `packages/api/src/services/rpcProxy/handlers.ts`
-2. Register in `valveMethods.ts` catalog + `dispatch.ts` switch
-3. Update `MethodExplorer.tsx` (auto-fetched from `/api/rpc/methods`)
 
 **To add a new SDK component:**
 1. Create under `packages/sdk/src/components/` (use sub-dir if >200 LOC)

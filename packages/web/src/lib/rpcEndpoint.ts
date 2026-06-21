@@ -1,25 +1,21 @@
 /**
- * Bring-your-own-RPC: per-chain endpoint resolution for client-side raw reads.
+ * Bring-your-own-RPC: per-chain endpoint for client-side raw reads.
  *
- * By default every JSON-RPC call goes through Explore's own `/rpc` proxy (our
- * nodes). A user can override the endpoint **per chain** — pointing reads at
- * their own node or a provider key (Alchemy/Infura/etc.) — so heavy client-side
- * watching/charting runs on their infrastructure, not ours, and isn't rate
- * limited by our proxy. The override is stored in this browser only; the watch
- * list / read pattern never leaves the client.
+ * There is NO shared JSON-RPC proxy (it was removed) — raw client-side reads are
+ * strictly a BYO-RPC opt-in. A user sets a per-chain override, pointing reads at
+ * their own node or a provider key (Alchemy/Infura/etc.). With an override the
+ * explorer's raw reads (tx/address/block) go DIRECT to that node; without one
+ * the app uses the backend's purpose-built REST endpoints and the browser makes
+ * no JSON-RPC calls at all. The override is stored in this browser only.
  *
  * Mirrors the shape of `apiBase.ts` (the backend-origin override) but is a
  * distinct knob: `apiBase` is where enriched API calls go; this is where raw
- * chain RPC goes. When the app is served from IPFS with a user's own RPC set,
- * raw reads need no valve backend at all.
+ * chain RPC goes. Served from IPFS with a user's own RPC set, raw reads need no
+ * valve backend at all.
  *
- * Unlike the backend-origin override, an RPC URL keeps its **full path + query**
- * (provider keys live there, e.g. `…/v2/<KEY>`), so we validate the protocol
- * but preserve the rest verbatim.
+ * An RPC URL keeps its **full path + query** (provider keys live there, e.g.
+ * `…/v2/<KEY>`), so we validate the protocol but preserve the rest verbatim.
  */
-
-import { apiUrl } from "./apiBase.js";
-import { DEFAULT_CHAIN_ID } from "./chains.js";
 
 /** Per-chain localStorage key, e.g. `explore:rpcUrl:369`. */
 export function rpcOverrideKey(chainId: number): string {
@@ -63,7 +59,8 @@ export function setRpcOverride(chainId: number, value: string): string | null {
   return url;
 }
 
-/** Remove a chain's RPC override, reverting that chain to the `/rpc` proxy. */
+/** Remove a chain's RPC override; raw reads for it then fall back to the
+ *  backend REST endpoints (no direct node calls). */
 export function clearRpcOverride(chainId: number): void {
   if (typeof localStorage !== "undefined") {
     localStorage.removeItem(rpcOverrideKey(chainId));
@@ -71,18 +68,13 @@ export function clearRpcOverride(chainId: number): void {
 }
 
 /**
- * Resolve the endpoint a raw JSON-RPC call for `chainId` should POST to:
- *   - user override set  → that URL verbatim (their node is single-chain, so
- *                          no `?chainid` is appended).
- *   - no override        → Explore's `/rpc` proxy, scoped with `?chainid=N`
- *                          for non-default chains (byte-identical to the legacy
- *                          path, so default behavior is unchanged).
+ * The endpoint a raw JSON-RPC read for `chainId` should POST to: the user's
+ * per-chain override (their node, used verbatim), or `null` when none is set —
+ * there is no shared proxy, so callers must gate on a present override (see
+ * `isRpcOverridden`) and otherwise use the backend's REST endpoints.
  */
-export function resolveRpcUrl(chainId: number): string {
-  const override = getRpcOverride(chainId);
-  if (override) return override;
-  const base = apiUrl("/rpc");
-  return chainId === DEFAULT_CHAIN_ID ? base : `${base}?chainid=${chainId}`;
+export function resolveRpcUrl(chainId: number): string | null {
+  return getRpcOverride(chainId);
 }
 
 /** True when reads for this chain are pointed at a user-supplied endpoint. */

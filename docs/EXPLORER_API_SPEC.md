@@ -34,7 +34,7 @@ Backing existing Explorer views and unchanged by this spec.
 | `GET` | `/tx/:hash/gas-profile` | Gas-per-call flat profile |
 | `POST` | `/trace` | Ad-hoc trace of a calldata payload |
 
-### `/api/source`, `/api/signatures`, `/api/rpc`, `/api/diff` — already complete for their use cases.
+### `/api/source`, `/api/signatures`, `/api/diff` — already complete for their use cases.
 
 ---
 

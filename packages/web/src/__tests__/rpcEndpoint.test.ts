@@ -66,16 +66,16 @@ describe("per-chain override get/set/clear", () => {
 });
 
 describe("resolveRpcUrl", () => {
-  it("defaults to the /rpc proxy, scoping non-default chains with ?chainid", () => {
-    expect(resolveRpcUrl(369)).toBe("/rpc"); // default chain, no param
-    expect(resolveRpcUrl(1)).toBe("/rpc?chainid=1");
-    expect(resolveRpcUrl(943)).toBe("/rpc?chainid=943");
+  it("returns null with no override — there is no shared proxy", () => {
+    expect(resolveRpcUrl(369)).toBeNull();
+    expect(resolveRpcUrl(1)).toBeNull();
+    expect(resolveRpcUrl(943)).toBeNull();
   });
 
   it("returns the user's node verbatim (no chainid) when overridden", () => {
     setRpcOverride(943, "https://my-v4-node.example/rpc");
     expect(resolveRpcUrl(943)).toBe("https://my-v4-node.example/rpc");
-    // unset chains still resolve to the proxy
-    expect(resolveRpcUrl(1)).toBe("/rpc?chainid=1");
+    // unset chains have no endpoint (the app uses the backend REST API instead)
+    expect(resolveRpcUrl(1)).toBeNull();
   });
 });

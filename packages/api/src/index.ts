@@ -25,7 +25,6 @@ import simulateBundleRouter from "./routes/simulateBundle.js";
 import explorerRouter from "./routes/explorer.js";
 import latestRouter from "./routes/latest.js";
 import testnetsRouter from "./routes/testnets.js";
-import rpcRouter from "./routes/rpc.js";
 import alertsRouter from "./routes/alerts.js";
 import debuggerRouter from "./routes/debugger.js";
 import actionsRouter from "./routes/actions.js";
@@ -70,14 +69,13 @@ app.use(cors(corsDelegate));
 app.use(express.json({ limit: "2mb" }));
 
 // Resolve the request's target chain from ?chainid (or a chainid body field)
-// and run the rest of the request inside the chain context, so the /rpc proxy
-// and every chain-aware service routes to the right per-chain valve RPC
-// endpoint. Mounted ahead of the /rpc and /api routes; omitted/bad chainid
-// falls back to the default chain (369).
-app.use(["/rpc", "/api"], chainContext);
+// and run the rest of the request inside the chain context, so every chain-aware
+// service routes to the right per-chain valve RPC endpoint. Mounted ahead of the
+// /api routes; omitted/bad chainid falls back to the default chain (369).
+app.use("/api", chainContext);
 
 // ---------------------------------------------------------------------------
-// Routes — health and RPC bypass auth
+// Routes — health bypasses auth
 // ---------------------------------------------------------------------------
 
 app.get("/health", async (_req, res) => {
@@ -103,9 +101,6 @@ app.get("/health", async (_req, res) => {
 // See packages/api/src/openapi/spec.ts for the design.
 app.get("/openapi.json", openapiJsonHandler);
 app.get("/docs", docsHandler);
-
-app.use("/rpc", rpcRouter);
-app.use("/api/rpc", rpcRouter);
 
 // ---------------------------------------------------------------------------
 // Auth middleware — applied to all /api/* routes below
@@ -160,13 +155,8 @@ const webDistPath = path.join(__dirname, "..", "..", "web", "dist");
 if (existsSync(webDistPath)) {
   app.use(express.static(webDistPath));
 
-  // SPA fallback. Excludes the JSON surfaces so genuine API 404s are
-  // returned as JSON instead of being masked by index.html. Note `/rpc` is
-  // NOT excluded: the JSON-RPC proxy is POST-only (handled above, before this
-  // GET fallback), so a bare GET /rpc is the SPA's RpcPage and must serve
-  // index.html — otherwise a direct load / refresh / shared link 404s with
-  // "Cannot GET /rpc". The proxy's own GET endpoints (/rpc/stats, /rpc/methods)
-  // are matched by rpcRouter before reaching here.
+  // SPA fallback. Excludes the JSON surfaces so genuine API 404s are returned
+  // as JSON instead of being masked by index.html.
   app.get("*", (req, res, next) => {
     if (
       req.path.startsWith("/api/") ||
@@ -257,7 +247,6 @@ async function start(): Promise<void> {
     console.log(`  GET  /api/tx/:hash             – transaction details`);
     console.log(`  GET  /api/address/:addr         – address info`);
     console.log(`  POST /api/testnets             – create virtual testnet`);
-    console.log(`  POST /rpc                      – JSON-RPC proxy endpoint`);
     console.log(`  CRUD /api/alerts               – monitoring & alert rules`);
     console.log(`  GET  /api/debug/tx/:hash/trace – call tree trace`);
     console.log(`  CRUD /api/actions              – web3 actions`);

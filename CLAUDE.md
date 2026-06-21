@@ -7,9 +7,11 @@ The repo is named `explore`. (The published SDK package is still
 `@valve-tech/trace-sdk` — renaming it is a separate, deliberate decision.)
 
 Multichain block explorer + transaction simulator + opcode debugger.
-Seven features — transaction simulation, block explorer, monitoring/alerting,
-virtual testnets (Anvil forks), smart contract debugger, enhanced JSON-RPC
-proxy, and serverless Web3 Actions — delivered as a TypeScript monorepo.
+Six features — transaction simulation, block explorer, monitoring/alerting,
+virtual testnets (Anvil forks), smart contract debugger, and serverless Web3
+Actions — delivered as a TypeScript monorepo. (The browser talks to purpose-built
+REST endpoints only — there is no open JSON-RPC proxy; raw reads are a BYO-RPC
+opt-in straight to the user's own node.)
 
 **Multichain launch set** (per `docs/superpowers/specs/2026-05-29-multichain-etherscan-labels-design.md`):
 chains 1 (Ethereum), 369 (PulseChain), 943 (PulseChain Testnet). The frontend

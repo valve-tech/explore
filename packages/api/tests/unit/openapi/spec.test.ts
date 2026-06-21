@@ -37,11 +37,15 @@ describe("openapi spec", () => {
     assert.ok(urls.includes("http://localhost:10100"), "should advertise the local URL");
   });
 
-  it("describes the non-OpenAPI /rpc, /api/rpc, /ws/alerts surfaces in the appendix", () => {
+  it("describes the non-OpenAPI /ws/alerts surface in the appendix", () => {
     const desc = spec.info.description ?? "";
-    assert.match(desc, /\/rpc/);
-    assert.match(desc, /\/api\/rpc/);
     assert.match(desc, /\/ws\/alerts/);
+  });
+
+  it("advertises purpose-built REST instead of an open JSON-RPC proxy", () => {
+    const desc = spec.info.description ?? "";
+    assert.doesNotMatch(desc, /POST \/rpc/);
+    assert.match(desc, /purpose-built REST/);
   });
 
   it("calls out the federation link back to one.valve.city", () => {
