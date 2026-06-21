@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { Tooltip } from "../primitives/Tooltip";
@@ -17,7 +17,7 @@ import { Tooltip } from "../primitives/Tooltip";
  */
 export function WalletConnectButton() {
   const account = useAccount();
-  const { connectors, connectAsync, isPending, error } = useConnect();
+  const { connectors, connectAsync, isPending, error, reset } = useConnect();
   const { disconnect } = useDisconnect();
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -27,11 +27,29 @@ export function WalletConnectButton() {
 
   const handleConnect = async () => {
     if (!injected) return;
+    reset(); // clear any prior error before a fresh attempt
     await connectAsync({ connector: injected }).catch(() => {
       // Error surfaces via `useConnect().error`; swallow the rejection
       // here so it doesn't propagate as an unhandled promise.
     });
   };
+
+  // Rejecting the wallet prompt is a normal user choice, not an error worth
+  // surfacing. wagmi keeps the last error in state until `reset()`, so without
+  // this it would sit on screen forever ("User rejected the request…").
+  const isUserRejection =
+    error != null &&
+    (error.name === "UserRejectedRequestError" ||
+      /user rejected/i.test(error.message));
+  const showError = error != null && !isUserRejection;
+
+  // Never let an error stick permanently: drop a rejection immediately and
+  // auto-dismiss a real error after a few seconds (also clears on next attempt).
+  useEffect(() => {
+    if (error == null) return;
+    const timer = setTimeout(() => reset(), isUserRejection ? 0 : 6_000);
+    return () => clearTimeout(timer);
+  }, [error, isUserRejection, reset]);
 
   if (!account.isConnected) {
     // No injected provider in the page at all — render a static prompt.
@@ -57,7 +75,7 @@ export function WalletConnectButton() {
             {isPending ? "Connecting…" : "Connect wallet"}
           </button>
         </Tooltip>
-        {error && (
+        {showError && (
           <div
             className="absolute right-0 mt-1 p-2 text-[11px] theme-danger-bg theme-danger w-64"
             style={{ boxShadow: "inset 0 0 0 1px var(--color-danger)" }}
