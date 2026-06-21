@@ -34,6 +34,7 @@ const appearanceCache = new Map<
   string,
   { value: Appearance[]; t: number }
 >();
+const countCache = new Map<string, { value: number | null; t: number }>();
 
 export interface Appearance {
   blockNumber: number;
@@ -85,5 +86,45 @@ export async function listAppearances(
     return appearances;
   } catch {
     return [];
+  }
+}
+
+/**
+ * Total number of appearances for an address — chifra's `list --count` (a cheap
+ * index read), so a paged list can report a real total instead of just the page
+ * size. Returns `null` on outage so the caller can fall back gracefully. Cached
+ * briefly per (chain, address), like `listAppearances`.
+ */
+export async function countAppearances(address: string): Promise<number | null> {
+  const chain = currentChain().chifraChain;
+  const cacheKey = `${chain}:${address.toLowerCase()}`;
+  const cached = countCache.get(cacheKey);
+  if (cached && Date.now() - cached.t < APPEARANCE_TTL_MS) return cached.value;
+
+  try {
+    const res = await client.list({ addrs: [address], chain, count: true });
+    // `--count` returns `{ address, fileSize, nRecords }`. `nRecords` is capped
+    // by the daemon's default maxRecords (250), but `fileSize` is the uncapped
+    // on-disk size — and a TrueBlocks appearance is exactly 8 bytes
+    // (blockNumber uint32 + transactionIndex uint32), so `fileSize / 8` is the
+    // true count. Fall back to nRecords only if fileSize is missing.
+    const row = (res.data ?? []).find(
+      (r) =>
+        typeof (r as { fileSize?: unknown }).fileSize === "number" ||
+        typeof (r as { nRecords?: unknown }).nRecords === "number",
+    ) as { fileSize?: number; nRecords?: number } | undefined;
+    const value = row
+      ? typeof row.fileSize === "number"
+        ? Math.floor(row.fileSize / 8)
+        : row.nRecords ?? null
+      : null;
+    countCache.set(cacheKey, { value, t: Date.now() });
+    if (countCache.size > 500) {
+      const oldest = countCache.keys().next().value;
+      if (oldest !== undefined) countCache.delete(oldest);
+    }
+    return value;
+  } catch {
+    return null;
   }
 }

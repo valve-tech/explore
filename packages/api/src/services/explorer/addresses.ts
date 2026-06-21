@@ -1,6 +1,6 @@
 import { type Address, type Hex, erc20Abi, formatEther, padHex } from "viem";
 import { chainClient } from "../chains/context.js";
-import { listAppearances } from "../chifra/appearances.js";
+import { listAppearances, countAppearances } from "../chifra/appearances.js";
 import { lookupSelectors } from "../signatures.js";
 import { TRANSFER_TOPIC } from "./tokenTransfers/transforms.js";
 import {
@@ -38,8 +38,14 @@ export async function getAddressTransactions(
   page: number = 1,
   limit: number = 25,
 ): Promise<{ transactions: AddressTransaction[]; total: number }> {
-  const appearances = await listAppearances(address, page, limit);
-  if (appearances.length === 0) return { transactions: [], total: 0 };
+  // The real total comes from chifra's index count (cheap), not the page size —
+  // so a huge address (e.g. stETH) reports its full appearance count and the UI
+  // can paginate the whole history. Both reads are cached + run in parallel.
+  const [appearances, count] = await Promise.all([
+    listAppearances(address, page, limit),
+    countAppearances(address),
+  ]);
+  if (appearances.length === 0) return { transactions: [], total: count ?? 0 };
 
   const client = chainClient();
 
@@ -100,7 +106,7 @@ export async function getAddressTransactions(
     };
   });
 
-  return { transactions, total: transactions.length };
+  return { transactions, total: count ?? transactions.length };
 }
 
 // ---------------------------------------------------------------------------
