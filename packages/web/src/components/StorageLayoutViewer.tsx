@@ -17,6 +17,30 @@ import { groupByContract } from "./StorageLayoutViewer/grouping";
 // Component
 // ---------------------------------------------------------------------------
 
+/**
+ * Read one storage slot via the backend Etherscan-shaped dispatcher
+ * (`module=proxy&action=eth_getStorageAt`) — the browser makes no raw JSON-RPC
+ * call (the open /rpc proxy is gone). Returns the 32-byte hex word, or null.
+ */
+async function readStorageAt(
+  address: string,
+  slot: string,
+  chainId: number,
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      scoped(
+        `${apiUrl("/api")}?module=proxy&action=eth_getStorageAt&address=${address}&position=${slot}&tag=latest`,
+        chainId,
+      ),
+    );
+    const body = (await res.json()) as { result?: string };
+    return body.result ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function StorageLayoutViewer() {
   const [searchParams] = useSearchParams();
   const [contractAddress, setContractAddress] = useState(
@@ -83,18 +107,7 @@ export default function StorageLayoutViewer() {
     // Fetch the actual value from the chain
     setLoadingValue(true);
     try {
-      const res = await fetch(apiUrl("/rpc"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "eth_getStorageAt",
-          params: [contractAddress, slot, "latest"],
-        }),
-      });
-      const rpcRes = (await res.json()) as { result?: string };
-      setSlotValue(rpcRes.result ?? null);
+      setSlotValue(await readStorageAt(contractAddress, slot, chainId));
     } catch {
       setSlotValue(null);
     } finally {
@@ -303,18 +316,9 @@ export default function StorageLayoutViewer() {
                     onClick={async () => {
                       setLoadingValue(true);
                       try {
-                        const res = await fetch(apiUrl("/rpc"), {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            jsonrpc: "2.0",
-                            id: 1,
-                            method: "eth_getStorageAt",
-                            params: [contractAddress, computedSlot, "latest"],
-                          }),
-                        });
-                        const rpcRes = (await res.json()) as { result?: string };
-                        setSlotValue(rpcRes.result ?? null);
+                        setSlotValue(
+                          await readStorageAt(contractAddress, computedSlot, chainId),
+                        );
                       } finally {
                         setLoadingValue(false);
                       }
@@ -378,6 +382,7 @@ function DecompiledLayoutPanel({
   decompiled: import("./StorageLayoutViewer/types").DecompiledLayout;
   contractAddress: string;
 }) {
+  const chainId = useActiveChainId();
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [slotValue, setSlotValue] = useState<string | null>(null);
   const [loadingValue, setLoadingValue] = useState(false);
@@ -387,18 +392,7 @@ function DecompiledLayoutPanel({
     setSlotValue(null);
     setLoadingValue(true);
     try {
-      const res = await fetch(apiUrl("/rpc"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "eth_getStorageAt",
-          params: [contractAddress, slot, "latest"],
-        }),
-      });
-      const rpcRes = (await res.json()) as { result?: string };
-      setSlotValue(rpcRes.result ?? null);
+      setSlotValue(await readStorageAt(contractAddress, slot, chainId));
     } catch {
       setSlotValue(null);
     } finally {

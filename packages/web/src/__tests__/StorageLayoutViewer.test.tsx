@@ -148,8 +148,10 @@ describe("<StorageLayoutViewer />", () => {
         body: { ok: true, storageLayout: layout() },
       },
       {
-        match: (url, init) =>
-          url === "/rpc" && (init?.body as string)?.includes("eth_getStorageAt"),
+        // Storage reads now go through the backend dispatcher (GET
+        // ?module=proxy&action=eth_getStorageAt&position=<slot>), not the
+        // removed /rpc proxy.
+        match: (url) => url.includes("eth_getStorageAt"),
         body: { result: "0x" + "00".repeat(31) + "ff" },
       },
     ]);
@@ -166,19 +168,19 @@ describe("<StorageLayoutViewer />", () => {
     fireEvent.change(keyInput, { target: { value: "42" } });
     fireEvent.click(screen.getByRole("button", { name: /^Read$/ }));
 
-    // The /rpc call should have happened with eth_getStorageAt
+    // The dispatcher call should have happened with eth_getStorageAt
     await waitFor(() => {
-      const rpcCall = spy.mock.calls.find(
-        ([url, init]) =>
-          url === "/rpc" &&
-          (init as RequestInit | undefined)?.body?.toString().includes("eth_getStorageAt"),
+      const rpcCall = spy.mock.calls.find(([url]) =>
+        String(url).includes("eth_getStorageAt"),
       );
       expect(rpcCall).toBeDefined();
-      // Body should include the resolved slot from computeMappingSlot —
-      // not the bare base slot. Confirm the computed slot ISN'T the
-      // padded base slot of "2".
-      const body = JSON.parse((rpcCall![1] as RequestInit).body as string);
-      const slotParam = body.params[1] as string;
+      // The computed slot rides as the `position` query param — confirm it's
+      // the mapping-resolved slot from computeMappingSlot, not the bare base
+      // slot of "2".
+      const slotParam = new URL(
+        String(rpcCall![0]),
+        "http://localhost",
+      ).searchParams.get("position");
       expect(slotParam).not.toBe("0x" + "00".repeat(31) + "02");
       expect(slotParam).toMatch(/^0x[0-9a-f]{64}$/);
     });
