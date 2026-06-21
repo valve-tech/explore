@@ -15,9 +15,10 @@ export function TransferChart({ address }: Props) {
     error,
     fromBlock,
     headBlock,
-    days,
+    window,
     loadingMore,
     loadMore,
+    canLoadMore,
   } = useTokenTransfers(address);
 
   // Bucket transfer counts evenly across the loaded [fromBlock..headBlock]
@@ -47,7 +48,7 @@ export function TransferChart({ address }: Props) {
           Transfers
         </span>
         <span className="text-xs theme-text-muted">
-          last {days} days
+          last {window}
         </span>
       </div>
 
@@ -94,17 +95,19 @@ export function TransferChart({ address }: Props) {
       {status === "success" && (
         <div className="mt-stack flex items-center gap-row text-xs theme-text-muted">
           <span>{total.toLocaleString()} transfers</span>
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="flex items-center gap-tight hover:opacity-80 transition-opacity ml-auto disabled:opacity-50 theme-accent"
-          >
-            <Icon
-              icon={loadingMore ? "heroicons:arrow-path" : "heroicons:plus"}
-              className={`w-3 h-3 ${loadingMore ? "animate-spin" : ""}`}
-            />
-            {loadingMore ? "Loading…" : "Load more"}
-          </button>
+          {(canLoadMore || loadingMore) && (
+            <button
+              onClick={loadMore}
+              disabled={loadingMore || !canLoadMore}
+              className="flex items-center gap-tight hover:opacity-80 transition-opacity ml-auto disabled:opacity-50 theme-accent"
+            >
+              <Icon
+                icon={loadingMore ? "heroicons:arrow-path" : "heroicons:plus"}
+                className={`w-3 h-3 ${loadingMore ? "animate-spin" : ""}`}
+              />
+              {loadingMore ? "Loading…" : "Widen window"}
+            </button>
+          )}
         </div>
       )}
     </div>
