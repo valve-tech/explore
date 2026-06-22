@@ -203,12 +203,13 @@ function RpcEndpointSection() {
     <Section title="Chain RPC endpoints" icon="heroicons:bolt">
       <div className="space-y-stack pt-2">
         <p className="text-xs theme-text-muted max-w-md">
-          Bring your own RPC. Raw chain reads (blocks, txs, logs, charts, the
-          playground) go through Explore&apos;s proxy by default; set a node or
-          provider URL here to run them on your own infrastructure instead —
-          useful for heavy watching without hitting our rate limits. The
-          endpoint must allow browser requests (CORS). Enrichment features
-          (debugger traces, source, decompile) still use the backend.
+          Bring your own RPC. By default every read goes through Explore&apos;s
+          backend API — your browser makes no direct node calls. Set a per-chain
+          node or provider URL here and the explorer&apos;s raw reads (a
+          transaction, an address&apos;s balance/code, a block) go straight to
+          your node instead, so you don&apos;t depend on our backend. The
+          endpoint must allow browser requests (CORS). Everything else (charts,
+          debugger traces, source, decompile) always uses the backend.
         </p>
         {CHAINS.map((chain) => (
           <RpcChainRow key={chain.id} chainId={chain.id} name={chain.name} />
@@ -265,7 +266,7 @@ function RpcChainRow({ chainId, name }: { chainId: number; name: string }) {
           {name}
         </span>
         <code className="text-xs theme-mono theme-text-muted">
-          {stored ? "your node" : "Explore proxy"}
+          {stored ? "your node" : "Explore backend"}
         </code>
       </div>
       <div className="flex items-center gap-row">
