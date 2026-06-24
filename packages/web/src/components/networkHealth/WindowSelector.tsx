@@ -1,10 +1,11 @@
+import { WINDOW_OPTIONS } from "../../lib/networkHealthWindow";
+
 /**
- * Block-window picker. The default view stays small (64) so a cold load is
- * cheap, but a user — often pointed at their own node via the RPC override — can
- * widen to thousands of blocks. Larger windows warm lazily and cache, so the
- * cost is opt-in. Must not exceed the API's MAX_LIMIT (2048).
+ * Block-window picker. The default view stays small so a cold load is cheap, but
+ * a user — often pointed at their own node via the RPC override — can widen to
+ * thousands of blocks. The options come from the shared `networkHealthWindow`
+ * source of truth so they can't drift from the page default or the BYO ceiling.
  */
-const WINDOWS = [64, 256, 512, 1024, 2048] as const;
 
 export function WindowSelector({
   value,
@@ -21,7 +22,7 @@ export function WindowSelector({
         window
       </span>
       <div className="inline-flex bs-in-muted">
-        {WINDOWS.map((w) => {
+        {WINDOW_OPTIONS.map((w) => {
           const active = w === value;
           return (
             <button

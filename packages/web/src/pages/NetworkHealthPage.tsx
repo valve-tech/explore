@@ -11,9 +11,10 @@ import { ChainFlipper } from "../components/networkHealth/ChainFlipper";
 import { WindowSelector } from "../components/networkHealth/WindowSelector";
 import { NetworkHealthSkeleton } from "../components/networkHealth/NetworkHealthSkeleton";
 import { shareOf } from "../components/networkHealth/format";
+import { DEFAULT_WINDOW } from "../lib/networkHealthWindow";
 
 export default function NetworkHealthPage() {
-  const [limit, setLimit] = useState(64); // matches the API's INITIAL_WINDOW
+  const [limit, setLimit] = useState(DEFAULT_WINDOW);
   const chainId = useActiveChainId();
   const chainName = chainById(chainId)?.name ?? `chain ${chainId}`;
   const symbol = chainSymbol(chainId);

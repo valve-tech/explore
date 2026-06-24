@@ -25,9 +25,10 @@ import {
   computeLadder,
   serializeBlock,
 } from "@networkHealth/compute";
-import type { BlockInput, TxInput } from "@networkHealth/types";
+import type { BlockInput, BlockMetrics, TxInput } from "@networkHealth/types";
 import { sendRpcRequest, type JsonRpcResponse } from "../api/rpc";
 import type { BlockLadder, NetworkHealthResult } from "../api/networkHealth";
+import { MAX_WINDOW, STREAM_CHUNK } from "./networkHealthWindow";
 
 /** Parallel block fetches in flight against the user's node — bounded so a wide
  *  window streams in rounds instead of firing every call at once. */
@@ -121,10 +122,16 @@ function rpcFailed(message: string): never {
   throw new Error(message);
 }
 
-async function rpc(method: string, params: unknown[], chainId: number): Promise<unknown> {
+async function rpc(
+  method: string,
+  params: unknown[],
+  chainId: number,
+  signal?: AbortSignal,
+): Promise<unknown> {
   const resp = (await sendRpcRequest(
     { jsonrpc: "2.0", id: 1, method, params },
     chainId,
+    signal,
   )) as JsonRpcResponse;
   if (resp.error) rpcFailed(resp.error.message ?? "RPC error");
   return resp.result;
@@ -150,11 +157,15 @@ async function mapWithConcurrency<T, R>(
 }
 
 /** One block's header + receipts → the pure `BlockInput` (window warm: no full txs). */
-async function fetchBlockInput(blockNumber: bigint, chainId: number): Promise<BlockInput> {
+async function fetchBlockInput(
+  blockNumber: bigint,
+  chainId: number,
+  signal?: AbortSignal,
+): Promise<BlockInput> {
   const tag = "0x" + blockNumber.toString(16);
   const [header, receipts] = (await Promise.all([
-    rpc("eth_getBlockByNumber", [tag, false], chainId),
-    rpc("eth_getBlockReceipts", [tag], chainId),
+    rpc("eth_getBlockByNumber", [tag, false], chainId, signal),
+    rpc("eth_getBlockReceipts", [tag], chainId, signal),
   ])) as [RpcHeader, RpcReceipt[] | null];
 
   const txs: TxInput[] = (receipts ?? []).map((r) => ({
@@ -176,41 +187,80 @@ async function fetchBlockInput(blockNumber: bigint, chainId: number): Promise<Bl
   };
 }
 
-/**
- * The latest `limit` blocks' health for `chainId`, computed from the user's node.
- * Same shape as the backend's `/api/network-health` response.
- */
-export async function fetchNetworkHealthViaRpc(
-  chainId: number,
-  limit: number,
+/** Roll the accumulated (newest-first) metrics into the wire result shape. */
+function buildResult(
+  windowNewestFirst: BlockMetrics[],
+  head: bigint,
   burnsBaseFee: boolean,
-): Promise<NetworkHealthResult> {
-  const head = hexToBig((await rpc("eth_blockNumber", [], chainId)) as string);
-  const from = head - BigInt(limit) + 1n;
-  const first = from < 0n ? 0n : from;
-
-  const nums: bigint[] = [];
-  for (let n = first; n <= head; n += 1n) nums.push(n);
-
-  const inputs = await mapWithConcurrency(nums, CONCURRENCY, (n) =>
-    fetchBlockInput(n, chainId),
-  );
-  // The aggregators expect the window newest-first (see aggregateWindow).
-  const window = inputs
-    .map((b) => computeBlock(b, { burnsBaseFee }))
-    .reverse();
-  const oldest = window.length ? window[window.length - 1]!.number : null;
-
+  chainId: number,
+): NetworkHealthResult {
+  const oldest = windowNewestFirst.length
+    ? windowNewestFirst[windowNewestFirst.length - 1]!.number
+    : null;
   return {
     chainId,
     burnsBaseFee,
     headBlock: head.toString(),
     // We always fetch ending at head, so more history exists unless we hit genesis.
     hasMore: oldest !== null && oldest > 0n,
-    aggregate: aggregateWindow(window),
-    miners: aggregateMiners(window),
-    blocks: window.map(serializeBlock),
+    aggregate: aggregateWindow(windowNewestFirst),
+    miners: aggregateMiners(windowNewestFirst),
+    blocks: windowNewestFirst.map(serializeBlock),
   };
+}
+
+export interface NetworkHealthStreamOpts {
+  /** Cancels in-flight block reads when the query is superseded (chain/window switch). */
+  signal?: AbortSignal;
+  /**
+   * Called with a partial result after each chunk (newest blocks first), so a
+   * wide window paints progressively instead of blocking on the whole fetch.
+   * The final full result is the resolved return value, so the last chunk isn't
+   * reported here.
+   */
+  onProgress?: (partial: NetworkHealthResult) => void;
+}
+
+/**
+ * The latest `limit` blocks' health for `chainId`, computed from the user's node.
+ * Same shape as the backend's `/api/network-health` response.
+ *
+ * Blocks are fetched newest-first in chunks of `STREAM_CHUNK` (each chunk at
+ * `CONCURRENCY`), so the most recent blocks land first and `onProgress` can paint
+ * the window as it fills. `limit` is clamped to `MAX_WINDOW` (the shared ceiling
+ * that mirrors the API).
+ */
+export async function fetchNetworkHealthViaRpc(
+  chainId: number,
+  limit: number,
+  burnsBaseFee: boolean,
+  opts: NetworkHealthStreamOpts = {},
+): Promise<NetworkHealthResult> {
+  const { signal, onProgress } = opts;
+  const head = hexToBig((await rpc("eth_blockNumber", [], chainId, signal)) as string);
+  const span = Math.min(limit, MAX_WINDOW);
+  const from = head - BigInt(span) + 1n;
+  const first = from < 0n ? 0n : from;
+
+  // Descending so the newest blocks are fetched (and painted) first.
+  const nums: bigint[] = [];
+  for (let n = head; n >= first; n -= 1n) nums.push(n);
+
+  const window: BlockMetrics[] = []; // accumulates newest-first
+  for (let i = 0; i < nums.length; i += STREAM_CHUNK) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const chunk = nums.slice(i, i + STREAM_CHUNK);
+    const inputs = await mapWithConcurrency(chunk, CONCURRENCY, (n) =>
+      fetchBlockInput(n, chainId, signal),
+    );
+    for (const input of inputs) window.push(computeBlock(input, { burnsBaseFee }));
+    // Report intermediate chunks only; the final chunk is delivered via return.
+    if (onProgress && i + STREAM_CHUNK < nums.length) {
+      onProgress(buildResult(window, head, burnsBaseFee, chainId));
+    }
+  }
+
+  return buildResult(window, head, burnsBaseFee, chainId);
 }
 
 /** One block's fee ladder, computed from the user's node (full txs + receipts). */
@@ -218,11 +268,12 @@ export async function fetchBlockLadderViaRpc(
   chainId: number,
   blockNumber: string,
   burnsBaseFee: boolean,
+  signal?: AbortSignal,
 ): Promise<BlockLadder> {
   const tag = "0x" + BigInt(blockNumber).toString(16);
   const [block, receipts] = (await Promise.all([
-    rpc("eth_getBlockByNumber", [tag, true], chainId),
-    rpc("eth_getBlockReceipts", [tag], chainId),
+    rpc("eth_getBlockByNumber", [tag, true], chainId, signal),
+    rpc("eth_getBlockReceipts", [tag], chainId, signal),
   ])) as [RpcHeaderWithTxs, RpcReceipt[] | null];
 
   const txByIndex = new Map<number, RpcFullTx>();

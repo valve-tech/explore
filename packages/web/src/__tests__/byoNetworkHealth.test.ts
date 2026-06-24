@@ -103,6 +103,54 @@ describe("byoNetworkHealth — fetchNetworkHealthViaRpc", () => {
     expect(BigInt(out.aggregate.tips)).toBe(1_000_000_000n * 21_000n * 3n);
   });
 
+  it("streams newest-first: onProgress paints partial windows that grow to the full result", async () => {
+    const head = 200;
+    sendRpcRequest.mockImplementation((req: { method: string; params: unknown[] }) => {
+      if (req.method === "eth_blockNumber")
+        return Promise.resolve({ jsonrpc: "2.0", id: 1, result: hex(head) });
+      if (req.method === "eth_getBlockByNumber")
+        return Promise.resolve(header(Number(BigInt(req.params[0] as string))));
+      return Promise.resolve(receipts());
+    });
+
+    const partials: number[] = [];
+    const out = await fetchNetworkHealthViaRpc(369, 130, true, {
+      onProgress: (p) => partials.push(p.aggregate.blocksAnalyzed),
+    });
+
+    // 130 blocks over a 64-block chunk → chunks of 64, 64, 2; the last is
+    // delivered via the return value, so onProgress fires for the first two.
+    expect(partials).toEqual([64, 128]);
+    // Each partial leads with the newest block, and the final result is complete.
+    expect(out.aggregate.blocksAnalyzed).toBe(130);
+    expect(out.blocks[0]!.number).toBe("200"); // newest first
+    expect(out.blocks.at(-1)!.number).toBe("71"); // 200 - 130 + 1
+    expect(out.headBlock).toBe("200");
+  });
+
+  it("aborts mid-stream when the signal fires", async () => {
+    const controller = new AbortController();
+    const head = 200;
+    let blockCalls = 0;
+    sendRpcRequest.mockImplementation((req: { method: string; params: unknown[] }) => {
+      if (req.method === "eth_blockNumber")
+        return Promise.resolve({ jsonrpc: "2.0", id: 1, result: hex(head) });
+      if (req.method === "eth_getBlockByNumber") {
+        blockCalls += 1;
+        // Abort once the first chunk has been requested.
+        if (blockCalls === 1) controller.abort();
+        return Promise.resolve(header(Number(BigInt(req.params[0] as string))));
+      }
+      return Promise.resolve(receipts());
+    });
+
+    await expect(
+      fetchNetworkHealthViaRpc(369, 200, true, { signal: controller.signal }),
+    ).rejects.toThrow(/abort/i);
+    // It stopped early — far fewer than the 200 blocks were fetched.
+    expect(blockCalls).toBeLessThan(200);
+  });
+
   it("clamps the window at genesis (hasMore false)", async () => {
     sendRpcRequest.mockImplementation((req: { method: string; params: unknown[] }) => {
       if (req.method === "eth_blockNumber")

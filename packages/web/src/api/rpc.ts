@@ -28,10 +28,15 @@ export interface JsonRpcResponse {
  * Send a raw JSON-RPC request to the user's per-chain RPC override. Throws if no
  * override is configured for the chain — there is no fallback proxy, so callers
  * must check `isRpcOverridden` first (the explorer's BYO-RPC read paths do).
+ *
+ * `signal` lets a caller cancel the request (e.g. TanStack Query aborting a
+ * superseded fetch) — important for the streaming network-health path, which can
+ * have hundreds of block reads in flight when the user switches chain/window.
  */
 export async function sendRpcRequest(
   request: JsonRpcRequest | JsonRpcRequest[],
   chainId: number = DEFAULT_CHAIN_ID,
+  signal?: AbortSignal,
 ): Promise<JsonRpcResponse | JsonRpcResponse[]> {
   const endpoint = resolveRpcUrl(chainId);
   if (!endpoint) {
@@ -43,6 +48,7 @@ export async function sendRpcRequest(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
+    signal,
   });
   if (!res.ok) throw new Error(`RPC request failed: ${res.statusText}`);
   return res.json();
