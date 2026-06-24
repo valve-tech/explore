@@ -1,62 +1,46 @@
-import { generateAuthNonce } from "@valve-tech/auth-lite";
-import { pool } from "../pool.js";
+import { createMemoryNonceStore } from "@valve-tech/siwe-store";
 
 /**
- * Postgres-backed nonce store for the SIWE-lite challenge flow.
+ * Single-use SIWE nonce store for the challenge flow.
  *
- * Two operations:
- *   issue()    — generate a nonce via auth-lite, persist with expiry, return it.
- *   consume()  — atomically validate + mark a nonce used. Returns true if the
- *                nonce was issued, unexpired, and unused; false otherwise.
- *                Both failure modes (not-found OR already-used OR expired)
- *                return false without distinguishing — clients can't tell from
- *                the response whether they hit a replay vs an expiry, which is
- *                the desired behaviour for an auth primitive.
+ * Backed by `@valve-tech/siwe-store`'s in-memory store (which pairs with
+ * `viem/siwe`): `issue()` mints a fresh `generateSiweNonce()` and remembers
+ * it; `consume()` validates + deletes in one shot (delete-before-TTL-check),
+ * so a replay or a race-loser sees `false`. Both failure modes (unknown /
+ * already-used / expired) collapse to `false` without distinguishing — the
+ * desired behaviour for an auth primitive.
  *
- * The nonce table is small (5min TTL, low write rate). A periodic vacuum
- * (`vacuumExpiredNonces` + the worker in `./nonceVacuum.ts`) drops rows
- * where `expires_at < now() - interval '1 hour'`, keeping the table bounded
- * without competing with in-flight verifies on borderline-fresh nonces.
+ * In-memory is sufficient because explore runs a single api process; nonces
+ * are short-lived (5 min) and re-issued on demand, so a restart losing the
+ * set just means in-flight challenges are re-fetched. (The former
+ * Postgres-backed `auth_nonces` table is now unused — `viem/siwe` owns the
+ * nonce, `siwe-store` owns the single-use state.) For a multi-instance api,
+ * swap `createMemoryNonceStore` for a Redis/SQL `NonceStore` implementation.
  */
 
 const NONCE_TTL_SECONDS = 5 * 60;
 
+const store = createMemoryNonceStore({ ttlSeconds: NONCE_TTL_SECONDS });
+
 export async function issueNonce(): Promise<{ nonce: string; expiresAt: number }> {
-  const { nonce, expiresAt } = generateAuthNonce({ ttlSeconds: NONCE_TTL_SECONDS });
-  await pool.query(
-    `INSERT INTO auth_nonces (nonce, expires_at) VALUES ($1, to_timestamp($2))`,
-    [nonce, expiresAt / 1000],
-  );
-  return { nonce, expiresAt };
+  const nonce = store.issue();
+  return { nonce, expiresAt: Date.now() + NONCE_TTL_SECONDS * 1000 };
 }
 
 /**
- * Mark a nonce as used. Returns true ONLY when the row was unused AND
- * unexpired at the moment of the UPDATE — a concurrent verify on the same
- * nonce in a different connection sees `used_at IS NOT NULL` and fails.
+ * Single-use consume: `true` only when the nonce was issued, unexpired, and
+ * not yet consumed. The store deletes on lookup, so a concurrent verify on
+ * the same nonce sees `false`.
  */
 export async function consumeNonce(nonce: string): Promise<boolean> {
-  const result = await pool.query<{ nonce: string }>(
-    `UPDATE auth_nonces
-        SET used_at = NOW()
-      WHERE nonce = $1
-        AND used_at IS NULL
-        AND expires_at > NOW()
-      RETURNING nonce`,
-    [nonce],
-  );
-  return result.rowCount === 1;
+  return store.consume(nonce);
 }
 
 /**
- * Delete expired-and-stale auth_nonces rows. The 1h grace beyond `expires_at`
- * keeps borderline-fresh rows visible long enough for postmortem of failed
- * verifies (replay attempts surface as "row exists, used_at is set" instead of
- * "row vanished"). Returns the number of rows removed — caller can log.
+ * Retained as a no-op for the periodic vacuum worker: the in-memory store
+ * self-expires, so there is nothing to sweep. Kept so `nonceVacuum.ts` and
+ * its wiring don't need to change in this migration.
  */
 export async function vacuumExpiredNonces(): Promise<number> {
-  const result = await pool.query(
-    `DELETE FROM auth_nonces WHERE expires_at < NOW() - INTERVAL '1 hour'`,
-  );
-  return result.rowCount ?? 0;
+  return 0;
 }

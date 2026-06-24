@@ -18,7 +18,6 @@
     "@tanstack/query-sync-storage-persister": "^5.95.2",
     "@tanstack/react-query": "^5.95.2",
     "@tanstack/react-query-persist-client": "^5.95.2",
-    "@valve-tech/auth-lite": "^0.18.0",
     "@valve-tech/trace-sdk": "*",
     "@valve-tech/wallet-crypto": "^0.18.0",
     "idb-keyval": "^6.2.2",

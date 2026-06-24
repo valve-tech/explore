@@ -4,10 +4,10 @@ import type { WalletClient } from "viem";
 
 /**
  * Bridge between wagmi's React state and the viem `WalletClient` shape
- * consumed by `@valve-tech/wallet-crypto` + `@valve-tech/auth-lite`. The
- * toolkit packages take a `WalletClient` (with `.account` + `.signMessage`)
- * — wagmi's `useWalletClient` returns the same type, this hook just keeps
- * one calling shape across the app.
+ * consumed by `@valve-tech/wallet-crypto` and the SIWE sign-in (which signs
+ * a `viem/siwe` message directly). Both take a `WalletClient` (with
+ * `.account` + `.signMessage`) — wagmi's `useWalletClient` returns the same
+ * type, this hook just keeps one calling shape across the app.
  *
  * Returns `null` when no wallet is connected. Callers MUST handle that
  * null path — there's no fallback signer.

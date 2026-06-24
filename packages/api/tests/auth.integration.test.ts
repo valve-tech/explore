@@ -1,18 +1,32 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
-import { formatAuthMessage } from "@valve-tech/auth-lite";
+import { createSiweMessage } from "viem/siwe";
 
 /**
  * Integration tests for /api/auth/*. Requires:
  *   - API server on http://localhost:10100
- *   - Postgres reachable (migrations 001..008 applied at startup)
  *
  * The signing path uses viem/accounts so we sign locally with a generated
- * private key — same code path as a real wallet, no UI in the loop.
+ * private key — same code path as a real EOA wallet, no UI in the loop. The
+ * message is the same EIP-4361 message the web client builds via viem/siwe.
  */
 
 const BASE = "http://localhost:10100";
+
+/** Build the EIP-4361 message the web client sends (domain/uri are not
+ * validated server-side — the server binds on the single-use nonce). */
+function buildSiwe(address: `0x${string}`, nonce: string): string {
+  return createSiweMessage({
+    address,
+    chainId: 369,
+    domain: "localhost",
+    nonce,
+    uri: "http://localhost",
+    version: "1",
+    statement: "Sign in to Explore to sync your saved workspaces.",
+  });
+}
 
 async function getNonce(): Promise<{ nonce: string; expiresAt: number }> {
   const res = await fetch(`${BASE}/api/auth/nonce`);
@@ -23,9 +37,8 @@ async function getNonce(): Promise<{ nonce: string; expiresAt: number }> {
 }
 
 async function postVerify(input: {
-  address: string;
+  message: string;
   signature: string;
-  nonce: string;
 }): Promise<{ status: number; body: unknown; setCookie: string | null }> {
   const res = await fetch(`${BASE}/api/auth/verify`, {
     method: "POST",
@@ -57,11 +70,12 @@ async function skipUnlessHealthy(t: { skip: (reason: string) => void }): Promise
 }
 
 describe("/api/auth/nonce", () => {
-  it("issues a fresh base64url nonce + expiresAt", async (t) => {
+  it("issues a fresh SIWE nonce + expiresAt", async (t) => {
     if (!(await skipUnlessHealthy(t))) return;
     const { nonce, expiresAt } = await getNonce();
-    assert.match(nonce, /^[A-Za-z0-9_-]+$/, "nonce should be base64url");
-    assert.ok(nonce.length >= 22, "nonce should decode to >=16 bytes");
+    // viem's generateSiweNonce: alphanumeric, EIP-4361 (>= 8 chars).
+    assert.match(nonce, /^[a-zA-Z0-9]+$/, "nonce should be alphanumeric");
+    assert.ok(nonce.length >= 8, "nonce should be >= 8 chars");
     assert.ok(expiresAt > Date.now(), "expiresAt should be in the future");
     assert.ok(expiresAt - Date.now() <= 6 * 60_000, "expiresAt should be ~5 min out");
   });
@@ -79,14 +93,10 @@ describe("/api/auth/verify", () => {
     if (!(await skipUnlessHealthy(t))) return;
     const account = privateKeyToAccount(generatePrivateKey());
     const { nonce } = await getNonce();
-    const message = formatAuthMessage({ app: "explore", nonce });
+    const message = buildSiwe(account.address, nonce);
     const signature = await account.signMessage({ message });
 
-    const { status, body, setCookie } = await postVerify({
-      address: account.address,
-      signature,
-      nonce,
-    });
+    const { status, body, setCookie } = await postVerify({ message, signature });
     assert.equal(status, 200);
     const ok = body as { ok: boolean; address: string };
     assert.equal(ok.ok, true);
@@ -98,52 +108,37 @@ describe("/api/auth/verify", () => {
     if (!(await skipUnlessHealthy(t))) return;
     const account = privateKeyToAccount(generatePrivateKey());
     const { nonce } = await getNonce();
-    const message = formatAuthMessage({ app: "explore", nonce });
+    const message = buildSiwe(account.address, nonce);
     const signature = await account.signMessage({ message });
 
-    const first = await postVerify({
-      address: account.address,
-      signature,
-      nonce,
-    });
+    const first = await postVerify({ message, signature });
     assert.equal(first.status, 200);
 
-    const replay = await postVerify({
-      address: account.address,
-      signature,
-      nonce,
-    });
+    const replay = await postVerify({ message, signature });
     assert.equal(replay.status, 401, "second verify on same nonce should fail");
   });
 
-  it("rejects a signature signed under a different app id (401)", async (t) => {
+  it("rejects a signature from a different signer than the message claims (401)", async (t) => {
     if (!(await skipUnlessHealthy(t))) return;
-    const account = privateKeyToAccount(generatePrivateKey());
+    const claimed = privateKeyToAccount(generatePrivateKey());
+    const attacker = privateKeyToAccount(generatePrivateKey());
     const { nonce } = await getNonce();
-    // Sign for "other" instead of "explore" — verifyAuthSignature reconstructs
-    // the message with the server's APP_ID and fails the recover.
-    const otherAppMessage = formatAuthMessage({ app: "other", nonce });
-    const signature = await account.signMessage({ message: otherAppMessage });
+    // Message claims `claimed`'s address, but is signed by `attacker`.
+    const message = buildSiwe(claimed.address, nonce);
+    const signature = await attacker.signMessage({ message });
 
-    const { status } = await postVerify({
-      address: account.address,
-      signature,
-      nonce,
-    });
+    const { status } = await postVerify({ message, signature });
     assert.equal(status, 401);
   });
 
   it("rejects an unknown nonce (401)", async (t) => {
     if (!(await skipUnlessHealthy(t))) return;
     const account = privateKeyToAccount(generatePrivateKey());
-    const bogusNonce = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef";
-    const message = formatAuthMessage({ app: "explore", nonce: bogusNonce });
+    // A well-formed, correctly-signed message — but with a nonce the server
+    // never issued, so consume() fails.
+    const message = buildSiwe(account.address, "neverissuednonce123");
     const signature = await account.signMessage({ message });
-    const { status } = await postVerify({
-      address: account.address,
-      signature,
-      nonce: bogusNonce,
-    });
+    const { status } = await postVerify({ message, signature });
     assert.equal(status, 401);
   });
 
@@ -152,7 +147,7 @@ describe("/api/auth/verify", () => {
     const res = await fetch(`${BASE}/api/auth/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address: "not-an-address", signature: "nope", nonce: "" }),
+      body: JSON.stringify({ message: "", signature: "nope" }),
     });
     assert.equal(res.status, 400);
   });

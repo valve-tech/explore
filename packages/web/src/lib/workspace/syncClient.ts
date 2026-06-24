@@ -1,5 +1,5 @@
 import { apiUrl } from "../apiBase";
-import { signAuthChallenge } from "@valve-tech/auth-lite";
+import { createSiweMessage } from "viem/siwe";
 import type { WalletClient } from "viem";
 import type { WorkspaceSyncEnvelope } from "./sync.js";
 
@@ -14,7 +14,9 @@ import type { WorkspaceSyncEnvelope } from "./sync.js";
  * extra wiring.
  */
 
-const APP_ID = "explore";
+// Chain id baked into the SIWE message when the wallet doesn't expose one.
+// Informational only — the server binds on the single-use nonce, not chainId.
+const FALLBACK_CHAIN_ID = 369;
 
 export interface AuthChallenge {
   nonce: string;
@@ -43,17 +45,29 @@ export interface VerifyResult {
 export async function authenticate(
   signer: WalletClient,
 ): Promise<VerifyResult> {
+  const account = signer.account;
+  if (!account) {
+    throw new SyncTransportError("auth: wallet client has no account to sign with");
+  }
   const { nonce } = await fetchAuthChallenge();
-  const { address, signature } = await signAuthChallenge({
-    signer,
-    app: APP_ID,
+  // Build the EIP-4361 message the server will parse + verify. The server
+  // binds on the server-issued single-use nonce (not domain), so the SPA can
+  // be hosted from any origin (e.g. an IPFS gateway).
+  const message = createSiweMessage({
+    address: account.address,
+    chainId: signer.chain?.id ?? FALLBACK_CHAIN_ID,
+    domain: window.location.host,
     nonce,
+    uri: window.location.origin,
+    version: "1",
+    statement: "Sign in to Explore to sync your saved workspaces.",
   });
+  const signature = await signer.signMessage({ account, message });
   const res = await fetch(apiUrl(`/api/auth/verify`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ address, signature, nonce }),
+    body: JSON.stringify({ message, signature }),
   });
   const body = (await res.json()) as {
     ok: boolean;

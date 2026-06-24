@@ -1,9 +1,9 @@
 import { Router, type Request, type Response } from "express";
-import { verifyAuthSignature } from "@valve-tech/auth-lite";
 import { z } from "zod";
-import { isAddress, type Address, type Hex } from "viem";
+import { parseSiweMessage, verifySiweMessage } from "viem/siwe";
 import { ApiError, asyncRoute, respond } from "../lib/respond.js";
 import { sessionCookieSecurity } from "../lib/cors.js";
+import { publicClient } from "../services/rpc.js";
 import { issueNonce, consumeNonce } from "../services/auth/nonceStore.js";
 import {
   mintSession,
@@ -13,21 +13,21 @@ import {
 
 const router = Router();
 
-const APP_ID = "explore";
-
 const verifyBodySchema = z.object({
-  address: z.string().refine(isAddress, "must be an EIP-55 address"),
+  message: z.string().min(1),
   signature: z.string().regex(/^0x[a-fA-F0-9]+$/, "must be 0x-prefixed hex"),
-  nonce: z.string().min(1),
 });
 
 /**
- * GET /api/auth/nonce — issue a fresh nonce for the SIWE-lite challenge.
+ * GET /api/auth/nonce — issue a fresh single-use nonce for the SIWE challenge.
  *
  * Response: { ok: true, nonce, expiresAt }
  *
- * The client signs `formatAuthMessage({ app: APP_ID, nonce })` and POSTs to
- * /verify with the signature + address.
+ * The client builds an EIP-4361 message with `createSiweMessage({ ..., nonce })`
+ * (viem/siwe), signs it, and POSTs { message, signature } to /verify. The
+ * server-issued nonce is the app binding + replay defense — the SPA is
+ * self-hostable from any origin, so the SIWE `domain` is not a fixed value
+ * we can validate against; the single-use nonce is.
  */
 router.get(
   "/nonce",
@@ -38,46 +38,57 @@ router.get(
 );
 
 /**
- * POST /api/auth/verify — consume nonce, verify signature, mint session.
+ * POST /api/auth/verify — verify a SIWE signature, consume the nonce, mint a
+ * session.
  *
- * Body: { address, signature, nonce }
- * Response: { ok: true, address } (session cookie set as side effect)
+ * Body: { message, signature }   (EIP-4361 message string + its signature)
+ * Response: { ok: true, address } (session cookie set as a side effect)
  *
  * Failure modes:
  *  - 400  malformed body (zod)
- *  - 401  bad signature OR address mismatch OR nonce unknown / already used / expired
+ *  - 401  unparseable message / bad signature / nonce unknown, used, or expired
  *
- * The nonce + signature failures all collapse to 401 with the same message —
- * a partially-truthful error response leaks which check failed, which is
- * exactly the kind of timing oracle to avoid for an auth primitive.
+ * All 401 paths share one message: a partially-truthful error leaks which
+ * check failed, exactly the oracle to avoid for an auth primitive.
  */
 router.post(
   "/verify",
   asyncRoute(async (req: Request, res: Response) => {
-    const { address, signature, nonce } = verifyBodySchema.parse(req.body);
+    const { message, signature } = verifyBodySchema.parse(req.body);
 
-    // Consume FIRST so a failed signature check doesn't burn a nonce — if the
-    // user hits a wallet bug and re-signs the same nonce, the second attempt
-    // would otherwise see "nonce already used" even though the first was a
-    // mis-signature. But we ALSO can't verify without the nonce being valid.
-    // Compromise: validate the signature first, then consume the nonce
-    // atomically. The verify is pure CPU; consume is the DB write.
-    const recovered = await verifyAuthSignature({
-      app: APP_ID,
-      nonce,
-      signature: signature as Hex,
-      claimedAddress: address as Address,
-    });
-    if (!recovered) {
+    // The address the message claims + the nonce baked into it.
+    const fields = parseSiweMessage(message);
+    const address = fields.address;
+    const nonce = fields.nonce;
+    if (!address || !nonce) {
       throw new ApiError(401, "Authentication failed");
     }
 
+    // Verify the signature over the exact message. EOA recovery is offline;
+    // EIP-1271 smart-contract wallets resolve via the public client. Any
+    // verifier error collapses to a failed auth.
+    let valid = false;
+    try {
+      valid = await verifySiweMessage(publicClient, {
+        message,
+        signature: signature as `0x${string}`,
+      });
+    } catch {
+      valid = false;
+    }
+    if (!valid) {
+      throw new ApiError(401, "Authentication failed");
+    }
+
+    // Consume AFTER a good signature so a wallet mis-sign doesn't burn the
+    // nonce (the user can re-sign the same challenge). Single-use: a replay of
+    // an already-consumed nonce returns false here.
     const consumed = await consumeNonce(nonce);
     if (!consumed) {
       throw new ApiError(401, "Authentication failed");
     }
 
-    const { token, expiresAt } = mintSession(recovered);
+    const { token, expiresAt } = mintSession(address);
     // SameSite/Secure depend on whether this is an allowlisted cross-origin
     // (IPFS gateway) request — None+Secure there so the cookie rides later
     // cross-origin sync calls; Lax for same-origin. See lib/cors.ts.
@@ -89,10 +100,8 @@ router.post(
       maxAge: SESSION_COOKIE_MAX_AGE_SECONDS * 1000,
       path: "/",
     });
-    // Return the lowercased address to match the cookie payload's
-    // normalization — clients comparing the response address to a stored
-    // session shouldn't see a casing mismatch.
-    respond.ok(res, { address: recovered.toLowerCase(), expiresAt });
+    // Lowercased to match the cookie payload's normalization.
+    respond.ok(res, { address: address.toLowerCase(), expiresAt });
   }, "auth/verify"),
 );
 

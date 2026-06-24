@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
-import { formatAuthMessage } from "@valve-tech/auth-lite";
+import { createSiweMessage } from "viem/siwe";
 
 /**
  * Integration tests for /api/workspaces/sync. Requires:
@@ -34,12 +34,20 @@ async function authenticate(): Promise<{ address: `0x${string}`; cookie: string 
   const account = privateKeyToAccount(generatePrivateKey());
   const nonceRes = await fetch(`${BASE}/api/auth/nonce`);
   const { nonce } = (await nonceRes.json()) as { nonce: string };
-  const message = formatAuthMessage({ app: "explore", nonce });
+  const message = createSiweMessage({
+    address: account.address,
+    chainId: 369,
+    domain: "localhost",
+    nonce,
+    uri: "http://localhost",
+    version: "1",
+    statement: "Sign in to Explore to sync your saved workspaces.",
+  });
   const signature = await account.signMessage({ message });
   const verifyRes = await fetch(`${BASE}/api/auth/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address: account.address, signature, nonce }),
+    body: JSON.stringify({ message, signature }),
   });
   assert.equal(verifyRes.status, 200, "auth/verify failed in test setup");
   const setCookie = verifyRes.headers.get("set-cookie")!;
