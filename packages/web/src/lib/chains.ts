@@ -23,17 +23,26 @@ export interface ChainInfo {
   symbol: string;
   /** True when the chain is a testnet — UI dims testnets in pickers. */
   testnet: boolean;
+  /**
+   * True when the chain burns the EIP-1559 base fee (so validator revenue per
+   * gas is the tip). Mirrors the backend's per-chain ChainConfig.burnsBaseFee;
+   * used by the BYO-RPC network-health path, which computes locally and has no
+   * backend response to read the flag from. Defaults true (see
+   * `chainBurnsBaseFee`) for any chain that omits it.
+   */
+  burnsBaseFee?: boolean;
 }
 
 export const CHAINS: ChainInfo[] = [
-  { id: 1, name: "Ethereum", slug: "ethereum", symbol: "ETH", testnet: false },
-  { id: 369, name: "PulseChain", slug: "pulsechain", symbol: "PLS", testnet: false },
+  { id: 1, name: "Ethereum", slug: "ethereum", symbol: "ETH", testnet: false, burnsBaseFee: true },
+  { id: 369, name: "PulseChain", slug: "pulsechain", symbol: "PLS", testnet: false, burnsBaseFee: true },
   {
     id: 943,
     name: "PulseChain Testnet v4",
     slug: "pulsechain-testnet",
     symbol: "v4PLS",
     testnet: true,
+    burnsBaseFee: true,
   },
 ];
 
@@ -48,6 +57,15 @@ export function chainById(id: number): ChainInfo | undefined {
  */
 export function chainSymbol(id: number): string {
   return chainById(id)?.symbol ?? chainById(DEFAULT_CHAIN_ID)?.symbol ?? "PLS";
+}
+
+/**
+ * Whether a chain burns the EIP-1559 base fee — defaults true (matching the
+ * backend's `burnsBaseFee ?? true`) for unregistered ids or entries that omit
+ * the flag. Drives the BYO-RPC network-health computation.
+ */
+export function chainBurnsBaseFee(id: number): boolean {
+  return chainById(id)?.burnsBaseFee ?? true;
 }
 
 /**

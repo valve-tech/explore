@@ -8,6 +8,19 @@ export default defineConfig({
   // BrowserRouter build keeps absolute "/" so nested routes resolve assets.
   base: process.env.VITE_IPFS ? "./" : "/",
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      // The network-health analysis (compute + types) is PURE and is the single
+      // source of truth in the API package. The BYO-RPC path computes it
+      // client-side from the user's own node, so the web build imports those
+      // exact files (no duplication, no drift). Vite resolves their internal
+      // `./types.js` import to the `.ts` sibling, same as our own watcher code.
+      "@networkHealth": new URL(
+        "../api/src/services/networkHealth",
+        import.meta.url,
+      ).pathname,
+    },
+  },
   build: {
     rollupOptions: {
       output: {
