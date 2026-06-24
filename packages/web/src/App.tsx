@@ -28,7 +28,7 @@ const ContractDiff = lazy(() => import("./components/ContractDiff"));
 const StorageLayoutViewer = lazy(() => import("./components/StorageLayoutViewer"));
 const VerifyContract = lazy(() => import("./components/VerifyContract"));
 const DraftsIndex = lazy(() => import("./components/drafts/DraftsIndex"));
-const SettingsPanel = lazy(() => import("./components/drafts/SettingsPanel"));
+const SettingsPanel = lazy(() => import("./components/settings/SettingsPanel"));
 const WorkspaceList = lazy(() => import("./components/workspace/WorkspaceList"));
 const WorkspaceDetail = lazy(() => import("./components/workspace/WorkspaceDetail"));
 

@@ -4,6 +4,7 @@ import { BackHistoryControl } from "../RecentMenu";
 import { WalletConnectButton } from "../wallet/WalletConnectButton";
 import { WorkspaceSyncStatus } from "../wallet/WorkspaceSyncStatus";
 import { WorkspaceSyncAutoPush } from "../wallet/WorkspaceSyncAutoPush";
+import { RpcSourceChip } from "../settings/RpcSourceChip";
 import { ExploreLogo } from "./ExploreLogo";
 import { ValveLogo } from "./ValveLogo";
 import { Tooltip } from "../primitives/Tooltip";
@@ -111,6 +112,7 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-inline px-2 shrink-0">
+        <RpcSourceChip />
         <WorkspaceSyncAutoPush />
         <WorkspaceSyncStatus />
         <WalletConnectButton />
