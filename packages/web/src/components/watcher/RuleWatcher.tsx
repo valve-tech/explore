@@ -4,10 +4,11 @@ import { fetchRuleItems, ruleSignature } from "../../lib/watcher/engine";
 import type { WatchMatchContent, WatchRule } from "../../lib/watcher/types";
 
 /**
- * One enabled watch rule, polled against the backend REST endpoints (address
- * txs / token transfers) — no raw RPC from the browser. Each poll's results are
- * diffed against what we've already seen for this rule; only genuinely-new items
- * fire `onMatch`. The FIRST successful poll primes the seen-set without emitting,
+ * One enabled watch rule, polled against the backend REST endpoints by default,
+ * or straight from the user's node when a per-chain RPC override is set (the
+ * transport choice lives in `engine.ts`). Each poll's results are diffed against
+ * what we've already seen for this rule; only genuinely-new items fire `onMatch`.
+ * The FIRST successful poll primes the seen-set without emitting,
  * so opening the app doesn't replay the last 24h of history as fresh alerts.
  *
  * Rendered once per enabled rule by the engine; renders nothing itself.

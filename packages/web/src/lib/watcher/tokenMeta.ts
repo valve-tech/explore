@@ -3,9 +3,11 @@
  *
  * The transfer matcher (`matchErc20Transfer`) is pure and renders whatever raw
  * value it's handed. This module is the SINGLE effect that turns a token address
- * into the decimals/symbol needed to show "1.5 USDC" instead of "1500000". It
- * reads through the backend's `/api/token/:addr/meta` endpoint (server-side,
- * cached) — the browser no longer hits an RPC directly for metadata.
+ * into the decimals/symbol needed to show "1.5 USDC" instead of "1500000". By
+ * default it reads through the backend's `/api/token/:addr/meta` endpoint
+ * (server-side, cached); when a per-chain RPC override is set the read goes
+ * straight to the user's node via `eth_call` (bring-your-own-RPC) — either way
+ * the cache below is transport-agnostic.
  *
  * Memoized per (chainId, token): a token is read at most once per session no
  * matter how many rules reference it. A token that can't answer `decimals()`
@@ -15,6 +17,8 @@
  */
 
 import { fetchTokenMeta } from "../../api/explorer";
+import { fetchTokenMetaViaRpc } from "../byoTokenMeta";
+import { isRpcOverridden } from "../rpcEndpoint";
 import type { TokenMeta } from "./matchers.js";
 
 /** In-flight or resolved metadata per `${chainId}|${lowercased token}`. */
@@ -50,7 +54,9 @@ export function getTokenMeta(
 
 async function load(chainId: number, address: string): Promise<TokenMeta | null> {
   try {
-    const info = await fetchTokenMeta(address, chainId);
+    const info = isRpcOverridden(chainId)
+      ? await fetchTokenMetaViaRpc(address, chainId)
+      : await fetchTokenMeta(address, chainId);
     if (info.decimals === null) return null; // can't render a human amount; show raw.
     return { decimals: info.decimals, symbol: info.symbol ?? undefined };
   } catch {

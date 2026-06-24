@@ -1,9 +1,12 @@
 /**
- * Watch engine helpers — fetch a rule's recent on-chain activity from the
- * backend REST endpoints, normalize it into the pure matchers' minimal shapes,
- * and run the matchers. NO viem, no raw RPC: the browser polls purpose-built
- * endpoints (the open /rpc proxy is gone). The polling + new-vs-seen diffing
- * lives in the `RuleWatcher` component; this file stays a bag of functions.
+ * Watch engine helpers — fetch a rule's recent on-chain activity, normalize it
+ * into the pure matchers' minimal shapes, and run the matchers. By default the
+ * browser polls our purpose-built REST endpoints (there is no open /rpc proxy).
+ * When a per-chain RPC override is set (bring-your-own-RPC), the same rule reads
+ * straight from the user's node instead: ERC-20 transfers via `eth_getLogs`,
+ * token metadata via `eth_call`, and address activity via a recent-block scan —
+ * so the polling load lands on their infra, not ours. Either way this file stays
+ * a bag of functions; the polling + new-vs-seen diffing lives in `RuleWatcher`.
  *
  * Errors propagate to the caller's query, where the global retry policy backs
  * off instead of hammering — a slow/rate-limited upstream must never spin.
@@ -13,6 +16,9 @@ import {
   fetchAddressTransactions,
   fetchTokenTransfers,
 } from "../../api/explorer";
+import { isRpcOverridden } from "../rpcEndpoint";
+import { fetchTransfersViaRpc } from "../byoTransfers";
+import { fetchAddressActivityViaRpc, type WatchActivityTx } from "./byoActivity.js";
 import { getTokenMeta } from "./tokenMeta.js";
 import {
   matchAddressActivity,
@@ -56,12 +62,9 @@ export async function fetchRuleItems(rule: WatchRule): Promise<RuleItem[]> {
   if (!isRuleActionable(rule)) return [];
 
   if (rule.kind === "address_activity") {
-    const { transactions } = await fetchAddressTransactions(
-      rule.address!,
-      1,
-      25,
-      rule.chainId,
-    );
+    const transactions: WatchActivityTx[] = isRpcOverridden(rule.chainId)
+      ? await fetchAddressActivityViaRpc(rule.address!, rule.chainId)
+      : (await fetchAddressTransactions(rule.address!, 1, 25, rule.chainId)).transactions;
     return transactions.map((t) => {
       const tx: MinimalTx = {
         hash: t.hash,
@@ -81,7 +84,9 @@ export async function fetchRuleItems(rule: WatchRule): Promise<RuleItem[]> {
   const token = rule.contractAddress!;
   const [meta, window] = await Promise.all([
     getTokenMeta(rule.chainId, token),
-    fetchTokenTransfers(token, "24h", rule.chainId),
+    isRpcOverridden(rule.chainId)
+      ? fetchTransfersViaRpc(token, "24h", rule.chainId)
+      : fetchTokenTransfers(token, "24h", rule.chainId),
   ]);
   return window.records
     .filter((r) => r.variant === "erc20")
