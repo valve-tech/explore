@@ -103,6 +103,59 @@ describe("byoNetworkHealth — fetchNetworkHealthViaRpc", () => {
     expect(BigInt(out.aggregate.tips)).toBe(1_000_000_000n * 21_000n * 3n);
   });
 
+  it("normalizes a REAL block + receipts into the correct burned/tips/paid wei", async () => {
+    // Known setup — real PulseChain block 26804492 (0x199010c), 2 legacy txs:
+    //   https://explore.valve.city/block/26804492?chainid=369
+    // header + receipts captured from rpc.pulsechain.com; burned/tips/paid are
+    // computed from the chain's own baseFee/effectiveGasPrice/gasUsed.
+    const realHeader = {
+      jsonrpc: "2.0",
+      id: 1,
+      result: {
+        number: "0x199010c",
+        timestamp: "0x6a320063",
+        baseFeePerGas: "0x19ba96bbd407f",
+        gasUsed: "0x1edba",
+        gasLimit: "0x2ad4e1b",
+        miner: "0x5ead01d58067a68d0d700374500580ec5c961d0d",
+      },
+    };
+    const realReceipts = {
+      jsonrpc: "2.0",
+      id: 1,
+      result: [
+        { transactionIndex: "0x0", type: "0x0", from: "0x0cfd4b2bc70dd20e9e040e67fc26c9cc4309192a", gasUsed: "0x143a3", effectiveGasPrice: "0x1dae1ac793f88e4" },
+        { transactionIndex: "0x1", type: "0x0", from: "0x04f5673d298c55e86d402fe895fa4f93d05f0348", gasUsed: "0xaa17", effectiveGasPrice: "0x1afb5e29cc5652d" },
+      ],
+    };
+    sendRpcRequest.mockImplementation((req: { method: string }) => {
+      if (req.method === "eth_blockNumber")
+        return Promise.resolve({ jsonrpc: "2.0", id: 1, result: "0x199010c" });
+      if (req.method === "eth_getBlockByNumber") return Promise.resolve(realHeader);
+      return Promise.resolve(realReceipts);
+    });
+
+    const out = await fetchNetworkHealthViaRpc(369, 1, true);
+    const b = out.blocks[0]!;
+
+    expect(out.headBlock).toBe("26804492");
+    expect(b.number).toBe("26804492");
+    expect(b.timestamp).toBe(1781661795);
+    expect(b.baseFeePerGas).toBe("452626936053887");
+    expect(b.gasUsed).toBe("126394"); // block header gasUsed == Σ tx gasUsed here
+    expect(b.txCount).toBe(2);
+    expect(b.legacyGasShare).toBe(1); // both txs are type-0 (legacy)
+    expect(b.legacyCountShare).toBe(1);
+
+    // burned = Σ baseFee·gasUsed; tips = Σ (effGasPrice−baseFee)·gasUsed; paid = Σ effGasPrice·gasUsed
+    expect(out.aggregate.burned).toBe("57209328955594993478");
+    expect(out.aggregate.tips).toBe("16308415764020445994737");
+    expect(out.aggregate.paid).toBe("16365625092976040988215");
+    expect(BigInt(out.aggregate.burned) + BigInt(out.aggregate.tips)).toBe(
+      BigInt(out.aggregate.paid),
+    );
+  });
+
   it("streams newest-first: onProgress paints partial windows that grow to the full result", async () => {
     const head = 200;
     sendRpcRequest.mockImplementation((req: { method: string; params: unknown[] }) => {
