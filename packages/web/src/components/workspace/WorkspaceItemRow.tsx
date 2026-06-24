@@ -11,11 +11,12 @@ import { BlockPreview } from "./previews/BlockPreview";
 /**
  * One row in a Workspace's item list. Two states:
  *   - collapsed: type icon + short value + optional user label + canonical link
- *   - expanded:  inline mini-card with a few quick facts (TODO: wire the real
- *                preview fetchers; for v0 it just shows the metadata we have)
+ *   - expanded:  an inline preview card that fetches a few live facts for the
+ *                item from its PINNED chain (see previews/ — Address/Tx/Block)
  *
  * Per-row expansion (not bulk) keeps API load proportional to user attention —
- * a 50-item workspace doesn't fan out 50 simultaneous fetches just to render.
+ * a 50-item workspace doesn't fan out 50 simultaneous fetches just to render
+ * (the preview only mounts, and only then fetches, once a row is expanded).
  */
 export function WorkspaceItemRow({
   item,
