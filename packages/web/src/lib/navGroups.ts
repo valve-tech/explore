@@ -133,3 +133,31 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
+
+/**
+ * Utility / workspace-preference pages. They live in the sidebar FOOTER rather
+ * than a nav group, but are still real routes — so the command palette and the
+ * collapsed sidebar surface them from here (otherwise they'd be reachable only
+ * by typing the URL). Kept separate from NAV_GROUPS so they don't render as
+ * feature cards on the landing hub.
+ */
+export const UTILITY_PAGES: NavItem[] = [
+  {
+    to: "/settings",
+    label: "Settings",
+    icon: "heroicons:cog-6-tooth",
+    desc: "Backend origin, per-chain RPC, notifications.",
+  },
+  {
+    to: "/ui",
+    label: "UI Gallery",
+    icon: "heroicons:swatch",
+    desc: "Component + primitive gallery.",
+  },
+  {
+    to: "/drafts",
+    label: "Drafts",
+    icon: "heroicons:pencil-square",
+    desc: "Design-only layout explorations.",
+  },
+];

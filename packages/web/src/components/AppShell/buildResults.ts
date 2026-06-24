@@ -1,5 +1,5 @@
 import type { RecentEntity } from "../../lib/recentEntities";
-import { NAV_GROUPS } from "../../lib/navGroups";
+import { NAV_GROUPS, UTILITY_PAGES } from "../../lib/navGroups";
 import { scanPath } from "../../lib/scanRoutes";
 import type { WorkspaceItemKind } from "../../lib/workspace/types";
 import type { Parsed } from "./parseInput";
@@ -32,10 +32,14 @@ export interface Result {
   entity?: { kind: WorkspaceItemKind; value: string };
 }
 
-/** Flattened navigable pages, derived from the sidebar groups. */
-const PAGES: { label: string; to: string; icon: string }[] = NAV_GROUPS.flatMap(
-  (g) => g.items.map((it) => ({ label: it.label, to: it.to, icon: it.icon })),
-);
+/** Flattened navigable pages: the sidebar groups plus the footer utility pages
+ *  (Settings / UI / Drafts), so ⌘K can jump to them too. */
+const PAGES: { label: string; to: string; icon: string }[] = [
+  ...NAV_GROUPS.flatMap((g) =>
+    g.items.map((it) => ({ label: it.label, to: it.to, icon: it.icon })),
+  ),
+  ...UTILITY_PAGES.map((it) => ({ label: it.label, to: it.to, icon: it.icon })),
+];
 
 function truncMid(v: string): string {
   if (!v.startsWith("0x") || v.length <= 16) return v;

@@ -152,11 +152,13 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
       </nav>
 
       <div
-        className="py-2 flex items-center theme-text-muted bs-t-muted"
+        className="py-2 flex theme-text-muted bs-t-muted"
         style={{
+          flexDirection: collapsed ? "column" : "row",
+          alignItems: "center",
           paddingLeft: collapsed ? 0 : 12,
           paddingRight: collapsed ? 0 : 12,
-          gap: collapsed ? 0 : 8,
+          gap: collapsed ? 4 : 8,
           justifyContent: collapsed ? "center" : "flex-start",
         }}
       >
@@ -219,6 +221,42 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
             >
               Drafts ✶
             </NavLink>
+          </>
+        )}
+        {/* Collapsed: UI gallery + Drafts would otherwise be unreachable (the
+            text links above are hidden), so surface them as icon links. */}
+        {collapsed && (
+          <>
+            <Tooltip label="UI Gallery">
+              <NavLink
+                to="/ui"
+                aria-label="UI Gallery"
+                className="flex items-center justify-center"
+                style={({ isActive }) => ({
+                  width: 40,
+                  height: 36,
+                  color: isActive ? "var(--color-accent)" : "var(--color-text-muted)",
+                  textDecoration: "none",
+                })}
+              >
+                <Icon icon="heroicons:swatch" className="w-5 h-5 shrink-0" />
+              </NavLink>
+            </Tooltip>
+            <Tooltip label="Drafts">
+              <NavLink
+                to="/drafts"
+                aria-label="Drafts"
+                className="flex items-center justify-center"
+                style={({ isActive }) => ({
+                  width: 40,
+                  height: 36,
+                  color: isActive ? "var(--color-accent)" : "var(--color-text-muted)",
+                  textDecoration: "none",
+                })}
+              >
+                <Icon icon="heroicons:pencil-square" className="w-5 h-5 shrink-0" />
+              </NavLink>
+            </Tooltip>
           </>
         )}
       </div>
