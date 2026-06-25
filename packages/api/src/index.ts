@@ -43,6 +43,7 @@ import workspaceSyncRouter from "./routes/workspaceSync.js";
 import portfolioRouter from "./routes/portfolio.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { chainContext } from "./middleware/chainContext.js";
+import { strictChainId } from "./middleware/strictChainId.js";
 import { corsDelegate } from "./lib/cors.js";
 import { docsHandler, openapiJsonHandler } from "./openapi/handlers.js";
 import { startMonitor } from "./services/monitor.js";
@@ -107,6 +108,12 @@ app.get("/docs", docsHandler);
 // ---------------------------------------------------------------------------
 
 app.use("/api", authMiddleware);
+
+// Reject a malformed/unsupported `chainid` on the REST sub-path surface with a
+// 400 (the bare-/api Etherscan dispatcher is skipped — it validates itself).
+// `chainContext` above has already bound the request to a chain; this only
+// hardens the read routes that don't validate `chainid` for themselves.
+app.use("/api", strictChainId);
 
 // ---------------------------------------------------------------------------
 // API routes
