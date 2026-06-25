@@ -1,4 +1,5 @@
 import type { HeldBalance } from "./transforms.js";
+import { getChain } from "../chains/registry.js";
 
 /**
  * The read-time holdings source: current balances per token for a holder, from
@@ -19,20 +20,15 @@ import type { HeldBalance } from "./transforms.js";
  * `contract`/`owner` are bare lowercase hex (no 0x), matching the substreams key
  * form. The result maps 1:1 to `HeldBalance[]` (token = contract, balance = bal).
  *
- * TRANSPORT IS DEFERRED. Two candidate adapters, swappable behind this one
- * function:
- *   - a GraphQL "subset" gateway (Hasura-style) fronting ClickHouse — the
- *     preferred shape (trace never holds DB creds; the gateway enforces the
- *     per-holder filter + limits), but it must be stood up monorepo-side; or
- *   - a direct ClickHouse HTTP read against an exposed, read-scoped endpoint.
- *
- * Until an endpoint exists, this returns `null` ("not indexed for this chain"),
- * so `getHoldings` degrades to native-only and `indexed: false` — the same
- * contract the old Postgres `discoverTokens` used when its table was absent.
- * Wiring the real source is a one-file change here.
+ * TRANSPORT: a GraphQL "subset" gateway (Hasura-style) fronts ClickHouse — trace
+ * never holds DB creds; the gateway runs the argMax view and enforces the
+ * per-holder filter. The per-chain gateway URL comes from the registry
+ * (`holdingsGraphqlUrl`, set via `HOLDINGS_GRAPHQL_URL[_<chainId>]`). When a
+ * chain has no gateway configured this returns `null` ("not indexed"), so
+ * `getHoldings` degrades to native-only (`indexed: false`).
  */
 
-/** The canonical archive query, as documentation + the spec for the gateway. */
+/** The canonical archive query, as documentation of the gateway's view. */
 export const BALANCE_CHANGES_QUERY = `
   SELECT contract, argMax(new_balance, (block_num, call_index)) AS bal
   FROM balance_changes
@@ -42,16 +38,105 @@ export const BALANCE_CHANGES_QUERY = `
 `.trim();
 
 /**
+ * The GraphQL query sent to the gateway. It reads a Hasura-tracked view that
+ * already collapses `balance_changes` to the current positive balance per
+ * `(owner, contract)` (Hasura can't express `argMax` itself — the view does it).
+ *
+ * ⚠️ The root field (`erc20_balances`) and column names (`contract`, `balance`)
+ * MUST MATCH the deployed gateway metadata. If the monorepo tracks the view
+ * under different names, change them here (and only here). `$owner` is bare
+ * lowercase hex (no 0x); the gateway filters by it and `balance > 0`.
+ */
+export const HOLDINGS_GQL_ROOT = "erc20_balances";
+export const HOLDINGS_GQL_QUERY = `
+  query Holdings($owner: String!) {
+    ${HOLDINGS_GQL_ROOT}(where: { owner: { _eq: $owner }, balance: { _gt: "0" } }) {
+      contract
+      balance
+    }
+  }
+`.trim();
+
+/** Bare lowercase hex (no 0x) — the archive/metadata key form. */
+function bareHex(hex: string): string {
+  return hex.toLowerCase().replace(/^0x/, "");
+}
+
+interface GraphqlResponse {
+  data?: Record<string, Array<{ contract?: unknown; balance?: unknown }>>;
+  errors?: Array<{ message?: string }>;
+}
+
+/**
+ * POST the holdings query to a GraphQL gateway and map the rows to
+ * `HeldBalance[]`. Throws on a transport error, a non-2xx status, GraphQL
+ * `errors`, or an unexpected response shape — a configured-but-failing gateway
+ * must surface, not masquerade as "not indexed" (that signal is reserved for an
+ * *absent* gateway, handled by `queryBalances`).
+ *
+ * `endpoint` and `fetchImpl` are explicit so this is unit-testable without the
+ * registry or a live gateway.
+ */
+export async function fetchHoldingsViaGraphql(
+  endpoint: string,
+  holderBare: string,
+  opts: { secret?: string; fetchImpl?: typeof fetch } = {},
+): Promise<HeldBalance[]> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  // Hasura-style admin secret; omitted when the gateway is open / uses another
+  // auth handled at the network edge.
+  if (opts.secret) headers["x-hasura-admin-secret"] = opts.secret;
+
+  const res = await fetchImpl(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      query: HOLDINGS_GQL_QUERY,
+      variables: { owner: holderBare },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`holdings gateway responded ${res.status} ${res.statusText}`);
+  }
+
+  const json = (await res.json()) as GraphqlResponse;
+  if (json.errors && json.errors.length > 0) {
+    throw new Error(
+      `holdings gateway GraphQL error: ${json.errors.map((e) => e.message ?? "?").join("; ")}`,
+    );
+  }
+
+  const rows = json.data?.[HOLDINGS_GQL_ROOT];
+  if (!Array.isArray(rows)) {
+    throw new Error(
+      `holdings gateway returned an unexpected shape (no '${HOLDINGS_GQL_ROOT}' array)`,
+    );
+  }
+
+  const held: HeldBalance[] = [];
+  for (const row of rows) {
+    if (row.contract == null || row.balance == null) continue;
+    const balance = BigInt(String(row.balance));
+    if (balance <= 0n) continue; // defensive — the view already filters > 0
+    held.push({ token: bareHex(String(row.contract)), balance });
+  }
+  return held;
+}
+
+/**
  * Query held balances for `holderBare` (bare lowercase hex, no 0x) on `chainId`.
- * Returns `null` when no data source is wired for the chain (→ not indexed).
+ * Returns `null` when no gateway is configured for the chain (→ not indexed),
+ * `[]` when configured but the holder has no positive balances.
  */
 export async function queryBalances(
-  _chainId: number,
-  _holderBare: string,
+  chainId: number,
+  holderBare: string,
 ): Promise<HeldBalance[] | null> {
-  // TODO(transport): wire a GraphQL-gateway or ClickHouse-HTTP adapter once the
-  // monorepo exposes a query endpoint for the balance_changes archive. Read the
-  // per-chain endpoint from the registry, run BALANCE_CHANGES_QUERY, and map
-  // rows → HeldBalance. No endpoint yet → not indexed.
-  return null;
+  const endpoint = getChain(chainId).holdingsGraphqlUrl;
+  if (!endpoint) return null;
+  return fetchHoldingsViaGraphql(endpoint, holderBare, {
+    secret: process.env.HOLDINGS_GRAPHQL_SECRET,
+  });
 }

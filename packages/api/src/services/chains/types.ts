@@ -26,6 +26,14 @@ export interface ChainConfig {
    * holdings + XYK prices. Optional — a self-hoster without substreams omits it.
    */
   substreamsEndpoint?: string;
+  /**
+   * GraphQL "subset" gateway (Hasura-style) fronting the `balance_changes`
+   * archive in ClickHouse — the read source for portfolio holdings. trace POSTs
+   * a per-holder query; the gateway enforces the filter + limits and trace never
+   * holds DB creds. Optional — unset means holdings aren't indexed for this
+   * chain yet, so `getHoldings` degrades to native-only (`indexed: false`).
+   */
+  holdingsGraphqlUrl?: string;
 
   /** Blockscout API base; omitted when we don't run/point at one. */
   blockscoutBase?: string;

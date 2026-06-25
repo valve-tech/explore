@@ -33,6 +33,22 @@ export function valveRpcUrl(chainId: number): string {
  *
  * `chifraChain` slugs are verified against `chifra.valve.city/status?chains=true`.
  */
+
+/**
+ * The holdings GraphQL gateway URL for a chain, from env. A per-chain override
+ * (`HOLDINGS_GRAPHQL_URL_<chainId>`) wins, else a single gateway for all chains
+ * (`HOLDINGS_GRAPHQL_URL`). Unset → `undefined` → holdings not indexed for the
+ * chain (native-only). No baked default: we never guess a host, mirroring the
+ * no-demo-key stance for RPC.
+ */
+export function holdingsGqlUrl(chainId: number): string | undefined {
+  return (
+    process.env[`HOLDINGS_GRAPHQL_URL_${chainId}`] ||
+    process.env.HOLDINGS_GRAPHQL_URL ||
+    undefined
+  );
+}
+
 export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
   1: {
     chainId: 1,
@@ -46,6 +62,7 @@ export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
     rpcUrl: process.env.ETH_RPC_URL || valveRpcUrl(1),
     rethSnapshotUrl: "https://evm1-snapshot-reth.valve.city",
     substreamsEndpoint: "evm-1-substreams.valve.city",
+    holdingsGraphqlUrl: holdingsGqlUrl(1),
     sourcifyEnabled: true,
     burnsBaseFee: true,
     viemChain: mainnet,
@@ -64,6 +81,7 @@ export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
     debugRpcUrl: process.env.DEBUG_RPC_URL || undefined,
     rethSnapshotUrl: "https://evm369-snapshot-reth.valve.city",
     substreamsEndpoint: "evm-369-substreams.valve.city",
+    holdingsGraphqlUrl: holdingsGqlUrl(369),
     blockscoutBase:
       process.env.BLOCKSCOUT_API_URL || "https://api.scan.pulsechain.com/api",
     sourcifyEnabled: true,
@@ -83,6 +101,7 @@ export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
     rpcUrl: process.env.PULSECHAIN_V4_RPC_URL || valveRpcUrl(943),
     rethSnapshotUrl: "https://evm943-snapshot-reth.valve.city",
     substreamsEndpoint: "evm-943-substreams.valve.city",
+    holdingsGraphqlUrl: holdingsGqlUrl(943),
     blockscoutBase:
       process.env.PULSECHAIN_V4_BLOCKSCOUT_URL ||
       "https://api.scan.v4.testnet.pulsechain.com/api",
