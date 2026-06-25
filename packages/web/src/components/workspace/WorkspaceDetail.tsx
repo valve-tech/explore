@@ -82,7 +82,7 @@ export default function WorkspaceDetail() {
         />
       )}
 
-      <PortfolioPanel workspace={workspace} />
+      <PortfolioPanel workspace={workspace} chainId={activeChainId} />
 
       <WatchRulesPanel workspace={workspace} />
 

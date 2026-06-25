@@ -1,9 +1,15 @@
 /**
  * Portfolio holdings API client. Mirrors the backend
  * GET /api/portfolio/holdings shape (services/portfolio). Token holdings come
- * from the substreams sink; `indexed: false` means the chain isn't sunk yet
- * (native-only).
+ * from the substreams-backed gateway; `indexed: false` means the chain isn't
+ * wired yet (native-only).
  */
+
+import { apiUrl } from "../lib/apiBase";
+import { scoped } from "./chainScope";
+import { DEFAULT_CHAIN_ID } from "../lib/chains";
+
+const API_BASE = apiUrl("/api");
 
 export interface Holding {
   tokenAddress: string;
@@ -32,9 +38,12 @@ export interface HoldingsResult {
 
 export async function fetchHoldings(
   address: string,
-  chainId: number,
+  chainId: number = DEFAULT_CHAIN_ID,
 ): Promise<HoldingsResult> {
-  const url = `/api/portfolio/holdings?address=${address}&chainid=${chainId}`;
+  // apiUrl() makes this work from an IPFS gateway (absolute backend origin);
+  // scoped() appends `chainid` only for non-default chains, so the default
+  // chain's request stays byte-identical to the single-chain era.
+  const url = scoped(`${API_BASE}/portfolio/holdings?address=${address}`, chainId);
   const res = await fetch(url);
   if (!res.ok) {
     const text = await res.text();

@@ -95,6 +95,31 @@ describe("<PortfolioPanel />", () => {
     expect(screen.getByText(/2 addresses/)).toBeInTheDocument();
   });
 
+  it("queries the passed chain and labels it (Ethereum = chain 1)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          result: holdings(A1, { chainId: 1, native: { symbol: "ETH", balance: "0" } }),
+        }),
+        text: async () => "",
+        // expose the url for the assertion below
+        _url: url,
+      } as unknown as Response;
+    });
+
+    renderWithProviders(
+      <PortfolioPanel workspace={workspace([{ kind: "address", value: A1 }])} chainId={1} />,
+    );
+
+    await waitFor(() => expect(screen.getByText(/· Ethereum/)).toBeInTheDocument());
+    // non-default chain → the request carries chainid=1
+    expect(String(fetchSpy.mock.calls[0]![0])).toContain("chainid=1");
+  });
+
   it("shows the not-indexed note when every result is indexed:false", async () => {
     stubHoldings({
       [A1]: holdings(A1, { indexed: false, native: { symbol: "PLS", balance: "7000000000000000000" } }),

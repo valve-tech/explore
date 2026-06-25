@@ -5,27 +5,27 @@ import type { Workspace } from "../../lib/workspace/types";
 import { fetchHoldings, type HoldingsResult } from "../../api/portfolio";
 import { truncateAddr } from "../explorer/format";
 import { formatAmountDisplay } from "../../lib/format/tokenAmount";
+import { chainById, DEFAULT_CHAIN_ID } from "../../lib/chains";
+import { TokenImage } from "../primitives/TokenImage";
 
 /** Native coin decimals (wei → coin). */
 const NATIVE_DECIMALS = 18;
 
 /**
  * Portfolio rollup for a workspace: aggregates token holdings across every
- * address item on the selected chain. Token balances come from the substreams
- * sink (via /api/portfolio/holdings); each address is one query, fanned out
- * with useQueries.
+ * address item, queried on the active chain. Token balances come from the
+ * substreams-backed gateway (via /api/portfolio/holdings); each address is one
+ * query, fanned out with useQueries.
  *
  * No USD in v1 — so this is amounts only: a combined per-token table (summed
  * across addresses) + per-address native balance, NOT a cross-asset
  * allocation chart (that needs prices — the XYK price layer). When the chain's
- * sink isn't live yet, every result is `indexed: false` and we say so plainly.
+ * gateway isn't live yet, every result is `indexed: false` and we say so plainly.
  */
 
-// Default to PulseChain mainnet — the chain with a curated token set + the
-// real holdings target. (943 testnet is the substreams pipeline prototype.)
-const CHAIN_ID = 369;
-
 interface AggToken {
+  /** lowercase token contract address — key + logo + dedupe. */
+  address: string;
   symbol: string;
   name: string;
   decimals: number;
@@ -35,7 +35,14 @@ interface AggToken {
   holders: number;
 }
 
-export function PortfolioPanel({ workspace }: { workspace: Workspace }) {
+export function PortfolioPanel({
+  workspace,
+  chainId = DEFAULT_CHAIN_ID,
+}: {
+  workspace: Workspace;
+  /** Chain to query holdings on — the active chain from the route. */
+  chainId?: number;
+}) {
   const addresses = useMemo(
     () =>
       workspace.items
@@ -46,8 +53,8 @@ export function PortfolioPanel({ workspace }: { workspace: Workspace }) {
 
   const results = useQueries({
     queries: addresses.map((address) => ({
-      queryKey: ["portfolio-holdings", CHAIN_ID, address],
-      queryFn: () => fetchHoldings(address, CHAIN_ID),
+      queryKey: ["portfolio-holdings", chainId, address],
+      queryFn: () => fetchHoldings(address, chainId),
       staleTime: 60 * 1000,
     })),
   });
@@ -57,6 +64,7 @@ export function PortfolioPanel({ workspace }: { workspace: Workspace }) {
   const loading = results.some((r) => r.isLoading);
   const loaded = results.filter((r) => r.data).map((r) => r.data as HoldingsResult);
   const anyIndexed = loaded.some((r) => r.indexed);
+  const chainName = chainById(chainId)?.name ?? `chain ${chainId}`;
 
   const aggregated = aggregate(loaded);
 
@@ -66,7 +74,7 @@ export function PortfolioPanel({ workspace }: { workspace: Workspace }) {
         <Icon icon="heroicons:wallet" className="w-4 h-4 theme-accent" />
         <h2 className="text-sm font-semibold theme-text">Portfolio</h2>
         <span className="text-[11px] theme-text-muted">
-          {addresses.length} {addresses.length === 1 ? "address" : "addresses"} · PulseChain
+          {addresses.length} {addresses.length === 1 ? "address" : "addresses"} · {chainName}
         </span>
       </div>
 
@@ -75,7 +83,7 @@ export function PortfolioPanel({ workspace }: { workspace: Workspace }) {
       ) : !anyIndexed ? (
         <div className="text-xs theme-text-muted leading-relaxed">
           Token holdings aren&apos;t indexed for this chain yet — showing native
-          balances only. (Awaiting the substreams sink.)
+          balances only. (Awaiting the substreams gateway.)
           <NativeList results={loaded} addresses={addresses} />
         </div>
       ) : aggregated.length === 0 ? (
@@ -85,7 +93,7 @@ export function PortfolioPanel({ workspace }: { workspace: Workspace }) {
         </div>
       ) : (
         <>
-          <HoldingsTable rows={aggregated} />
+          <HoldingsTable rows={aggregated} chainId={chainId} />
           <NativeList results={loaded} addresses={addresses} />
         </>
       )}
@@ -105,6 +113,7 @@ function aggregate(results: HoldingsResult[]): AggToken[] {
         existing.holders += 1;
       } else {
         byToken.set(key, {
+          address: key,
           symbol: h.symbol || truncateAddr(h.tokenAddress),
           name: h.name,
           decimals: h.decimals,
@@ -123,7 +132,7 @@ function aggregate(results: HoldingsResult[]): AggToken[] {
   });
 }
 
-function HoldingsTable({ rows }: { rows: AggToken[] }) {
+function HoldingsTable({ rows, chainId }: { rows: AggToken[]; chainId: number }) {
   return (
     <table className="w-full text-xs">
       <thead>
@@ -135,10 +144,13 @@ function HoldingsTable({ rows }: { rows: AggToken[] }) {
       </thead>
       <tbody>
         {rows.map((t) => (
-          <tr key={t.symbol + t.decimals} className="theme-text">
+          <tr key={t.address} className="theme-text">
             <td className="py-1">
-              <span className="font-medium">{t.symbol}</span>
-              {t.name && <span className="theme-text-muted ml-1.5">{t.name}</span>}
+              <span className="flex items-center gap-inline">
+                <TokenImage address={t.address} chainId={chainId} symbol={t.symbol} size={16} />
+                <span className="font-medium">{t.symbol}</span>
+                {t.name && <span className="theme-text-muted">{t.name}</span>}
+              </span>
             </td>
             <td className="py-1 text-right font-mono">
               {formatAmountDisplay(t.total, t.decimals, { maxFractionDigits: 4 })}

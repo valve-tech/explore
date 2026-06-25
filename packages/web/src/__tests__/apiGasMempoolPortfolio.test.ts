@@ -142,11 +142,32 @@ describe("fetchHoldings", () => {
       }),
     );
     const out = await fetchHoldings("0xabc", 369);
+    // Default chain (369) omits chainid — byte-identical to the single-chain era
+    // and consistent with the other api modules' scoped() URLs.
     expect(fetchSpy.mock.calls[0]![0]).toBe(
-      "/api/portfolio/holdings?address=0xabc&chainid=369",
+      "/api/portfolio/holdings?address=0xabc",
     );
     expect(out.holdings[0]!.symbol).toBe("WPLS");
     expect(out.indexed).toBe(true);
+  });
+
+  it("holdings: appends chainid for a non-default chain", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      okRes({
+        ok: true,
+        result: {
+          chainId: 1,
+          address: "0xabc",
+          native: { symbol: "ETH", balance: "0" },
+          holdings: [],
+          indexed: false,
+        },
+      }),
+    );
+    await fetchHoldings("0xabc", 1);
+    expect(fetchSpy.mock.calls[0]![0]).toBe(
+      "/api/portfolio/holdings?address=0xabc&chainid=1",
+    );
   });
 
   it("throws the JSON error on a non-ok status", async () => {
