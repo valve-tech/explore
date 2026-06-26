@@ -20,6 +20,10 @@ vi.mock("../api/explorer", () => ({
   fetchAddressTransactions: vi.fn(),
   fetchAddressTokens: vi.fn(),
 }));
+// Holdings gateway is the preferred token source; default it to not-indexed so
+// the view falls back to fetchAddressTokens (the RPC/chifra list) unless a test
+// opts into the indexed path.
+vi.mock("../api/portfolio", () => ({ fetchHoldings: vi.fn() }));
 
 import AddressView from "../components/explorer/AddressView";
 import {
@@ -27,10 +31,12 @@ import {
   fetchAddressTransactions,
   fetchAddressTokens,
 } from "../api/explorer";
+import { fetchHoldings } from "../api/portfolio";
 
 const mockInfo = fetchAddressInfo as unknown as ReturnType<typeof vi.fn>;
 const mockTxs = fetchAddressTransactions as unknown as ReturnType<typeof vi.fn>;
 const mockTokens = fetchAddressTokens as unknown as ReturnType<typeof vi.fn>;
+const mockHoldings = fetchHoldings as unknown as ReturnType<typeof vi.fn>;
 
 const ADDR = "0x165c3410fc91ef562c50559f7d2289febed552d9";
 const WPLS = "0xA1077a294dDE1B09bB078844df40758a5D0f9a27";
@@ -77,6 +83,15 @@ describe("<AddressView />", () => {
     mockInfo.mockReset();
     mockTxs.mockReset();
     mockTokens.mockReset();
+    mockHoldings.mockReset();
+    // Default: gateway not indexed for this chain → fall back to fetchAddressTokens.
+    mockHoldings.mockResolvedValue({
+      chainId: 369,
+      address: ADDR,
+      native: { symbol: "PLS", balance: "0" },
+      holdings: [],
+      indexed: false,
+    });
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -111,6 +126,38 @@ describe("<AddressView />", () => {
     fireEvent.click(screen.getByRole("button", { name: /Token Balances/ }));
     expect(await screen.findByText("Wrapped Pulse")).toBeInTheDocument();
     expect(screen.getByText("5,456.51")).toBeInTheDocument();
+  });
+
+  it("prefers the indexed holdings gateway over the RPC token list", async () => {
+    mockInfo.mockResolvedValue(eoaInfo);
+    mockTxs.mockResolvedValue({ transactions: [] });
+    // RPC/chifra fallback would say "Old Name" — must be overridden by the gateway.
+    mockTokens.mockResolvedValue([{ ...token, name: "Old Name", formattedBalance: "0" }]);
+    mockHoldings.mockResolvedValue({
+      chainId: 369,
+      address: ADDR,
+      native: { symbol: "PLS", balance: "0" },
+      indexed: true,
+      holdings: [
+        {
+          tokenAddress: WPLS,
+          symbol: "WPLS",
+          name: "Wrapped Pulse",
+          decimals: 18,
+          balance: "5456507558918974858760", // 5,456.5075… WPLS
+        },
+      ],
+    });
+
+    renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />);
+    await screen.findByText(ADDR);
+    fireEvent.click(screen.getByRole("button", { name: /Token Balances/ }));
+
+    // Storage-diff name + formatted-from-raw balance, plus the source caption.
+    expect(await screen.findByText("Wrapped Pulse")).toBeInTheDocument();
+    expect(screen.queryByText("Old Name")).not.toBeInTheDocument();
+    expect(screen.getByText("5,456.5076")).toBeInTheDocument();
+    expect(screen.getByText(/indexed balance-changes archive/i)).toBeInTheDocument();
   });
 
   it("loads the next page of transactions via pagination", async () => {

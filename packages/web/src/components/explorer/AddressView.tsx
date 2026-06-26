@@ -8,6 +8,8 @@ import {
   type AddressTransaction,
   type AddressToken,
 } from "../../api/explorer";
+import { fetchHoldings, type Holding } from "../../api/portfolio";
+import { formatAmountDisplay } from "../../lib/format/tokenAmount";
 import { AddressHeader } from "./AddressView/AddressHeader";
 import { SubTabBar, type AddressSubTab } from "./AddressView/SubTabBar";
 import {
@@ -21,6 +23,31 @@ interface AddressViewProps {
   onNavigate: (target: AddressNavTarget) => void;
 }
 
+/**
+ * Map a holdings-gateway row (storage-diff truth, raw balance) to the
+ * AddressToken display shape the Tokens tab renders. Balance is scaled at this
+ * render edge via formatAmountDisplay — raw ints never get float math.
+ */
+function holdingToToken(h: Holding): AddressToken {
+  let formatted: string;
+  try {
+    formatted = formatAmountDisplay(BigInt(h.balance), h.decimals, {
+      maxFractionDigits: 4,
+    });
+  } catch {
+    formatted = h.balance;
+  }
+  return {
+    balance: h.balance,
+    formattedBalance: formatted,
+    contractAddress: h.tokenAddress,
+    name: h.name,
+    symbol: h.symbol,
+    decimals: String(h.decimals),
+    type: "ERC-20",
+  };
+}
+
 export default function AddressView({
   address,
   onNavigate,
@@ -28,6 +55,9 @@ export default function AddressView({
   const [info, setInfo] = useState<AddressInfo | null>(null);
   const [txs, setTxs] = useState<AddressTransaction[]>([]);
   const [tokens, setTokens] = useState<AddressToken[]>([]);
+  // True when the token list came from the indexed balance-changes gateway
+  // (storage-diff truth) rather than the RPC/chifra fallback.
+  const [tokensIndexed, setTokensIndexed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -43,12 +73,18 @@ export default function AddressView({
       fetchAddressInfo(address, chainId),
       fetchAddressTransactions(address, 1, 25, chainId),
       fetchAddressTokens(address, chainId),
+      // Preferred source: the indexed balance-changes gateway (storage-diff
+      // truth). Non-fatal — if it errors or isn't indexed for this chain we
+      // fall back to the RPC/chifra token list so the tab never regresses.
+      fetchHoldings(address, chainId).catch(() => null),
     ])
-      .then(([addrInfo, txData, tokenData]) => {
+      .then(([addrInfo, txData, tokenData, holdingsData]) => {
         if (!cancelled) {
           setInfo(addrInfo);
           setTxs(txData.transactions);
-          setTokens(tokenData);
+          const indexed = holdingsData?.indexed ?? false;
+          setTokens(indexed ? holdingsData!.holdings.map(holdingToToken) : tokenData);
+          setTokensIndexed(indexed);
           setPage(1);
         }
       })
@@ -130,7 +166,7 @@ export default function AddressView({
       )}
 
       {subTab === "tokens" && (
-        <TokensTab tokens={tokens} onNavigate={onNavigate} />
+        <TokensTab tokens={tokens} indexed={tokensIndexed} onNavigate={onNavigate} />
       )}
     </div>
   );

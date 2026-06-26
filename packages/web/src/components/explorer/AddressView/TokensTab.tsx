@@ -6,14 +6,22 @@ import { Tooltip } from "../../primitives/Tooltip";
 export function TokensTab({
   tokens,
   onNavigate,
+  indexed = false,
 }: {
   tokens: AddressToken[];
   onNavigate: (target: AddressNavTarget) => void;
+  /** True when balances came from the indexed balance-changes archive. */
+  indexed?: boolean;
 }) {
   return (
     <div
       className="rounded-lg bs overflow-hidden theme-card-bg"
     >
+      {indexed && tokens.length > 0 && (
+        <div className="px-3 py-1.5 text-[10px] theme-text-muted bs-b-muted">
+          Balances from the indexed balance-changes archive (storage-diff truth).
+        </div>
+      )}
       {tokens.length === 0 ? (
         <div
           className="p-4 text-center text-sm theme-text-muted"
