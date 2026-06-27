@@ -26,6 +26,11 @@ services:
       PULSECHAIN_RPC_URL: ${PULSECHAIN_RPC_URL:-https://rpc.pulsechain.com}
       DEBUG_RPC_URL: ${DEBUG_RPC_URL:-}
       BLOCKSCOUT_API_URL: ${BLOCKSCOUT_API_URL:-https://api.scan.pulsechain.com/api}
+      # Portfolio holdings GraphQL gateway (Hasura). The operator sources these
+      # from the vault into the host env (the trace gateway admin secret lives at
+      # vault key `valve_hasura_secret`); unset → holdings degrade to native-only.
+      HOLDINGS_GRAPHQL_URL: ${HOLDINGS_GRAPHQL_URL:-}
+      HOLDINGS_GRAPHQL_SECRET: ${HOLDINGS_GRAPHQL_SECRET:-}
       PORT: "10100"
     depends_on:
       postgres:
