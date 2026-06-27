@@ -40,7 +40,7 @@ before(() => {
       status: 200,
       statusText: "OK",
       json: async () => ({
-        data: { erc20_balances: [{ contract: WPLS_BARE, balance: "5456507558918974858760" }] },
+        data: { current_balances: [{ contract: WPLS_BARE, balance: "5456507558918974858760" }] },
       }),
     } as unknown as Response;
   }) as unknown as typeof fetch;

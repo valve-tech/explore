@@ -42,15 +42,17 @@ export const BALANCE_CHANGES_QUERY = `
  * already collapses `balance_changes` to the current positive balance per
  * `(owner, contract)` (Hasura can't express `argMax` itself — the view does it).
  *
- * ⚠️ The root field (`erc20_balances`) and column names (`contract`, `balance`)
- * MUST MATCH the deployed gateway metadata. If the monorepo tracks the view
- * under different names, change them here (and only here). `$owner` is bare
- * lowercase hex (no 0x); the gateway filters by it and `balance > 0`.
+ * Targets the `current_balances` rollup VIEW (argMax over balance_changes) that
+ * Hasura tracks — see monorepo deploy/indexer/sql/holdings_<chainId>_current_balances.sql.
+ * Hasura/GDC may namespace the tracked root field per chain DB, so the root
+ * field name is overridable via HOLDINGS_GRAPHQL_ROOT without a code change.
+ * Columns are `contract` + `balance`; `$owner` is 0x-prefixed lowercase hex
+ * (matching the balance_changes DDL); the view already filters balance > 0.
  */
-export const HOLDINGS_GQL_ROOT = "erc20_balances";
+export const HOLDINGS_GQL_ROOT = process.env.HOLDINGS_GRAPHQL_ROOT || "current_balances";
 export const HOLDINGS_GQL_QUERY = `
   query Holdings($owner: String!) {
-    ${HOLDINGS_GQL_ROOT}(where: { owner: { _eq: $owner }, balance: { _gt: "0" } }) {
+    ${HOLDINGS_GQL_ROOT}(where: { owner: { _eq: $owner } }) {
       contract
       balance
     }
