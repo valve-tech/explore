@@ -67,8 +67,9 @@ describe("holdings wiring: env → registry → queryBalances → getHoldings", 
     // The configured gateway URL + vault secret header were actually used.
     assert.equal(calls[0]?.url, "https://mock-gw.test/v1/graphql");
     assert.equal(calls[0]?.init.headers?.["x-hasura-admin-secret"], "vault-admin-secret");
-    // owner is sent 0x-prefixed lowercase, matching the balance_changes DDL.
+    // owner is sent BARE lowercase (no 0x) — matches the live balance_changes
+    // archive key form (verified against the table; the DDL comment is wrong).
     const sent = JSON.parse(calls[0]!.init.body!);
-    assert.equal(sent.variables.owner, HOLDER.toLowerCase());
+    assert.equal(sent.variables.owner, HOLDER.replace(/^0x/, ""));
   });
 });

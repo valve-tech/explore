@@ -95,9 +95,8 @@ export async function fetchHoldingsViaGraphql(
     headers,
     body: JSON.stringify({
       query: HOLDINGS_GQL_QUERY,
-      // `owner` is the archive key form — 0x-prefixed lowercase hex, per the
-      // holdings_<chainId>.balance_changes DDL (NOT bare hex). queryBalances
-      // supplies it pre-formatted.
+      // `owner` is the archive key form — BARE lowercase hex (no 0x), verified
+      // against the live balance_changes table. queryBalances supplies it.
       variables: { owner },
     }),
   });
@@ -135,9 +134,10 @@ export async function fetchHoldingsViaGraphql(
  * Returns `null` when no gateway is configured for the chain (→ not indexed),
  * `[]` when configured but the holder has no positive balances.
  *
- * The archive stores `owner` as 0x-prefixed lowercase hex (per the
- * holdings_<chainId>.balance_changes DDL), so we re-add the prefix the caller
- * stripped before filtering — a bare value would match zero rows.
+ * The archive stores `owner`/`contract` as BARE lowercase hex (no 0x) — verified
+ * directly against the live holdings_943.balance_changes table (the DDL's
+ * "0x-prefixed" comment is wrong; every row is bare 40-char hex). So the filter
+ * value is the bare holder — a 0x-prefixed value would match zero rows.
  */
 export async function queryBalances(
   chainId: number,
@@ -145,7 +145,7 @@ export async function queryBalances(
 ): Promise<HeldBalance[] | null> {
   const endpoint = getChain(chainId).holdingsGraphqlUrl;
   if (!endpoint) return null;
-  return fetchHoldingsViaGraphql(endpoint, `0x${holderBare}`, {
+  return fetchHoldingsViaGraphql(endpoint, holderBare, {
     secret: process.env.HOLDINGS_GRAPHQL_SECRET,
   });
 }
