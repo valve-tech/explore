@@ -7,10 +7,11 @@ import type { HeldBalance, TokenMeta } from "../../src/services/portfolio/transf
 
 /**
  * Service-level tests for getHoldings with injected deps (no data source, no
- * RPC). Exercises archive balances → metadata reads → holdings mapping, the
- * indexed-vs-not signal (queryBalances null vs []), zero-balance filtering, the
- * skip of readMetadata when there are no balances, graceful native failure, and
- * the cache.
+ * RPC). The HYBRID model: queryBalances DISCOVERS which tokens a holder has
+ * touched (archive), readBalances reads EXACT balanceOf for those tokens
+ * (chain). Exercises discovery → exact balance → metadata → mapping, the
+ * indexed-vs-not signal, balanceOf overriding the archive (incl. fully-exited
+ * tokens), the readMetadata skip, graceful native failure, and the cache.
  */
 
 const HOLDER = "0x9cd83be15a79646a3d22b81fc8ddf7b7240a62cb";
@@ -27,18 +28,29 @@ const meta = (over: Partial<TokenMeta> & { token: string }): TokenMeta => ({
 });
 
 interface FakeOpts {
-  balances?: HeldBalance[] | null;
+  /** queryBalances — token discovery (the archive). `null` = not indexed. */
+  discovered?: HeldBalance[] | null;
+  /** readBalances — exact balanceOf per token. Defaults to echoing discovery. */
+  exact?: HeldBalance[];
   metas?: TokenMeta[];
   native?: bigint;
   nativeThrows?: boolean;
 }
 
-function makeDeps(opts: FakeOpts): { deps: HoldingsDeps; counts: { b: number; m: number; n: number } } {
-  const counts = { b: 0, m: 0, n: 0 };
+function makeDeps(opts: FakeOpts): {
+  deps: HoldingsDeps;
+  counts: { b: number; rb: number; m: number; n: number };
+} {
+  const counts = { b: 0, rb: 0, m: 0, n: 0 };
   const deps: HoldingsDeps = {
     async queryBalances() {
       counts.b++;
-      return opts.balances === undefined ? [] : opts.balances;
+      return opts.discovered === undefined ? [] : opts.discovered;
+    },
+    async readBalances(_chainId, _holder, tokens) {
+      counts.rb++;
+      const src = opts.exact ?? opts.discovered ?? [];
+      return src.filter((b) => tokens.includes(b.token));
     },
     async readMetadata() {
       counts.m++;
@@ -56,9 +68,9 @@ function makeDeps(opts: FakeOpts): { deps: HoldingsDeps; counts: { b: number; m:
 beforeEach(() => invalidateChifraCache());
 
 describe("getHoldings — happy path", () => {
-  it("reads archive balances + metadata, maps to holdings (sorted desc) + native", async () => {
+  it("discovers tokens, reads exact balances + metadata, maps (sorted desc) + native", async () => {
     const { deps } = makeDeps({
-      balances: [balance(HEX, 100000000n), balance(WPLS, 5_000000000000000000n)], // 1 HEX (8dp), 5 WPLS
+      discovered: [balance(HEX, 100000000n), balance(WPLS, 5_000000000000000000n)],
       metas: [
         meta({ token: HEX, decimals: 8, symbol: "HEX", name: "HEX" }),
         meta({ token: WPLS, decimals: 18, symbol: "WPLS", name: "Wrapped Pulse" }),
@@ -79,7 +91,7 @@ describe("getHoldings — happy path", () => {
 
   it("includes non-curated tokens (all tokens, not an allowlist)", async () => {
     const { deps } = makeDeps({
-      balances: [balance(RANDOM, 7n)],
+      discovered: [balance(RANDOM, 7n)],
       metas: [meta({ token: RANDOM, decimals: 0, symbol: "RND", name: "Random" })],
     });
     const r = await getHoldings(HOLDER, 369, deps);
@@ -88,9 +100,7 @@ describe("getHoldings — happy path", () => {
   });
 
   it("keeps a held token via curated decimals when its metadata read failed", async () => {
-    // Balance present in the archive, but the metadata multicall returned nothing
-    // for it. HEX is curated (8 decimals) → still displayed, correctly formatted.
-    const { deps } = makeDeps({ balances: [balance(HEX, 150000000n)], metas: [] });
+    const { deps } = makeDeps({ discovered: [balance(HEX, 150000000n)], metas: [] });
     const r = await getHoldings(HOLDER, 369, deps);
     assert.equal(r.holdings.length, 1);
     assert.equal(r.holdings[0]!.symbol, "HEX");
@@ -98,45 +108,63 @@ describe("getHoldings — happy path", () => {
   });
 
   it("drops a held token with no curated override and no resolvable decimals", async () => {
-    // Non-curated token, metadata read failed → can't format → dropped.
-    const { deps } = makeDeps({ balances: [balance(RANDOM, 5n)], metas: [] });
+    const { deps } = makeDeps({ discovered: [balance(RANDOM, 5n)], metas: [] });
     const r = await getHoldings(HOLDER, 369, deps);
     assert.equal(r.indexed, true);
     assert.equal(r.holdings.length, 0);
   });
 });
 
+describe("getHoldings — hybrid: on-chain balanceOf is authoritative", () => {
+  it("uses the exact balanceOf, not the archive's (stale) balance", async () => {
+    const { deps } = makeDeps({
+      discovered: [balance(HEX, 100000000n)], // archive says 1 HEX
+      exact: [balance(HEX, 250000000n)], // chain says 2.5 HEX
+      metas: [meta({ token: HEX, decimals: 8, symbol: "HEX" })],
+    });
+    const r = await getHoldings(HOLDER, 369, deps);
+    assert.equal(r.holdings.length, 1);
+    assert.equal(r.holdings[0]!.balance, "250000000"); // exact, not 100000000
+  });
+
+  it("drops a token the holder has fully exited (archive stale-positive, balanceOf 0)", async () => {
+    const { deps, counts } = makeDeps({
+      discovered: [balance(WPLS, 5_000000000000000000n)], // archive thinks 5 WPLS
+      exact: [balance(WPLS, 0n)], // chain: exited
+      metas: [meta({ token: WPLS, decimals: 18, symbol: "WPLS" })],
+    });
+    const r = await getHoldings(HOLDER, 369, deps);
+    assert.equal(r.holdings.length, 0);
+    assert.equal(counts.rb, 1); // discovery → balanceOf read happened
+    assert.equal(counts.m, 0); // nothing positive → no metadata read
+  });
+});
+
 describe("getHoldings — not indexed vs empty", () => {
-  it("queryBalances null → indexed=false, native still returned, no metadata read", async () => {
-    const { deps, counts } = makeDeps({ balances: null, native: 1000000000000000000n });
+  it("queryBalances null → indexed=false, native still returned, no balanceOf/metadata read", async () => {
+    const { deps, counts } = makeDeps({ discovered: null, native: 1000000000000000000n });
     const r = await getHoldings(HOLDER, 369, deps);
     assert.equal(r.indexed, false);
     assert.equal(r.holdings.length, 0);
     assert.equal(r.native.balance, "1000000000000000000");
-    assert.equal(counts.m, 0); // no balances → don't read metadata
+    assert.equal(counts.rb, 0); // nothing discovered → don't read balances
+    assert.equal(counts.m, 0);
   });
 
-  it("queryBalances [] → indexed=true, no metadata read, no holdings", async () => {
-    const { deps, counts } = makeDeps({ balances: [], native: 0n });
+  it("queryBalances [] → indexed=true, no balanceOf/metadata read, no holdings", async () => {
+    const { deps, counts } = makeDeps({ discovered: [], native: 0n });
     const r = await getHoldings(HOLDER, 369, deps);
     assert.equal(r.indexed, true);
     assert.equal(r.holdings.length, 0);
-    assert.equal(counts.m, 0); // no balances → skip the metadata multicall
-  });
-
-  it("drops non-positive archive balances (token fully exited)", async () => {
-    const { deps, counts } = makeDeps({ balances: [balance(HEX, 0n)] });
-    const r = await getHoldings(HOLDER, 369, deps);
-    assert.equal(r.indexed, true);
-    assert.equal(r.holdings.length, 0);
-    assert.equal(counts.m, 0); // nothing positive to label
+    assert.equal(counts.rb, 0);
+    assert.equal(counts.m, 0);
   });
 });
 
 describe("getHoldings — native is non-fatal", () => {
   it("native RPC failure degrades to zero, holdings still returned", async () => {
     const { deps } = makeDeps({
-      balances: [balance(HEX, 100000000n)],
+      discovered: [balance(HEX, 100000000n)],
       metas: [meta({ token: HEX, decimals: 8, symbol: "HEX" })],
       nativeThrows: true,
     });
@@ -149,13 +177,14 @@ describe("getHoldings — native is non-fatal", () => {
 describe("getHoldings — cache", () => {
   it("serves the second call from cache (no re-query)", async () => {
     const { deps, counts } = makeDeps({
-      balances: [balance(HEX, 100000000n)],
+      discovered: [balance(HEX, 100000000n)],
       metas: [meta({ token: HEX, decimals: 8, symbol: "HEX" })],
       native: 0n,
     });
     await getHoldings(HOLDER, 369, deps);
     await getHoldings(HOLDER, 369, deps);
     assert.equal(counts.b, 1);
+    assert.equal(counts.rb, 1);
     assert.equal(counts.m, 1);
     assert.equal(counts.n, 1);
   });

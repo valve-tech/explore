@@ -37,11 +37,25 @@ const MULTICALL3: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
 /** Deps are injected so the service is unit-testable without a data source or RPC. */
 export interface HoldingsDeps {
   /**
-   * Held tokens + current balance from the balance_changes archive. `null` when
-   * the archive isn't queryable for this chain yet (not indexed); `[]` when it
-   * is but the holder has no positive balances.
+   * DISCOVERY ONLY: the set of tokens a holder has ever touched, from the
+   * balance_changes archive. `null` when the archive isn't queryable for this
+   * chain yet (not indexed); `[]` when it is but the holder has no positions.
+   *
+   * The archive's `balance` is NOT trusted as the current balance — the
+   * Transfer-anchored erc20-balance-changes substream drops the ~3.3% of changes
+   * it can't tie to a Transfer (TYPE_UNKNOWN), which notably includes WETH
+   * deposit/withdraw (they emit Deposit/Withdrawal, not Transfer). Those drops
+   * compound, so we use the archive only to learn WHICH tokens to read, then
+   * read exact balances from chain via `readBalances`.
    */
   queryBalances: (chainId: number, holderBare: string) => Promise<HeldBalance[] | null>;
+  /**
+   * EXACT current balance per token, read from chain via a bounded `balanceOf`
+   * multicall over the discovered tokens (not all tokens — only the handful a
+   * holder has touched). Authoritative regardless of the archive's gaps. One
+   * entry per token that answered; the caller drops zero/exited positions.
+   */
+  readBalances: (chainId: number, holder: string, tokens: string[]) => Promise<HeldBalance[]>;
   /**
    * Display metadata (decimals/symbol/name) for the held tokens, batched. One
    * entry per token that responded to `decimals`; tokens that don't are simply
@@ -55,6 +69,30 @@ export interface HoldingsDeps {
 
 const defaultDeps: HoldingsDeps = {
   queryBalances,
+  async readBalances(chainId, holder, tokens) {
+    if (tokens.length === 0) return [];
+    const client = getRpcClient(chainId);
+    const holderAddr = `0x${holder.replace(/^0x/, "")}` as Address;
+    const contracts = tokens.map((t) => ({
+      address: `0x${t.replace(/^0x/, "")}` as Address,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [holderAddr],
+    }) as const);
+
+    const results = await client.multicall({
+      contracts,
+      allowFailure: true,
+      multicallAddress: MULTICALL3,
+    });
+
+    const out: HeldBalance[] = [];
+    tokens.forEach((token, i) => {
+      const r = results[i];
+      if (r?.status === "success") out.push({ token, balance: r.result as bigint });
+    });
+    return out;
+  },
   async readMetadata(chainId, tokens) {
     if (tokens.length === 0) return [];
     const client = getRpcClient(chainId);
@@ -111,12 +149,23 @@ export async function getHoldings(
   // Touch the registry so an unsupported chain throws before any work.
   const { nativeSymbol } = getChain(chainId);
 
-  const balances = await deps.queryBalances(chainId, bare);
-  const indexed = balances !== null;
+  // Stage 1 — DISCOVERY: which tokens has this holder ever touched? (archive)
+  const discovered = await deps.queryBalances(chainId, bare);
+  const indexed = discovered !== null;
+  const discoveredTokens = [
+    ...new Set((discovered ?? []).map((b) => bareHex(b.token))),
+  ];
 
-  // Archive balances are already positive (the query filters `HAVING bal > 0`),
-  // but guard anyway so a looser source can't surface dust/zero rows.
-  const held = (balances ?? []).filter((b) => b.balance > 0n);
+  // Stage 2 — EXACT BALANCES: read balanceOf on-chain for just those tokens.
+  // The archive's own balances are NOT trusted (its Transfer-anchored source
+  // drops ~3.3% of changes — incl. WETH wrap/unwrap — which compounds). A
+  // bounded multicall over the discovered set is authoritative and corrects
+  // stale-positive rows for tokens the holder has since fully exited.
+  const balances =
+    discoveredTokens.length > 0
+      ? await deps.readBalances(chainId, addr, discoveredTokens)
+      : [];
+  const held = balances.filter((b) => b.balance > 0n);
   const metas = held.length > 0 ? await deps.readMetadata(chainId, held.map((b) => b.token)) : [];
   const metaByToken = new Map(metas.map((m) => [bareHex(m.token), m]));
 

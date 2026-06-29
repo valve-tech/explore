@@ -54,6 +54,9 @@ describe("holdings wiring: env → registry → queryBalances → getHoldings", 
   it("serves indexed holdings from the configured gateway, hitting the URL + admin secret", async () => {
     const res = await getHoldings(HOLDER, 369, {
       queryBalances, // the REAL transport — reads getChain(369).holdingsGraphqlUrl
+      // Hybrid: archive discovers WPLS; balanceOf returns the exact current value.
+      readBalances: async (_chainId, _holder, tokens) =>
+        tokens.map((t) => ({ token: t, balance: 5456507558918974858760n })),
       readMetadata: async (_chainId, tokens) =>
         tokens.map((t) => ({ token: t, decimals: 18, symbol: "WPLS", name: "Wrapped Pulse" })),
       nativeBalance: async () => 1_000_000_000_000_000_000n,
