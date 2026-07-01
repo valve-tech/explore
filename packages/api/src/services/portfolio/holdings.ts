@@ -16,16 +16,20 @@ import {
 /**
  * Portfolio holdings: all tokens a wallet holds, no curation.
  *
- * Two stages, with balance and metadata coming from *different* sources:
- *   1. BALANCES — the current balance per token comes from the `balance_changes`
- *      archive (`argMax(new_balance)` per `(contract, owner)`), populated by the
- *      monorepo's erc20-balance-changes substreams sink. Storage-diff truth, so
- *      no read-time `balanceOf` and correct for rebasing / fee-on-transfer
- *      tokens. If the archive isn't queryable for this chain yet, balances are
- *      null → `indexed: false` and we still return the native balance.
- *   2. METADATA — decimals/symbol/name for the held tokens, read from the chain
- *      (immutable, so cacheable). Decoupled from balance: the archive says how
- *      much, the chain says what it is.
+ * HYBRID — the archive discovers WHICH tokens, the chain says HOW MUCH:
+ *   1. DISCOVERY — the SET of tokens a holder has touched comes from the
+ *      `balance_changes` archive (`argMax` rollup per `(contract, owner)`),
+ *      populated by the monorepo's erc20-balance-changes substreams sink. Its
+ *      `balance` is NOT trusted: the Transfer-anchored substream drops the
+ *      ~3.3% of changes it can't tie to a Transfer (TYPE_UNKNOWN — incl. WETH
+ *      deposit/withdraw), and those drops compound. If the archive isn't
+ *      queryable for this chain yet, discovery is null → `indexed: false` and we
+ *      still return the native balance.
+ *   2. EXACT BALANCES — a bounded `balanceOf` multicall over just the discovered
+ *      tokens (not all tokens) gives the authoritative current balance; zero /
+ *      fully-exited positions are dropped. This corrects the archive's gaps.
+ *   3. METADATA — decimals/symbol/name for the held tokens, read from the chain
+ *      (immutable, so cacheable). Decoupled from balance.
  *
  * Native balance is a trivial RPC point query. Results are cached briefly per
  * (chainId, holder).
