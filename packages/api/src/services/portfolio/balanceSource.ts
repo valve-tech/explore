@@ -54,14 +54,35 @@ export const HOLDINGS_GQL_ROOT = process.env.HOLDINGS_GRAPHQL_ROOT || "current_b
 // `String!` — the Hasura ClickHouse GDC types its String columns as `string`, and
 // declaring `String!` fails: "variable 'owner' is declared as 'String!', but used
 // where 'string' is expected". Verified against the live 943 gateway 2026-06-30.
-export const HOLDINGS_GQL_QUERY = `
+export const HOLDINGS_GQL_QUERY = buildHoldingsQuery(HOLDINGS_GQL_ROOT);
+
+/**
+ * The GraphQL root field for a chain's holdings. A per-chain override
+ * (`HOLDINGS_GRAPHQL_ROOT_<chainId>`) wins — REQUIRED when one Hasura engine
+ * tracks multiple chains' `current_balances` under distinct root fields to avoid
+ * a field-name collision (e.g. 943 → `current_balances`, 369 →
+ * `current_balances_369`). Falls back to the global `HOLDINGS_GRAPHQL_ROOT`, then
+ * `current_balances`. So 943 works unchanged; 369 needs
+ * `HOLDINGS_GRAPHQL_ROOT_369=current_balances_369`.
+ */
+export function holdingsRootFor(chainId: number): string {
+  return (
+    process.env[`HOLDINGS_GRAPHQL_ROOT_${chainId}`] ||
+    process.env.HOLDINGS_GRAPHQL_ROOT ||
+    "current_balances"
+  );
+}
+
+/** Build the holdings query for a given root field. */
+function buildHoldingsQuery(root: string): string {
+  return `
   query Holdings($owner: string!) {
-    ${HOLDINGS_GQL_ROOT}(where: { owner: { _eq: $owner } }) {
+    ${root}(where: { owner: { _eq: $owner } }) {
       contract
       balance
     }
-  }
-`.trim();
+  }`.trim();
+}
 
 /** Bare lowercase hex (no 0x) — the archive/metadata key form. */
 function bareHex(hex: string): string {
@@ -86,9 +107,12 @@ interface GraphqlResponse {
 export async function fetchHoldingsViaGraphql(
   endpoint: string,
   owner: string,
-  opts: { secret?: string; fetchImpl?: typeof fetch } = {},
+  opts: { secret?: string; fetchImpl?: typeof fetch; root?: string } = {},
 ): Promise<HeldBalance[]> {
   const fetchImpl = opts.fetchImpl ?? fetch;
+  // The root field to query (per-chain — see holdingsRootFor). Defaults to the
+  // global root so existing single-chain callers are unaffected.
+  const root = opts.root ?? HOLDINGS_GQL_ROOT;
   const headers: Record<string, string> = { "content-type": "application/json" };
   // Hasura-style admin secret; omitted when the gateway is open / uses another
   // auth handled at the network edge.
@@ -98,7 +122,7 @@ export async function fetchHoldingsViaGraphql(
     method: "POST",
     headers,
     body: JSON.stringify({
-      query: HOLDINGS_GQL_QUERY,
+      query: buildHoldingsQuery(root),
       // `owner` is the archive key form — BARE lowercase hex (no 0x), verified
       // against the live balance_changes table. queryBalances supplies it.
       variables: { owner },
@@ -116,10 +140,10 @@ export async function fetchHoldingsViaGraphql(
     );
   }
 
-  const rows = json.data?.[HOLDINGS_GQL_ROOT];
+  const rows = json.data?.[root];
   if (!Array.isArray(rows)) {
     throw new Error(
-      `holdings gateway returned an unexpected shape (no '${HOLDINGS_GQL_ROOT}' array)`,
+      `holdings gateway returned an unexpected shape (no '${root}' array)`,
     );
   }
 
@@ -151,5 +175,6 @@ export async function queryBalances(
   if (!endpoint) return null;
   return fetchHoldingsViaGraphql(endpoint, holderBare, {
     secret: process.env.HOLDINGS_GRAPHQL_SECRET,
+    root: holdingsRootFor(chainId),
   });
 }
