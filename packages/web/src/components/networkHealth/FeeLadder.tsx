@@ -65,6 +65,31 @@ function short(addr: string | null): string {
   return addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 }
 
+/**
+ * Corner-anchor a tooltip from a cursor position given as fractions of the plot
+ * [0,1]. It anchors to the cursor's own side so the card grows into the plot,
+ * never off-screen: past the horizontal midpoint it hangs from the right edge,
+ * past the vertical midpoint from the bottom. Monotonic in both axes — moving
+ * the cursor right moves the card right. (The bug this replaces read the hovered
+ * bar's local `offsetX`, which reset at every bar boundary, so the card jumped
+ * backwards as the cursor swept across.)
+ */
+export function tooltipPosition(cursor: { x: number; y: number }): {
+  left?: string;
+  right?: string;
+  top?: string;
+  bottom?: string;
+} {
+  const flipX = cursor.x > 0.5;
+  const flipY = cursor.y > 0.5;
+  return {
+    left: flipX ? undefined : `${cursor.x * 100}%`,
+    right: flipX ? `${(1 - cursor.x) * 100}%` : undefined,
+    top: flipY ? undefined : `${cursor.y * 100}%`,
+    bottom: flipY ? `${(1 - cursor.y) * 100}%` : undefined,
+  };
+}
+
 /** Gwei with thousands separators and scale-appropriate precision. */
 function fmtGwei(n: number): string {
   const d = n >= 100 ? 0 : n >= 1 ? 2 : 4;
@@ -196,9 +221,18 @@ function StackedLadder({ data }: { data: BlockLadder }) {
           viewBox={`0 0 ${W} ${H}`}
           className="w-full"
           style={{ height: "auto" }}
-          onMouseMove={(e) =>
-            setCursor({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY })
-          }
+          onMouseMove={(e) => {
+            // Fraction of the SVG box [0,1], measured against currentTarget (the
+            // svg itself) — NOT nativeEvent.offsetX, which is relative to the
+            // hovered child <rect> and resets at every bar, jerking the tooltip
+            // backwards as the cursor moves right.
+            const r = e.currentTarget.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) return;
+            setCursor({
+              x: (e.clientX - r.left) / r.width,
+              y: (e.clientY - r.top) / r.height,
+            });
+          }}
           onMouseLeave={() => setHovered(null)}
         >
           {/* burned base fee — one constant grey block on top */}
@@ -296,23 +330,16 @@ function TxTooltip({
   deltaNext: number | null;
   cursor: { x: number; y: number };
 }) {
-  // cursor.x/.y are in the svg's own pixel space, which the relative wrapper
-  // matches (svg is w-full). Clamp left near the right edge; flip above-cursor
-  // near the bottom.
-  const flipX = cursor.x > W / 2;
+  // cursor.x/.y are fractions of the plot [0,1]; the relative wrapper matches the
+  // svg box (svg is w-full), so percentage offsets line up. tooltipPosition
+  // corner-anchors the card so it grows into the plot near either edge.
   const gasShare = shareOf(gas.toString(), totalGas.toString());
   const cost = baseFeeGwei + tx.tipGwei;
 
   return (
     <div
       className="card p-2 text-xs space-y-tight pointer-events-none absolute z-50"
-      style={{
-        left: flipX ? undefined : `${(cursor.x / W) * 100}%`,
-        right: flipX ? `${((W - cursor.x) / W) * 100}%` : undefined,
-        top: cursor.y > H / 2 ? undefined : `${(cursor.y / H) * 100}%`,
-        bottom: cursor.y > H / 2 ? `${((H - cursor.y) / H) * 100}%` : undefined,
-        maxWidth: 300,
-      }}
+      style={{ ...tooltipPosition(cursor), maxWidth: 300 }}
     >
       <div className="theme-mono theme-accent">{short(tx.hash)}</div>
       <div className="theme-text-secondary theme-mono">
