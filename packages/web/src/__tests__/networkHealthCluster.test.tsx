@@ -297,6 +297,18 @@ const AGG = {
   burnedShare: 0.0035,
   priorityInversionRate: 0,
   overPrioritizedGasByType: { legacy: "0", modern: "0" },
+  paidPerBlock: {
+    avg: "16365625092976040988215",
+    median: "16365625092976040988215",
+    min: "16365625092976040988215",
+    max: "16365625092976040988215",
+  },
+  tipsPerBlock: {
+    avg: "16308415764020445994737",
+    median: "16308415764020445994737",
+    min: "16308415764020445994737",
+    max: "16308415764020445994737",
+  },
 };
 
 function healthResult(overrides: Record<string, unknown> = {}) {

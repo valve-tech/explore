@@ -37,6 +37,13 @@ export interface BlockStats {
   overPrioritizedGasByType: TypeSplit<string>;
 }
 
+export interface PerBlockStat {
+  avg: string;
+  median: string;
+  min: string;
+  max: string;
+}
+
 export interface WindowAggregate {
   blocksAnalyzed: number;
   fromBlock: string | null;
@@ -56,6 +63,8 @@ export interface WindowAggregate {
   burnedShare: number;
   priorityInversionRate: number | null;
   overPrioritizedGasByType: TypeSplit<string>;
+  paidPerBlock: PerBlockStat;
+  tipsPerBlock: PerBlockStat;
 }
 
 export interface MinerStats {

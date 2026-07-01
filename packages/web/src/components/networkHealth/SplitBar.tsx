@@ -17,41 +17,53 @@ export function SplitBar({
   legacyBurnedFraction,
   modernBurnedFraction,
   height = "h-2",
+  fillFraction,
 }: {
   legacyFraction: number;
   legacyBurnedFraction?: number;
   modernBurnedFraction?: number;
   height?: string;
+  /**
+   * When set (0–1), the legacy/modern split fills only this fraction of the
+   * track, so the bar's LENGTH encodes magnitude (e.g. gasUsed / gasLimit —
+   * a fuller block draws a wider bar). Omit for a pure share bar (fills 100%).
+   */
+  fillFraction?: number;
 }) {
   const legacyPct = Math.round(Math.min(1, Math.max(0, legacyFraction)) * 100);
   const legacyBurn = clampPct(legacyBurnedFraction);
   const modernBurn = clampPct(modernBurnedFraction);
+  const fillPct = fillFraction == null ? 100 : clampPct(fillFraction);
   return (
-    <div className={`flex ${height} w-full overflow-hidden bs-in-muted`}>
-      <div
-        className="relative"
-        style={{ width: `${legacyPct}%`, backgroundColor: "var(--color-warning)" }}
-      >
-        {legacyBurn > 0 && (
-          <div
-            className="burn-mark absolute inset-y-0 left-0"
-            style={{ width: `${legacyBurn}%` }}
-          />
-        )}
-      </div>
-      <div
-        className="relative"
-        style={{
-          width: `${100 - legacyPct}%`,
-          backgroundColor: "var(--color-accent)",
-        }}
-      >
-        {modernBurn > 0 && (
-          <div
-            className="burn-mark absolute inset-y-0 left-0"
-            style={{ width: `${modernBurn}%` }}
-          />
-        )}
+    <div className={`${height} w-full overflow-hidden bs-in-muted`}>
+      {/* The filled portion carries the type split; the rest of the track stays
+          empty so the bar length reads as magnitude when fillFraction is set. */}
+      <div className="flex h-full" style={{ width: `${fillPct}%` }}>
+        <div
+          className="relative"
+          style={{ width: `${legacyPct}%`, backgroundColor: "var(--color-warning)" }}
+        >
+          {legacyBurn > 0 && (
+            <div
+              className="burn-mark absolute inset-y-0 left-0"
+              style={{ width: `${legacyBurn}%` }}
+            />
+          )}
+        </div>
+        <div
+          className="relative"
+          style={{
+            width: `${100 - legacyPct}%`,
+            backgroundColor: "var(--color-accent)",
+          }}
+        >
+          {modernBurn > 0 && (
+            <div
+              className="burn-mark absolute inset-y-0 left-0"
+              style={{ width: `${modernBurn}%` }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

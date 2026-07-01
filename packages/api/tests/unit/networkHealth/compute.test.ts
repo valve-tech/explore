@@ -239,6 +239,61 @@ describe("aggregateWindow", () => {
     assert.equal(a.fromBlock, null);
     assert.equal(a.priorityInversionRate, null);
     assert.equal(a.legacyGasShare, 0);
+    assert.deepEqual(a.paidPerBlock, { avg: "0", median: "0", min: "0", max: "0" });
+    assert.deepEqual(a.tipsPerBlock, { avg: "0", median: "0", min: "0", max: "0" });
+  });
+
+  it("per-block avg/median/range of paid + tips (native wei)", () => {
+    // Three single-tx blocks, base 0 (→ tip == paid == eff × gas1), with paid
+    // totals 100 / 500 / 300 wei.
+    const blocks = [100n, 500n, 300n].map((eff, i) =>
+      computeBlock(
+        {
+          number: BigInt(i),
+          timestamp: 1,
+          baseFeePerGas: 0n,
+          gasUsed: 1n,
+          gasLimit: 10n,
+          miner: "0xm",
+          txs: [tx(0, 2, "0xa", 1n, eff)],
+        },
+        { burnsBaseFee: true },
+      ),
+    );
+    const a = aggregateWindow(blocks);
+    // paid per block = {100,500,300} → sorted 100,300,500
+    assert.deepEqual(a.paidPerBlock, {
+      avg: "300", // (100+300+500)/3
+      median: "300",
+      min: "100",
+      max: "500",
+    });
+    // base 0 → tips == paid, same distribution
+    assert.deepEqual(a.tipsPerBlock, {
+      avg: "300",
+      median: "300",
+      min: "100",
+      max: "500",
+    });
+  });
+
+  it("median averages the two middles for an even block count", () => {
+    const blocks = [100n, 200n, 300n, 400n].map((eff, i) =>
+      computeBlock(
+        {
+          number: BigInt(i),
+          timestamp: 1,
+          baseFeePerGas: 0n,
+          gasUsed: 1n,
+          gasLimit: 10n,
+          miner: "0xm",
+          txs: [tx(0, 2, "0xa", 1n, eff)],
+        },
+        { burnsBaseFee: true },
+      ),
+    );
+    // sorted 100,200,300,400 → median (200+300)/2 = 250
+    assert.equal(aggregateWindow(blocks).paidPerBlock.median, "250");
   });
 
   it("pools sums and reports oldest→newest range (newest-first input)", () => {

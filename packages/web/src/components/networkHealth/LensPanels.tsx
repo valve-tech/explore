@@ -1,4 +1,4 @@
-import type { WindowAggregate } from "../../api/networkHealth";
+import type { PerBlockStat, WindowAggregate } from "../../api/networkHealth";
 import { SplitBar, TypeLegend } from "./SplitBar";
 import { InfoTip, Eq } from "./InfoTip";
 import { nativeAmount, pct, shareOf, span } from "./format";
@@ -42,6 +42,8 @@ export function LensPanels({
           help="what senders paid, per gas × gas used"
           total={nativeAmount(aggregate.paid, symbol)}
           period={period}
+          perBlock={aggregate.paidPerBlock}
+          symbol={symbol}
           legacyFraction={shareOf(aggregate.paidByType.legacy, aggregate.paid)}
           legacyBurnedFraction={
             burnsBaseFee
@@ -65,6 +67,8 @@ export function LensPanels({
           help={burnsBaseFee ? "tips kept — base fee is burned" : "full fees kept"}
           total={nativeAmount(aggregate.tips, symbol)}
           period={period}
+          perBlock={aggregate.tipsPerBlock}
+          symbol={symbol}
           legacyFraction={shareOf(aggregate.tipsByType.legacy, aggregate.tips)}
           footer={`${pct(tipsShareOfPaid)} of what users spent`}
           accent="var(--color-success)"
@@ -79,6 +83,8 @@ function Lens({
   help,
   total,
   period,
+  perBlock,
+  symbol,
   legacyFraction,
   legacyBurnedFraction,
   modernBurnedFraction,
@@ -89,6 +95,8 @@ function Lens({
   help: string;
   total: string;
   period: string;
+  perBlock: PerBlockStat;
+  symbol: string;
   legacyFraction: number;
   legacyBurnedFraction?: number;
   modernBurnedFraction?: number;
@@ -107,6 +115,7 @@ function Lens({
         </div>
         <div className="text-xs theme-text-muted">{period}</div>
       </div>
+      <PerBlock stat={perBlock} symbol={symbol} />
       <SplitBar
         legacyFraction={legacyFraction}
         legacyBurnedFraction={legacyBurnedFraction}
@@ -114,6 +123,27 @@ function Lens({
         height="h-2.5"
       />
       <div className="text-xs theme-text-secondary">{footer}</div>
+    </div>
+  );
+}
+
+/** Per-block avg / median / range for a Lens's quantity. */
+function PerBlock({ stat, symbol }: { stat: PerBlockStat; symbol: string }) {
+  return (
+    <div className="text-xs theme-text-muted space-y-tight">
+      <div className="flex items-baseline justify-between gap-inline">
+        <span>per block</span>
+        <span className="theme-mono theme-text-secondary">
+          avg {nativeAmount(stat.avg, symbol)} · med{" "}
+          {nativeAmount(stat.median, symbol)}
+        </span>
+      </div>
+      <div className="flex items-baseline justify-between gap-inline">
+        <span>range</span>
+        <span className="theme-mono theme-text-secondary">
+          {nativeAmount(stat.min, symbol)} – {nativeAmount(stat.max, symbol)}
+        </span>
+      </div>
     </div>
   );
 }

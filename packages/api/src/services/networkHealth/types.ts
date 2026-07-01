@@ -153,6 +153,18 @@ export interface BlockStatsWire {
   overPrioritizedGasByType: TypeSplit<string>;
 }
 
+/** Per-block distribution of a wei quantity over the window (all stringified wei). */
+export interface PerBlockStat {
+  /** Mean per block. */
+  avg: string;
+  /** Median per block (mean of the two middles for an even count). */
+  median: string;
+  /** Smallest block value. */
+  min: string;
+  /** Largest block value. */
+  max: string;
+}
+
 export interface WindowAggregateWire {
   blocksAnalyzed: number;
   /** Oldest and newest block numbers + timestamps in the window. */
@@ -178,6 +190,10 @@ export interface WindowAggregateWire {
   burnedShare: number;
   priorityInversionRate: number | null;
   overPrioritizedGasByType: TypeSplit<string>;
+  /** User cost (paid) per block — avg / median / min / max over the window. */
+  paidPerBlock: PerBlockStat;
+  /** Validator revenue (tips) per block — avg / median / min / max. */
+  tipsPerBlock: PerBlockStat;
 }
 
 // ---------------------------------------------------------------------------

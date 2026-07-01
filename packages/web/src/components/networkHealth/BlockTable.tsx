@@ -1,14 +1,28 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import type { BlockStats } from "../../api/networkHealth";
 import { formatGwei } from "../../lib/format/tokenAmount";
 import { useNowSeconds } from "../../hooks/useNow";
+import { useActiveChainId } from "../../lib/activeChain";
+import { DEFAULT_CHAIN_ID } from "../../lib/chains";
 import { SplitBar } from "./SplitBar";
 import { FeeLadder } from "./FeeLadder";
 import { Tooltip } from "../primitives/Tooltip";
 import { pct, shareOf, timeAgo } from "./format";
 
 const COLS = 6;
+
+/** Block fullness in [0,1] = gasUsed / gasLimit (raw-int ratio, not amounts). */
+export function blockFullness(gasUsed: string, gasLimit: string): number {
+  try {
+    const used = BigInt(gasUsed);
+    const limit = BigInt(gasLimit);
+    return limit > 0n ? Number((used * 10000n) / limit) / 10000 : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Per-block breakdown, newest first. Click a row to expand its fee ladder —
@@ -25,7 +39,7 @@ export function BlockTable({ blocks }: { blocks: BlockStats[] }) {
             <Th>Age</Th>
             <Th right>Txns</Th>
             <Th right>Base fee</Th>
-            <Th>Gas: legacy / modern · burned</Th>
+            <Th>Gas used (width) · legacy / modern · burned</Th>
             <Th right>Out of order</Th>
           </tr>
         </thead>
@@ -67,6 +81,12 @@ function BlockRow({
     modernBurned,
     0,
   )} burned)`;
+  const chainId = useActiveChainId();
+  const q = chainId === DEFAULT_CHAIN_ID ? "" : `?chainid=${chainId}`;
+  // Bar LENGTH = block fullness (gasUsed / gasLimit), so a fuller block draws a
+  // wider bar; the legacy/modern split lives within that filled length.
+  const fullness = blockFullness(block.gasUsed, block.gasLimit);
+  const gasTip = `${pct(fullness, 0)} full · ${compTip}`;
   return (
     <>
       <tr
@@ -80,18 +100,27 @@ function BlockRow({
               className="w-4 h-4 theme-text-muted"
             />
             <span className="theme-accent">#{block.number}</span>
+            <Link
+              to={`/network-health/block/${block.number}${q}`}
+              onClick={(e) => e.stopPropagation()}
+              title="Open this block's shareable page"
+              className="theme-text-muted hover:theme-text"
+            >
+              <Icon icon="heroicons:arrow-top-right-on-square" className="w-3.5 h-3.5" />
+            </Link>
           </span>
         </Td>
         <Td muted><Age ts={block.timestamp} /></Td>
         <Td right>{block.txCount}</Td>
         <Td right>{formatGwei(block.baseFeePerGas) ?? "—"}</Td>
         <Td>
-          <Tooltip label={compTip}>
+          <Tooltip label={gasTip}>
             <div className="min-w-32">
               <SplitBar
                 legacyFraction={block.legacyGasShare}
                 legacyBurnedFraction={legacyBurned}
                 modernBurnedFraction={modernBurned}
+                fillFraction={fullness}
               />
             </div>
           </Tooltip>

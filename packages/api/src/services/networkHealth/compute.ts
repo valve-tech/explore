@@ -203,6 +203,29 @@ export function computeBlock(
 // Serialization helpers
 // ---------------------------------------------------------------------------
 
+/** Per-block distribution (avg / median / min / max) of a wei quantity. */
+function perBlockDist(values: bigint[]): {
+  avg: string;
+  median: string;
+  min: string;
+  max: string;
+} {
+  if (values.length === 0) return { avg: "0", median: "0", min: "0", max: "0" };
+  const sorted = [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const n = sorted.length;
+  const sum = sorted.reduce((a, b) => a + b, 0n);
+  const median =
+    n % 2 === 1
+      ? sorted[(n - 1) / 2]!
+      : (sorted[n / 2 - 1]! + sorted[n / 2]!) / 2n;
+  return {
+    avg: (sum / BigInt(n)).toString(),
+    median: median.toString(),
+    min: sorted[0]!.toString(),
+    max: sorted[n - 1]!.toString(),
+  };
+}
+
 /** Bigint ratio → number in [0,1], scaled for sub-integer precision. */
 function ratio(num: bigint, den: bigint): number {
   if (den === 0n) return 0;
@@ -395,6 +418,12 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
     burnedShare: ratio(burned, paid),
     priorityInversionRate: rate(outOfOrderGasSum, comparableGasSum),
     overPrioritizedGasByType: splitStr(overPrioritizedGasByType),
+    paidPerBlock: perBlockDist(
+      metrics.map((m) => m.paidByType.legacy + m.paidByType.modern),
+    ),
+    tipsPerBlock: perBlockDist(
+      metrics.map((m) => m.tipsByType.legacy + m.tipsByType.modern),
+    ),
   };
 }
 

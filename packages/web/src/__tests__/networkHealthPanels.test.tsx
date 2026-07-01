@@ -47,6 +47,8 @@ const aggregate: WindowAggregate = {
   burnedShare: 0.003496,
   priorityInversionRate: 0,
   overPrioritizedGasByType: { legacy: "0", modern: "0" },
+  paidPerBlock: { avg: PAID, median: PAID, min: PAID, max: PAID },
+  tipsPerBlock: { avg: TIPS, median: TIPS, min: TIPS, max: TIPS },
 };
 
 const block: BlockStats = {
@@ -141,7 +143,10 @@ describe("networkHealth panels", () => {
 
   it("SplitBar widths reflect the legacy fraction", () => {
     const { container } = renderWithProviders(<SplitBar legacyFraction={0.75} />);
-    const segments = container.querySelectorAll<HTMLElement>(":scope > div > div");
+    // track > filled flex > [legacy, modern] segments
+    const segments = container.querySelectorAll<HTMLElement>(
+      ":scope > div > div > div",
+    );
     expect(segments[0]!.style.width).toBe("75%");
     expect(segments[1]!.style.width).toBe("25%");
   });
