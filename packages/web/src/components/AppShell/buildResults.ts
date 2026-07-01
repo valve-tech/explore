@@ -3,6 +3,7 @@ import { NAV_GROUPS, UTILITY_PAGES } from "../../lib/navGroups";
 import { scanPath } from "../../lib/scanRoutes";
 import type { WorkspaceItemKind } from "../../lib/workspace/types";
 import type { Parsed } from "./parseInput";
+import { resolvedActions, type Resolution } from "./resolvedJumps";
 
 /* ------------------------------------------------------------------ */
 /* Palette result model                                               */
@@ -82,6 +83,7 @@ export function buildResults(
   parsed: Parsed,
   recents: RecentEntity[],
   tab: PaletteTab,
+  resolution?: Resolution,
 ): Result[] {
   const q = value.trim().toLowerCase();
 
@@ -91,10 +93,13 @@ export function buildResults(
     parsed.kind === "tx" || parsed.kind === "address" || parsed.kind === "block"
       ? { kind: parsed.kind, value: parsed.value }
       : undefined;
+  // Cross-chain: for a tx/address, jump actions target the chain(s) the entity
+  // actually exists on (resolved via /api/resolve); falls back to the parser's
+  // default-chain actions while resolving or when found nowhere.
   const jump: Result[] =
     parsed.kind === "unknown"
       ? []
-      : parsed.actions.map((a) => ({
+      : resolvedActions(parsed, resolution).map((a) => ({
           id: a.to,
           group: "Jump to" as const,
           tag: parsed.kind,

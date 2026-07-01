@@ -32,6 +32,10 @@ vi.mock("../api/latest", () => ({
 vi.mock("../api/mempool", () => ({
   fetchPending: (...a: unknown[]) => fetchPending(...a),
 }));
+const resolveEntity = vi.fn();
+vi.mock("../api/resolve", () => ({
+  resolveEntity: (...a: unknown[]) => resolveEntity(...a),
+}));
 
 function search() {
   return screen.getByPlaceholderText(/Paste a tx hash, address, block/i);
@@ -45,6 +49,7 @@ describe("<Landing />", () => {
       gasPrice: { baseFeePerGas: "1000000000" },
     });
     fetchPending.mockReset().mockResolvedValue({ pendingCount: 7 });
+    resolveEntity.mockReset();
   });
 
   it("renders the brand, the feature catalogue groups, and the recent rail", () => {
@@ -58,11 +63,29 @@ describe("<Landing />", () => {
     expect(screen.getByText("recent-rail")).toBeInTheDocument();
   });
 
-  it("submitting a recognized tx hash navigates to its scan route", () => {
+  it("resolves a tx hash across chains and routes to the chain it lives on", async () => {
+    // Default chain selection is "All chains" → the tx is located cross-chain,
+    // then routed to the chain that actually has it (here, Ethereum).
+    resolveEntity.mockResolvedValue({
+      kind: "tx",
+      query: TX,
+      matches: [{ chainId: 1 }],
+    });
     renderWithProviders(<Landing />);
     fireEvent.change(search(), { target: { value: TX } });
     fireEvent.click(screen.getByRole("button", { name: "Go" }));
-    expect(navigate).toHaveBeenCalledWith(`/tx/${TX}`);
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(`/tx/${TX}?chainid=1`),
+    );
+    expect(resolveEntity).toHaveBeenCalledWith(TX);
+  });
+
+  it("falls back to the bare route when the tx is found on no chain", async () => {
+    resolveEntity.mockResolvedValue({ kind: "tx", query: TX, matches: [] });
+    renderWithProviders(<Landing />);
+    fireEvent.change(search(), { target: { value: TX } });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(`/tx/${TX}`));
   });
 
   it("scopes the route to ?chainid when a specific chain is picked", () => {

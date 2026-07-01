@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { useRecentEntities } from "../../hooks/useRecentEntities";
+import { resolveEntity } from "../../api/resolve";
 import { PaletteWorkspaceDropZone } from "../workspace/PaletteWorkspaceDropZone";
 import { parseInput, KIND_LABELS } from "./parseInput";
 import {
@@ -10,6 +12,7 @@ import {
   type ResultGroup,
   type PaletteTab,
 } from "./buildResults";
+import type { Resolution } from "./resolvedJumps";
 import { PaletteResultRow } from "./PaletteResultRow";
 
 /* ------------------------------------------------------------------ */
@@ -29,9 +32,36 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const [isDragging, setIsDragging] = useState(false);
   const parsed = useMemo(() => parseInput(value), [value]);
 
+  // Cross-chain resolve: a pasted tx/address is located across every registered
+  // chain so its jump rows target where it actually exists (not a default). The
+  // palette has no chain selector, so this is the only chain signal it has.
+  const locatable = parsed.kind === "tx" || parsed.kind === "address";
+  const target = locatable ? parsed.value : "";
+  const resolveQuery = useQuery({
+    queryKey: ["resolve", parsed.kind, target],
+    queryFn: () => resolveEntity(target),
+    enabled: locatable,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const matches = resolveQuery.data?.matches;
+  const resolution = useMemo<Resolution>(
+    () => ({
+      status: !locatable
+        ? "idle"
+        : resolveQuery.isSuccess
+          ? "done"
+          : resolveQuery.isLoading
+            ? "loading"
+            : "idle",
+      matches: matches ?? [],
+    }),
+    [locatable, resolveQuery.isSuccess, resolveQuery.isLoading, matches],
+  );
+
   const results = useMemo(
-    () => buildResults(value, parsed, recents, tab),
-    [value, parsed, recents, tab],
+    () => buildResults(value, parsed, recents, tab, resolution),
+    [value, parsed, recents, tab, resolution],
   );
 
   // Reset the highlight whenever the visible set changes.
@@ -94,6 +124,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             placeholder="Search recent, contracts, pages — or paste a hash / address / block"
             className="bare-input flex-1 h-full pl-7 bg-transparent text-sm outline-none font-mono theme-text"
           />
+          {locatable && resolution.status === "loading" && (
+            <span className="flex items-center gap-tight text-[10px] px-2 py-1 shrink-0 theme-text-muted">
+              <Icon icon="heroicons:arrow-path" className="w-3 h-3 animate-spin" />
+              all chains…
+            </span>
+          )}
           {parsed.kind !== "unknown" && (
             <span
               className="text-[10px] uppercase tracking-widest font-semibold px-2 py-1 shrink-0 theme-accent-bg theme-accent"
@@ -123,6 +159,15 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             );
           })}
         </div>
+
+        {locatable &&
+          resolution.status === "done" &&
+          resolution.matches.length === 0 && (
+            <div className="px-4 pt-2 text-[11px] theme-warning">
+              Not found on any registered chain — the actions below open the
+              default chain.
+            </div>
+          )}
 
         {/* Results */}
         {results.length > 0 ? (

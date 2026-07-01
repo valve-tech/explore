@@ -12,7 +12,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { NAV_GROUPS, type NavItem } from "../lib/navGroups";
-import { routeForInput } from "../lib/entityInput";
+import { classifyInput, routeForInput } from "../lib/entityInput";
+import { resolveEntity } from "../api/resolve";
 import { fetchLatestSummary } from "../api/latest";
 import { fetchPending } from "../api/mempool";
 import { formatGwei } from "../lib/format/tokenAmount";
@@ -30,16 +31,44 @@ export default function Landing() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [hint, setHint] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [chain, setChain] = useState<ChainSelection>(ALL_CHAINS);
 
   const submit = () => {
-    const route = routeForInput(query, chain);
-    if (route) {
-      setHint(false);
-      navigate(route);
-    } else if (query.trim() !== "") {
-      setHint(true);
+    void run();
+  };
+
+  // A specific chain selected → route straight there. "All chains" (the
+  // default) locates a pasted tx/address across every registered chain first,
+  // then routes to the chain it lives on — so a hash on chain 1 doesn't
+  // silently open the default chain and read as "not found". Blocks/selectors
+  // aren't chain-located; they route bare (default chain).
+  const run = async () => {
+    const kind = classifyInput(query);
+    if (!kind) {
+      if (query.trim() !== "") setHint(true);
+      return;
     }
+    setHint(false);
+    if (chain !== ALL_CHAINS) {
+      navigate(routeForInput(query, chain)!);
+      return;
+    }
+    if (kind === "tx" || kind === "address") {
+      setBusy(true);
+      try {
+        const { matches } = await resolveEntity(query.trim());
+        // matches are ascending by chainId; pick the first (a tx has exactly
+        // one). Found nowhere → route bare so the default view shows not-found.
+        navigate(routeForInput(query, matches[0]?.chainId ?? ALL_CHAINS)!);
+      } catch {
+        navigate(routeForInput(query, ALL_CHAINS)!);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    navigate(routeForInput(query, ALL_CHAINS)!);
   };
 
   return (
@@ -54,6 +83,7 @@ export default function Landing() {
           }}
           onSubmit={submit}
           hint={hint}
+          busy={busy}
           chain={chain}
           onChainChange={setChain}
         />
@@ -98,6 +128,7 @@ function HeroTile({
   setQuery,
   onSubmit,
   hint,
+  busy,
   chain,
   onChainChange,
 }: {
@@ -105,6 +136,7 @@ function HeroTile({
   setQuery: (v: string) => void;
   onSubmit: () => void;
   hint: boolean;
+  busy: boolean;
   chain: ChainSelection;
   onChainChange: (next: ChainSelection) => void;
 }) {
@@ -179,9 +211,10 @@ function HeroTile({
           </div>
           <button
             type="submit"
-            className="px-5 text-sm font-medium shrink-0 theme-accent-solid text-white"
+            disabled={busy}
+            className="px-5 text-sm font-medium shrink-0 theme-accent-solid text-white disabled:opacity-60"
           >
-            Go
+            {busy ? "…" : "Go"}
           </button>
         </form>
         {hint && (
