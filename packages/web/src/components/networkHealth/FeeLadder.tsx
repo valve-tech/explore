@@ -139,17 +139,27 @@ export function FeeLadder({ blockNumber }: { blockNumber: string }) {
 }
 
 function Legend() {
-  const items: Array<[string, string]> = [
-    [TYPE_COLORS.legacy, "legacy tip (0/1)"],
-    [TYPE_COLORS.modern, "modern tip (≥2)"],
-    [OOO_COLOR, "out of order (hatch)"],
-    [BURN_COLOR, "burned (base fee)"],
+  const items: Array<{ color: string; label: string; hatch?: boolean }> = [
+    { color: TYPE_COLORS.legacy, label: "legacy tip (0/1)" },
+    { color: TYPE_COLORS.modern, label: "modern tip (≥2)" },
+    { color: OOO_COLOR, label: "out of order", hatch: true },
+    { color: BURN_COLOR, label: "burned (base fee)" },
   ];
   return (
     <div className="flex flex-wrap gap-row text-xs theme-text-muted">
-      {items.map(([c, label]) => (
+      {items.map(({ color, label, hatch }) => (
         <span key={label} className="flex items-center gap-tight">
-          <span className="inline-block h-2 w-2" style={{ backgroundColor: c }} />
+          <span
+            className="inline-block h-2 w-2"
+            style={
+              // Match the bar marker: red diagonal stripes, not a solid chip.
+              hatch
+                ? {
+                    backgroundImage: `repeating-linear-gradient(45deg, ${color} 0, ${color} 2px, transparent 2px, transparent 4px)`,
+                  }
+                : { backgroundColor: color }
+            }
+          />
           {label}
         </span>
       ))}
