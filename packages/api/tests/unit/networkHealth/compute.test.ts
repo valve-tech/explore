@@ -110,31 +110,38 @@ describe("computeBlock — positions", () => {
 });
 
 describe("computeBlock — prioritization", () => {
-  it("magnitude-weighted neighbor out-of-order rate", () => {
+  it("gas-weighted share of gas that is out of fee order", () => {
     const s = serializeBlock(computeBlock(workedBlock(), { burnsBaseFee: true }));
-    // tips by position 150,80,200 (3 distinct senders). Consecutive moves:
-    // 150→80 = −70 (down), 80→200 = +120 (up). variation 190, ascent 120.
-    // rate = 120/190.
-    assert.ok(Math.abs(s.priorityInversionRate! - 120 / 190) < 1e-5);
+    // A tx is out of order when a LATER, different-sender tx paid a higher tip.
+    // tips by position: A150, B80, C200. tx0(A,gas100) and tx1(B,gas200) both
+    // sit ahead of tx2(C,tip200) → out of order; tx2 has nothing higher after.
+    // out-of-order gas = 100+200 = 300; 3 distinct senders → comparable = total
+    // 400. rate = 300/400.
+    assert.equal(s.priorityInversionRate, 0.75);
   });
 
-  it("a 1-wei ascent amid real descents reads ~0 (magnitude matters)", () => {
+  it("catches a cross-sender inversion masked by a same-sender step (the 0% bug)", () => {
+    // The old adjacent-tip metric skipped same-sender pairs and only compared
+    // neighbors, so it read 0% here even though a tx clearly sits ahead of a
+    // higher bidder. Positions: A tip100, A tip300 (same sender — the ascent is
+    // on a skipped pair), B tip200. A's first tx (tip100) sits ahead of B
+    // (tip200) → out of order. Gas-weighted: ooo gas = 10; distinct {A,B} →
+    // comparable = 30. rate = 1/3 (the old metric returned 0).
     const block: BlockInput = {
       number: 9n,
       timestamp: 1,
       baseFeePerGas: 0n,
-      gasUsed: 3n,
+      gasUsed: 30n,
       gasLimit: 100n,
       miner: "0xm",
       txs: [
-        tx(0, 2, "0xa", 1n, 5_000_000_000n),
-        tx(1, 2, "0xb", 1n, 5_000_000_001n), // +1 wei vs prev — trivial
-        tx(2, 2, "0xc", 1n, 2_000_000_000n), // real −3 gwei descent
+        tx(0, 2, "0xa", 10n, 100n),
+        tx(1, 2, "0xa", 10n, 300n),
+        tx(2, 2, "0xb", 10n, 200n),
       ],
     };
     const s = serializeBlock(computeBlock(block, { burnsBaseFee: true }));
-    // ascent 1 wei / variation ~3e9 → essentially zero, not a full inversion.
-    assert.ok(s.priorityInversionRate! < 1e-6);
+    assert.ok(Math.abs(s.priorityInversionRate! - 1 / 3) < 1e-5);
   });
 
   it("excludes same-sender pairs from inversion accounting", () => {
@@ -199,7 +206,8 @@ describe("computeLadder", () => {
     assert.equal(l.txs[1]!.type, "legacy");
     assert.equal(l.txs[0]!.position, 0);
     assert.equal(l.txs[0]!.gasUsed, "100"); // carried through for bar width
-    assert.ok(Math.abs(l.priorityInversionRate! - 120 / 190) < 1e-5);
+    // gas-weighted: tx0+tx1 (gas 100+200) out of order / 400 comparable = 0.75
+    assert.equal(l.priorityInversionRate, 0.75);
   });
 
   it("labels multi-tx-sender displacement as nonce, not a jump", () => {
@@ -252,8 +260,8 @@ describe("aggregateWindow", () => {
     // sums double
     assert.equal(a.paid, "182000");
     assert.equal(a.burned, "80000");
-    // pooled magnitude rate: (120+120) ascent / (190+190) variation = 120/190
-    assert.ok(Math.abs(a.priorityInversionRate! - 120 / 190) < 1e-5);
+    // pooled gas-weighted: (300+300) ooo / (400+400) comparable = 0.75
+    assert.equal(a.priorityInversionRate, 0.75);
     assert.equal(a.legacyGasShare, 0.5);
   });
 });

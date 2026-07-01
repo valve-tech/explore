@@ -72,14 +72,16 @@ export function SummaryCards({
       <StatCard
         label="Priority inversions"
         value={pct(aggregate.priorityInversionRate)}
-        sub="cross-sender pairs out of fee order"
+        sub="share of gas out of fee order"
         info={
           <>
             Blocks are ordered by <Eq>tip = effectiveGasPrice − baseFee</Eq> —
             the same axis for every type (legacy: <Eq>gasPrice</Eq>; type ≥2:{" "}
             <Eq>min(maxFee, baseFee + maxPriorityFee)</Eq>). A high-gas-price
-            legacy tx has a high tip and is correctly first. An inversion = a
-            later, different-sender tx out-tipped an earlier one.
+            legacy tx has a high tip and is correctly first. A tx is out of order
+            when a later, different-sender tx paid a higher tip; the figure is{" "}
+            <Eq>gas of out-of-order txns ÷ total gas</Eq> — weighted by gas
+            consumed, so a big tx jumping the queue counts more than a dust one.
           </>
         }
       />

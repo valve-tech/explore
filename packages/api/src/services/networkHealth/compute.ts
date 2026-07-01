@@ -48,28 +48,56 @@ function revenuePerGas(tx: TxInput, base: bigint, burns: boolean): bigint {
 }
 
 /**
- * Tip flow between CONSECUTIVE cross-sender transactions, by magnitude. Walking
- * down the block, `variation` sums how far the tip moves between neighbors and
- * `ascent` sums only the moves that go UP (the wrong way for a fee market).
- * `ascent / variation` is the fraction of fee movement that's out of order:
- *   - magnitude-weighted, so a 1-wei wobble contributes ~nothing;
- *   - adjacent, so it's each tx vs its immediate neighbor (not distant pairs);
- *   - same-sender consecutive pairs skipped (nonce forces their order).
- * `senders` and `rev` are index-aligned in block-position order.
+ * Gas that sits out of fee order. A tx is out of order when a LATER,
+ * different-sender tx paid strictly higher revenue-per-gas — the same test the
+ * fee ladder uses for a "jumped" tx. This is:
+ *   - gas-weighted: the numerator is Σ gasUsed of out-of-order txns, so a big
+ *     tx jumping the queue counts more than a dust tx;
+ *   - inversion-complete: it compares against ALL later txns, not just the
+ *     immediate neighbor, so a non-adjacent or equal-tip inversion still counts
+ *     (the old adjacent-magnitude metric missed those and read 0%);
+ *   - nonce-aware: same-sender comparisons are skipped (their order is forced).
+ * `comparableGas` is the block's total tx gas when ≥2 distinct senders make the
+ * ordering assessable, else 0 → the rate is null ("n/a").
+ *
+ * O(n): scanning from the block tail, keep the top-2 suffix revenues from
+ * DISTINCT senders, so each tx answers "did a later different-sender tx beat
+ * me?" in O(1). Inputs are index-aligned in block-position order.
  */
-function tipFlow(
+function outOfOrderGas(
   senders: string[],
   rev: bigint[],
-): { ascent: bigint; variation: bigint } {
-  let ascent = 0n;
-  let variation = 0n;
-  for (let i = 0; i + 1 < rev.length; i += 1) {
-    if (senders[i] === senders[i + 1]) continue;
-    const d = rev[i + 1]! - rev[i]!;
-    variation += d < 0n ? -d : d;
-    if (d > 0n) ascent += d;
+  gas: bigint[],
+): { outOfOrderGas: bigint; comparableGas: bigint } {
+  let ooo = 0n;
+  let totalGas = 0n;
+  // Suffix maxima: `best` is the highest later revenue; `second` the highest
+  // later revenue from a sender other than best's. (second's sender needn't be
+  // tracked — it's only consulted when this tx IS best's sender.)
+  let bestRev = -1n;
+  let bestSender: string | null = null;
+  let secondRev = -1n;
+  const distinct = new Set<string>();
+  for (let i = rev.length - 1; i >= 0; i -= 1) {
+    const s = senders[i]!;
+    const r = rev[i]!;
+    // Highest later revenue from a sender != this tx's — beat means out of order.
+    const rival = bestSender !== null && bestSender !== s ? bestRev : secondRev;
+    if (rival > r) ooo += gas[i]!;
+    // Fold this tx into the suffix maxima for the txns above it.
+    if (s === bestSender) {
+      if (r > bestRev) bestRev = r;
+    } else if (r > bestRev) {
+      secondRev = bestRev; // old best is from a sender other than s
+      bestRev = r;
+      bestSender = s;
+    } else if (r > secondRev) {
+      secondRev = r;
+    }
+    totalGas += gas[i]!;
+    distinct.add(s);
   }
-  return { ascent, variation };
+  return { outOfOrderGas: ooo, comparableGas: distinct.size >= 2 ? totalGas : 0n };
 }
 
 export function computeBlock(
@@ -125,11 +153,12 @@ export function computeBlock(
     posHistGasByType[b][bucketIdx]! += gas;
   }
 
-  // Out-of-order: magnitude of tip movement that goes UP between consecutive
-  // cross-sender txns, over total movement (see tipFlow).
-  const { ascent: tipAscent, variation: tipVariation } = tipFlow(
+  // Out-of-order: gas of txns that sit ahead of a later, different-sender tx
+  // that paid more (see outOfOrderGas).
+  const { outOfOrderGas: oooGas, comparableGas } = outOfOrderGas(
     txs.map((t) => t.from),
     revenue,
+    txs.map((t) => t.gasUsed),
   );
 
   // Over-prioritized gas: a tx placed earlier than its revenue rank justifies.
@@ -164,8 +193,8 @@ export function computeBlock(
     paidByType,
     posBpsGasByType,
     posHistGasByType,
-    tipAscent,
-    tipVariation,
+    outOfOrderGas: oooGas,
+    comparableGas,
     overPrioritizedGasByType,
   };
 }
@@ -230,7 +259,7 @@ export function serializeBlock(m: BlockMetrics): BlockStatsWire {
       legacy: normHist(m.posHistGasByType.legacy, m.gasByType.legacy),
       modern: normHist(m.posHistGasByType.modern, m.gasByType.modern),
     },
-    priorityInversionRate: rate(m.tipAscent, m.tipVariation),
+    priorityInversionRate: rate(m.outOfOrderGas, m.comparableGas),
     overPrioritizedGasByType: splitStr(m.overPrioritizedGasByType),
   };
 }
@@ -285,9 +314,10 @@ export function computeLadder(
     };
   });
 
-  const { ascent, variation } = tipFlow(
+  const { outOfOrderGas: oooGas, comparableGas } = outOfOrderGas(
     txs.map((t) => t.from),
     rev,
+    txs.map((t) => t.gasUsed),
   );
 
   return {
@@ -296,7 +326,7 @@ export function computeLadder(
     baseFeePerGas: base.toString(),
     txCount: n,
     burnsBaseFee: config.burnsBaseFee,
-    priorityInversionRate: rate(ascent, variation),
+    priorityInversionRate: rate(oooGas, comparableGas),
     txs: ladder,
   };
 }
@@ -311,8 +341,8 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
   const posBpsGasByType = zeroBig();
   const posHistGasByType = zeroHist();
   const overPrioritizedGasByType = zeroBig();
-  let tipAscent = 0n;
-  let tipVariation = 0n;
+  let outOfOrderGasSum = 0n;
+  let comparableGasSum = 0n;
 
   for (const m of metrics) {
     for (const k of ["legacy", "modern"] as const) {
@@ -327,8 +357,8 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
         posHistGasByType[k][i]! += m.posHistGasByType[k][i]!;
       }
     }
-    tipAscent += m.tipAscent;
-    tipVariation += m.tipVariation;
+    outOfOrderGasSum += m.outOfOrderGas;
+    comparableGasSum += m.comparableGas;
   }
 
   const totalGas = gasByType.legacy + gasByType.modern;
@@ -363,7 +393,7 @@ export function aggregateWindow(metrics: BlockMetrics[]): WindowAggregateWire {
       modern: normHist(posHistGasByType.modern, gasByType.modern),
     },
     burnedShare: ratio(burned, paid),
-    priorityInversionRate: rate(tipAscent, tipVariation),
+    priorityInversionRate: rate(outOfOrderGasSum, comparableGasSum),
     overPrioritizedGasByType: splitStr(overPrioritizedGasByType),
   };
 }
@@ -377,8 +407,8 @@ export function aggregateMiners(metrics: BlockMetrics[]): MinerStatsWire[] {
     burned: bigint;
     tips: bigint;
     paid: bigint;
-    inv: bigint;
-    pairs: bigint;
+    ooo: bigint;
+    comparable: bigint;
   }
   const by = new Map<string, Acc>();
   for (const m of metrics) {
@@ -391,8 +421,8 @@ export function aggregateMiners(metrics: BlockMetrics[]): MinerStatsWire[] {
         burned: 0n,
         tips: 0n,
         paid: 0n,
-        inv: 0n,
-        pairs: 0n,
+        ooo: 0n,
+        comparable: 0n,
       };
       by.set(m.miner, a);
     }
@@ -402,8 +432,8 @@ export function aggregateMiners(metrics: BlockMetrics[]): MinerStatsWire[] {
     a.burned += m.burnedByType.legacy + m.burnedByType.modern;
     a.tips += m.tipsByType.legacy + m.tipsByType.modern;
     a.paid += m.paidByType.legacy + m.paidByType.modern;
-    a.inv += m.tipAscent;
-    a.pairs += m.tipVariation;
+    a.ooo += m.outOfOrderGas;
+    a.comparable += m.comparableGas;
   }
   return [...by.entries()]
     .map(([miner, a]) => ({
@@ -414,7 +444,7 @@ export function aggregateMiners(metrics: BlockMetrics[]): MinerStatsWire[] {
       burned: a.burned.toString(),
       tips: a.tips.toString(),
       paid: a.paid.toString(),
-      priorityInversionRate: rate(a.inv, a.pairs),
+      priorityInversionRate: rate(a.ooo, a.comparable),
     }))
     .sort((x, y) => y.blocks - x.blocks || Number(BigInt(y.tips) - BigInt(x.tips)));
 }

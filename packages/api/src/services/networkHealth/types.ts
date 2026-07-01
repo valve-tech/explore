@@ -95,14 +95,19 @@ export interface BlockMetrics {
   posHistGasByType: TypeSplit<bigint[]>;
 
   /**
-   * Out-of-order tip flow between consecutive cross-sender txns (see tipFlow):
-   * `tipAscent` = Σ upward tip moves (wrong way for a fee market), `tipVariation`
-   * = Σ |all moves|. The rate `tipAscent / tipVariation` is magnitude-weighted
-   * (a 1-wei wobble ≈ 0) and adjacent (each tx vs its neighbor). Same-sender
-   * consecutive pairs are excluded (nonce forces their order).
+   * Out-of-order gas: Σ gasUsed of txns that sit ahead of a LATER, different-
+   * sender tx which paid strictly higher revenue-per-gas (the fee ladder's
+   * "jumped" test). Same-sender pairs are ignored — nonce forces their order.
+   * The reported rate is `outOfOrderGas / comparableGas`, so it is gas-weighted
+   * and detects ALL inversions (not just adjacent ones).
    */
-  tipAscent: bigint;
-  tipVariation: bigint;
+  outOfOrderGas: bigint;
+  /**
+   * Denominator for the rate: the block's total tx gas when ≥2 distinct senders
+   * make the ordering assessable, else 0 (single-sender / single-tx blocks are
+   * nonce-forced → the rate is null / "n/a"). Aggregates by addition.
+   */
+  comparableGas: bigint;
 
   /** Σ gasUsed of txns placed earlier than their revenue rank justifies, by type. */
   overPrioritizedGasByType: TypeSplit<bigint>;
@@ -138,7 +143,12 @@ export interface BlockStatsWire {
   /** Per-type position distribution — each array sums to ~1 across buckets. */
   positionHistogram: TypeSplit<number[]>;
 
-  /** Normalized [0,1]; null when there were no comparable pairs. */
+  /**
+   * Gas-weighted share of gas that is out of fee order (a tx ahead of a later,
+   * different-sender tx that paid more): `outOfOrderGas / comparableGas`.
+   * Normalized [0,1]; null when the block isn't assessable (fewer than 2
+   * distinct senders).
+   */
   priorityInversionRate: number | null;
   overPrioritizedGasByType: TypeSplit<string>;
 }
