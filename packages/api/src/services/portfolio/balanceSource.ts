@@ -50,8 +50,12 @@ export const BALANCE_CHANGES_QUERY = `
  * (matching the balance_changes DDL); the view already filters balance > 0.
  */
 export const HOLDINGS_GQL_ROOT = process.env.HOLDINGS_GRAPHQL_ROOT || "current_balances";
+// NOTE: the variable type is the LOWERCASE gdc scalar `string!`, not GraphQL's
+// `String!` — the Hasura ClickHouse GDC types its String columns as `string`, and
+// declaring `String!` fails: "variable 'owner' is declared as 'String!', but used
+// where 'string' is expected". Verified against the live 943 gateway 2026-06-30.
 export const HOLDINGS_GQL_QUERY = `
-  query Holdings($owner: String!) {
+  query Holdings($owner: string!) {
     ${HOLDINGS_GQL_ROOT}(where: { owner: { _eq: $owner } }) {
       contract
       balance
