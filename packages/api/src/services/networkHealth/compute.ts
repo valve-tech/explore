@@ -48,56 +48,84 @@ function revenuePerGas(tx: TxInput, base: bigint, burns: boolean): bigint {
 }
 
 /**
- * Gas that sits out of fee order. A tx is out of order when a LATER,
- * different-sender tx paid strictly higher revenue-per-gas — the same test the
- * fee ladder uses for a "jumped" tx. This is:
- *   - gas-weighted: the numerator is Σ gasUsed of out-of-order txns, so a big
- *     tx jumping the queue counts more than a dust tx;
- *   - inversion-complete: it compares against ALL later txns, not just the
- *     immediate neighbor, so a non-adjacent or equal-tip inversion still counts
- *     (the old adjacent-magnitude metric missed those and read 0%);
- *   - nonce-aware: same-sender comparisons are skipped (their order is forced).
- * `comparableGas` is the block's total tx gas when ≥2 distinct senders make the
- * ordering assessable, else 0 → the rate is null ("n/a").
+ * Fee-order comparisons use revenue-per-gas rounded to this many significant
+ * figures, so sub-part-per-billion wobble (e.g. tips that differ by 1–2 wei out
+ * of ~1e13 — visually the same gwei) counts as the SAME fee tier and never reads
+ * as "out of order". Coarse enough to erase noise, fine enough to keep any
+ * economically-meaningful gap.
+ */
+const FEE_TIER_SIG_FIGS = 9;
+
+/** Round a positive wei value to `sig` significant figures. Monotonic. */
+function roundSigFigs(v: bigint, sig: number): bigint {
+  if (v <= 0n) return 0n;
+  const digits = v.toString().length;
+  if (digits <= sig) return v;
+  const scale = 10n ** BigInt(digits - sig);
+  return ((v + scale / 2n) / scale) * scale; // round-half-up, then restore scale
+}
+
+/**
+ * Gas that sits out of fee order, by MINIMAL DISPLACEMENT: sort the block into
+ * fee order (revenue-per-gas desc, tiered — see FEE_TIER_SIG_FIGS), then find
+ * the largest set of txns already in that order and count only the REST.
  *
- * O(n): scanning from the block tail, keep the top-2 suffix revenues from
- * DISTINCT senders, so each tx answers "did a later different-sender tx beat
- * me?" in O(1). Inputs are index-aligned in block-position order.
+ * Concretely: out-of-order gas = total gas − the maximum-gas subsequence whose
+ * fee tiers are non-increasing in block position (a max-weight increasing
+ * subsequence over fee rank). So moving ONE tx from the front to the back marks
+ * only that one tx — not everyone it leapfrogged (the bug this replaces counted
+ * every tx that had any later, higher-paying tx, so a single displaced whale
+ * inflated the rate). Gas-weighted, so a big displaced tx counts more.
+ *
+ * `comparableGas` is the block's total tx gas when ≥2 distinct senders make the
+ * ordering assessable, else 0 → the rate is null ("n/a"). Nonce is not modelled
+ * explicitly: a sender's forced low→high sequence shows as a genuine
+ * displacement of the offending tx, which matches how it reads on the ladder.
+ *
+ * O(n log n): sort for fee rank + a Fenwick prefix-max for the subsequence.
+ * Inputs are index-aligned in block-position order.
  */
 function outOfOrderGas(
   senders: string[],
   rev: bigint[],
   gas: bigint[],
 ): { outOfOrderGas: bigint; comparableGas: bigint } {
-  let ooo = 0n;
+  const n = rev.length;
   let totalGas = 0n;
-  // Suffix maxima: `best` is the highest later revenue; `second` the highest
-  // later revenue from a sender other than best's. (second's sender needn't be
-  // tracked — it's only consulted when this tx IS best's sender.)
-  let bestRev = -1n;
-  let bestSender: string | null = null;
-  let secondRev = -1n;
-  const distinct = new Set<string>();
-  for (let i = rev.length - 1; i >= 0; i -= 1) {
-    const s = senders[i]!;
-    const r = rev[i]!;
-    // Highest later revenue from a sender != this tx's — beat means out of order.
-    const rival = bestSender !== null && bestSender !== s ? bestRev : secondRev;
-    if (rival > r) ooo += gas[i]!;
-    // Fold this tx into the suffix maxima for the txns above it.
-    if (s === bestSender) {
-      if (r > bestRev) bestRev = r;
-    } else if (r > bestRev) {
-      secondRev = bestRev; // old best is from a sender other than s
-      bestRev = r;
-      bestSender = s;
-    } else if (r > secondRev) {
-      secondRev = r;
-    }
-    totalGas += gas[i]!;
-    distinct.add(s);
+  for (let i = 0; i < n; i += 1) totalGas += gas[i]!;
+  const comparableGas = new Set(senders).size >= 2 ? totalGas : 0n;
+  if (n === 0) return { outOfOrderGas: 0n, comparableGas };
+
+  // Fee rank: 0 = highest tier. Ties (same tier) break by block position, so
+  // equal-fee txns keep block order and never read as out of order.
+  const tier = rev.map((r) => roundSigFigs(r, FEE_TIER_SIG_FIGS));
+  const rank = new Array<number>(n);
+  [...Array(n).keys()]
+    .sort((a, b) => (tier[a]! === tier[b]! ? a - b : tier[a]! > tier[b]! ? -1 : 1))
+    .forEach((idx, pos) => {
+      rank[idx] = pos;
+    });
+
+  // Max-weight (gas) strictly-increasing-by-rank subsequence over block order,
+  // via a Fenwick tree of prefix maxima keyed by rank+1.
+  const tree = new Array<bigint>(n + 1).fill(0n);
+  const prefixMax = (idx: number): bigint => {
+    let m = 0n;
+    for (let i = idx; i > 0; i -= i & -i) if (tree[i]! > m) m = tree[i]!;
+    return m;
+  };
+  const update = (idx: number, val: bigint): void => {
+    for (let i = idx; i <= n; i += i & -i) if (tree[i]! < val) tree[i] = val;
+  };
+  let inOrderGas = 0n;
+  for (let k = 0; k < n; k += 1) {
+    const r = rank[k]!; // ranks 0..r-1 → Fenwick indices 1..r
+    const best = prefixMax(r) + gas[k]!;
+    update(r + 1, best);
+    if (best > inOrderGas) inOrderGas = best;
   }
-  return { outOfOrderGas: ooo, comparableGas: distinct.size >= 2 ? totalGas : 0n };
+
+  return { outOfOrderGas: totalGas - inOrderGas, comparableGas };
 }
 
 export function computeBlock(

@@ -110,23 +110,62 @@ describe("computeBlock — positions", () => {
 });
 
 describe("computeBlock — prioritization", () => {
-  it("gas-weighted share of gas that is out of fee order", () => {
+  it("gas-weighted out-of-order share = minimal displacement from fee order", () => {
     const s = serializeBlock(computeBlock(workedBlock(), { burnsBaseFee: true }));
-    // A tx is out of order when a LATER, different-sender tx paid a higher tip.
-    // tips by position: A150, B80, C200. tx0(A,gas100) and tx1(B,gas200) both
-    // sit ahead of tx2(C,tip200) → out of order; tx2 has nothing higher after.
-    // out-of-order gas = 100+200 = 300; 3 distinct senders → comparable = total
-    // 400. rate = 300/400.
-    assert.equal(s.priorityInversionRate, 0.75);
+    // tips by position: A150(gas100), B80(gas200), C200(gas100). Fee order is
+    // C200, A150, B80. The block is [A150, B80, C200]: A150→B80 is already
+    // descending (in order, gas 100+200=300); only C200 (gas100) sits out of
+    // place. So out-of-order = 100 / 400 total = 0.25 — NOT 0.75: the two txns
+    // C leapfrogged are NOT counted, only the one displaced tx.
+    assert.equal(s.priorityInversionRate, 0.25);
   });
 
-  it("catches a cross-sender inversion masked by a same-sender step (the 0% bug)", () => {
-    // The old adjacent-tip metric skipped same-sender pairs and only compared
-    // neighbors, so it read 0% here even though a tx clearly sits ahead of a
-    // higher bidder. Positions: A tip100, A tip300 (same sender — the ascent is
-    // on a skipped pair), B tip200. A's first tx (tip100) sits ahead of B
-    // (tip200) → out of order. Gas-weighted: ooo gas = 10; distinct {A,B} →
-    // comparable = 30. rate = 1/3 (the old metric returned 0).
+  it("a single displaced tx counts once, not everyone it leapfrogged", () => {
+    // The highest-fee tx moved from the front to the back. Only IT is out of
+    // order; the remaining descending run is in order. 5 equal-gas txns → 1/5.
+    const block: BlockInput = {
+      number: 7n,
+      timestamp: 1,
+      baseFeePerGas: 0n,
+      gasUsed: 5n,
+      gasLimit: 100n,
+      miner: "0xm",
+      txs: [
+        tx(0, 2, "0xa", 1n, 90n),
+        tx(1, 2, "0xb", 1n, 80n),
+        tx(2, 2, "0xc", 1n, 70n),
+        tx(3, 2, "0xd", 1n, 60n),
+        tx(4, 2, "0xe", 1n, 100n), // belongs at the front
+      ],
+    };
+    const s = serializeBlock(computeBlock(block, { burnsBaseFee: true }));
+    assert.ok(Math.abs(s.priorityInversionRate! - 1 / 5) < 1e-9);
+  });
+
+  it("treats near-equal tips (wei-level wobble) as the same fee tier", () => {
+    // Three ~equal tips differing by 1 wei out of ~1e12 — descending order is
+    // spurious; they must NOT read as out of order. A truly higher tail tx does.
+    const block: BlockInput = {
+      number: 8n,
+      timestamp: 1,
+      baseFeePerGas: 0n,
+      gasUsed: 3n,
+      gasLimit: 100n,
+      miner: "0xm",
+      txs: [
+        tx(0, 2, "0xa", 1n, 1_000_000_000_001n),
+        tx(1, 2, "0xb", 1n, 1_000_000_000_000n),
+        tx(2, 2, "0xc", 1n, 999_999_999_999n),
+      ],
+    };
+    const s = serializeBlock(computeBlock(block, { burnsBaseFee: true }));
+    assert.equal(s.priorityInversionRate, 0); // all one tier → nothing displaced
+  });
+
+  it("counts a genuine displacement even next to a same-sender tx", () => {
+    // Positions: A tip100, A tip300, B tip200. Fee order is A300, B200, A100 —
+    // so A's first tx (tip100) is the one out of place at the front (the
+    // descending run A300→B200 stays in order). ooo gas = 10 of 30 → 1/3.
     const block: BlockInput = {
       number: 9n,
       timestamp: 1,
@@ -206,8 +245,8 @@ describe("computeLadder", () => {
     assert.equal(l.txs[1]!.type, "legacy");
     assert.equal(l.txs[0]!.position, 0);
     assert.equal(l.txs[0]!.gasUsed, "100"); // carried through for bar width
-    // gas-weighted: tx0+tx1 (gas 100+200) out of order / 400 comparable = 0.75
-    assert.equal(l.priorityInversionRate, 0.75);
+    // minimal displacement: only C200 (gas100) is out of fee order → 100/400
+    assert.equal(l.priorityInversionRate, 0.25);
   });
 
   it("labels multi-tx-sender displacement as nonce, not a jump", () => {
@@ -315,8 +354,8 @@ describe("aggregateWindow", () => {
     // sums double
     assert.equal(a.paid, "182000");
     assert.equal(a.burned, "80000");
-    // pooled gas-weighted: (300+300) ooo / (400+400) comparable = 0.75
-    assert.equal(a.priorityInversionRate, 0.75);
+    // pooled gas-weighted: (100+100) ooo / (400+400) comparable = 0.25
+    assert.equal(a.priorityInversionRate, 0.25);
     assert.equal(a.legacyGasShare, 0.5);
   });
 });
