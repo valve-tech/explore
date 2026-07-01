@@ -82,19 +82,22 @@ function roundSigFigs(v: bigint, sig: number): bigint {
  * explicitly: a sender's forced low→high sequence shows as a genuine
  * displacement of the offending tx, which matches how it reads on the ladder.
  *
- * O(n log n): sort for fee rank + a Fenwick prefix-max for the subsequence.
- * Inputs are index-aligned in block-position order.
+ * Also returns `displaced[i]` — the per-tx out-of-order flag (the txns NOT in
+ * the kept subsequence), so the ladder marks exactly the set that makes up the
+ * rate. O(n log n): sort for fee rank + a Fenwick prefix-max (tracking the
+ * argmax) for the subsequence + a backtrack to recover membership. Inputs are
+ * index-aligned in block-position order.
  */
-function outOfOrderGas(
+function analyzeFeeOrder(
   senders: string[],
   rev: bigint[],
   gas: bigint[],
-): { outOfOrderGas: bigint; comparableGas: bigint } {
+): { outOfOrderGas: bigint; comparableGas: bigint; displaced: boolean[] } {
   const n = rev.length;
   let totalGas = 0n;
   for (let i = 0; i < n; i += 1) totalGas += gas[i]!;
   const comparableGas = new Set(senders).size >= 2 ? totalGas : 0n;
-  if (n === 0) return { outOfOrderGas: 0n, comparableGas };
+  if (n === 0) return { outOfOrderGas: 0n, comparableGas, displaced: [] };
 
   // Fee rank: 0 = highest tier. Ties (same tier) break by block position, so
   // equal-fee txns keep block order and never read as out of order.
@@ -107,25 +110,50 @@ function outOfOrderGas(
     });
 
   // Max-weight (gas) strictly-increasing-by-rank subsequence over block order,
-  // via a Fenwick tree of prefix maxima keyed by rank+1.
-  const tree = new Array<bigint>(n + 1).fill(0n);
-  const prefixMax = (idx: number): bigint => {
-    let m = 0n;
-    for (let i = idx; i > 0; i -= i & -i) if (tree[i]! > m) m = tree[i]!;
-    return m;
+  // via a Fenwick tree of prefix maxima keyed by rank+1, tracking the argmax so
+  // the winning chain can be reconstructed.
+  const treeVal = new Array<bigint>(n + 1).fill(0n);
+  const treeArg = new Array<number>(n + 1).fill(-1);
+  const prefixMax = (idx: number): { val: bigint; k: number } => {
+    let val = 0n;
+    let k = -1;
+    for (let i = idx; i > 0; i -= i & -i) {
+      if (treeVal[i]! > val) {
+        val = treeVal[i]!;
+        k = treeArg[i]!;
+      }
+    }
+    return { val, k };
   };
-  const update = (idx: number, val: bigint): void => {
-    for (let i = idx; i <= n; i += i & -i) if (tree[i]! < val) tree[i] = val;
+  const update = (idx: number, val: bigint, k: number): void => {
+    for (let i = idx; i <= n; i += i & -i) {
+      if (treeVal[i]! < val) {
+        treeVal[i] = val;
+        treeArg[i] = k;
+      }
+    }
   };
-  let inOrderGas = 0n;
+  const dpVal = new Array<bigint>(n);
+  const parent = new Array<number>(n).fill(-1);
+  let bestEnd = -1;
+  let bestVal = 0n;
   for (let k = 0; k < n; k += 1) {
     const r = rank[k]!; // ranks 0..r-1 → Fenwick indices 1..r
-    const best = prefixMax(r) + gas[k]!;
-    update(r + 1, best);
-    if (best > inOrderGas) inOrderGas = best;
+    const pm = prefixMax(r);
+    dpVal[k] = pm.val + gas[k]!;
+    parent[k] = pm.k;
+    update(r + 1, dpVal[k]!, k);
+    if (dpVal[k]! > bestVal) {
+      bestVal = dpVal[k]!;
+      bestEnd = k;
+    }
   }
 
-  return { outOfOrderGas: totalGas - inOrderGas, comparableGas };
+  // Everything not on the winning (kept) chain is displaced.
+  const displaced = new Array<boolean>(n).fill(true);
+  for (let k = bestEnd; k !== -1; k = parent[k]!) displaced[k] = false;
+
+  return { outOfOrderGas: totalGas - bestVal, comparableGas, displaced };
 }
 
 export function computeBlock(
@@ -181,9 +209,8 @@ export function computeBlock(
     posHistGasByType[b][bucketIdx]! += gas;
   }
 
-  // Out-of-order: gas of txns that sit ahead of a later, different-sender tx
-  // that paid more (see outOfOrderGas).
-  const { outOfOrderGas: oooGas, comparableGas } = outOfOrderGas(
+  // Out-of-order: gas of txns displaced from fee order (see analyzeFeeOrder).
+  const { outOfOrderGas: oooGas, comparableGas } = analyzeFeeOrder(
     txs.map((t) => t.from),
     revenue,
     txs.map((t) => t.gasUsed),
@@ -316,9 +343,10 @@ export function serializeBlock(m: BlockMetrics): BlockStatsWire {
 }
 
 /**
- * Per-block fee ladder: each tx in position order with its tip and a
- * situation classification, for the color-coded graph. O(n²) classification is
- * fine — this runs on one block, on demand (not during the window warm).
+ * Per-block fee ladder: each tx in position order with its tip and its
+ * out-of-order flag, for the color-coded graph. The flag + the block's rate
+ * come from the SAME minimal-displacement pass (analyzeFeeOrder), so the marked
+ * bars are exactly the txns that make up the "% out of fee order" figure.
  */
 export function computeLadder(
   block: BlockInput,
@@ -331,45 +359,25 @@ export function computeLadder(
   const n = txs.length;
   const rev = txs.map((t) => revenuePerGas(t, base, config.burnsBaseFee));
 
-  const senderCount = new Map<string, number>();
-  for (const t of txs) senderCount.set(t.from, (senderCount.get(t.from) ?? 0) + 1);
-
-  const ladder: LadderTx[] = txs.map((t, i) => {
-    // Did a later, different-sender tx pay a higher tip? Then this tx sits
-    // ahead of someone who paid more.
-    let jumped = false;
-    for (let j = i + 1; j < n; j += 1) {
-      if (txs[j]!.from !== t.from && rev[j]! > rev[i]!) {
-        jumped = true;
-        break;
-      }
-    }
-    const multi = (senderCount.get(t.from) ?? 1) > 1;
-    const status: LadderTx["status"] = jumped
-      ? multi
-        ? "nonce"
-        : "jumped"
-      : "ordered";
-    return {
-      position: i,
-      sender: t.from,
-      type: t.type <= 1 ? "legacy" : "modern",
-      tip: rev[i]!.toString(),
-      tipGwei: Number(rev[i]!) / 1e9,
-      gasUsed: t.gasUsed.toString(),
-      status,
-      hash: t.hash ?? "",
-      to: t.to ?? null,
-      value: (t.value ?? 0n).toString(),
-      methodId: t.methodId ?? "",
-    };
-  });
-
-  const { outOfOrderGas: oooGas, comparableGas } = outOfOrderGas(
+  const { outOfOrderGas: oooGas, comparableGas, displaced } = analyzeFeeOrder(
     txs.map((t) => t.from),
     rev,
     txs.map((t) => t.gasUsed),
   );
+
+  const ladder: LadderTx[] = txs.map((t, i) => ({
+    position: i,
+    sender: t.from,
+    type: t.type <= 1 ? "legacy" : "modern",
+    tip: rev[i]!.toString(),
+    tipGwei: Number(rev[i]!) / 1e9,
+    gasUsed: t.gasUsed.toString(),
+    outOfOrder: displaced[i]!,
+    hash: t.hash ?? "",
+    to: t.to ?? null,
+    value: (t.value ?? 0n).toString(),
+    methodId: t.methodId ?? "",
+  }));
 
   return {
     number: block.number.toString(),

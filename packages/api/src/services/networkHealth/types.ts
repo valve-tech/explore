@@ -200,15 +200,7 @@ export interface WindowAggregateWire {
 // Per-block fee ladder (on-demand detail for the graph)
 // ---------------------------------------------------------------------------
 
-/**
- * One transaction's place on the block's fee ladder, classified by situation:
- *   - "ordered" — sits where its tip rank puts it (no later cross-sender tx
- *     out-tips it).
- *   - "jumped" — a later, different-sender tx paid a HIGHER tip, yet this
- *     single-tx sender sits ahead of it: genuine non-fee prioritization.
- *   - "nonce" — same as jumped, but this sender has multiple txns in the block,
- *     so the placement may be forced by nonce ordering (ambiguous, not flagged red).
- */
+/** One transaction's place on the block's fee ladder. */
 export interface LadderTx {
   position: number;
   sender: string;
@@ -219,7 +211,12 @@ export interface LadderTx {
   tipGwei: number;
   /** Raw gas used — drives the bar width (the tx's block-space footprint). */
   gasUsed: string;
-  status: "ordered" | "jumped" | "nonce";
+  /**
+   * True when this tx is displaced from fee order — one of the txns that make up
+   * the block's "% out of fee order" (same minimal-displacement pass as the
+   * rate, so the marked bars and the figure agree).
+   */
+  outOfOrder: boolean;
   /** Transaction hash. */
   hash: string;
   /** Recipient address (lowercased as provided by RPC), or null for contract creation. */

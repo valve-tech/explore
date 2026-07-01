@@ -12,9 +12,9 @@ import { pct, shareOf } from "./format";
  *
  * A constant grey block on top = the base fee BURNED (same for every tx). Below
  * it each tx hangs DOWN as a stalactite whose depth is its tip on a LOG scale —
- * so the whole range shows without clamping. Color is the ordering signal:
- * green = in fee order; red = it out-paid the tx right before it, with intensity
- * ∝ how much (a 1-wei excess is invisible). Bar width ∝ gasUsed.
+ * so the whole range shows without clamping. Bar color = tx type (legacy amber /
+ * modern purple); a red diagonal hatch marks the txns displaced from fee order —
+ * exactly the set behind the block's "% out of fee order". Bar width ∝ gasUsed.
  */
 
 const BURN_COLOR = "var(--color-text-muted)"; // neutral — constant, not the signal
@@ -142,7 +142,7 @@ function Legend() {
   const items: Array<[string, string]> = [
     [TYPE_COLORS.legacy, "legacy tip (0/1)"],
     [TYPE_COLORS.modern, "modern tip (≥2)"],
-    [OOO_COLOR, "out of order (red tint)"],
+    [OOO_COLOR, "out of order (hatch)"],
     [BURN_COLOR, "burned (base fee)"],
   ];
   return (
@@ -204,16 +204,6 @@ function StackedLadder({ data }: { data: BlockLadder }) {
   const depthOf = (tip: number) =>
     tip > 0 ? ((Math.log10(tip) - logMin) / (logMax - logMin)) * tipRegion : 0;
 
-  // Redness of tx i = how much it out-pays the tx right before it (different
-  // sender), relative to that tx's tip. 1-wei → ~0; double → 1. Continuous, so
-  // magnitude shows and trivial differences vanish.
-  const redness = (i: number) => {
-    if (i === 0 || txs[i]!.sender === txs[i - 1]!.sender) return 0;
-    const prev = tips[i - 1]!;
-    const d = tips[i]! - prev;
-    return d > 0 && prev > 0 ? Math.min(1, d / prev) : 0;
-  };
-
   return (
     <>
       <div className="relative">
@@ -235,6 +225,19 @@ function StackedLadder({ data }: { data: BlockLadder }) {
           }}
           onMouseLeave={() => setHovered(null)}
         >
+          <defs>
+            {/* Out-of-order marker: bold red diagonal stripes with transparent
+                gaps, so the tx-type color (amber/purple) still reads through. */}
+            <pattern
+              id="ooo-hatch"
+              width={6}
+              height={6}
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(45)"
+            >
+              <line x1={0} y1={0} x2={0} y2={6} stroke={OOO_COLOR} strokeWidth={2.5} />
+            </pattern>
+          </defs>
           {/* burned base fee — one constant grey block on top */}
           <rect x={PAD_L} y={PAD_T} width={plotW} height={BURN_HEADER_H} fill={BURN_COLOR} />
           <line x1={PAD_L} y1={lineY} x2={W - PAD_R} y2={lineY} stroke="var(--color-border-default)" strokeWidth={1} />
@@ -243,7 +246,6 @@ function StackedLadder({ data }: { data: BlockLadder }) {
             const x = cumX[i]!;
             const w = Math.max(0.5, cumX[i + 1]! - x - 0.3);
             const depth = t.tipGwei > 0 ? Math.max(1.5, depthOf(t.tipGwei)) : 0;
-            const r = redness(i);
             return (
               <g
                 key={i}
@@ -258,9 +260,10 @@ function StackedLadder({ data }: { data: BlockLadder }) {
                   <>
                     {/* base color = tx type (legacy amber / modern purple) */}
                     <rect x={x} y={lineY} width={w} height={depth} fill={TYPE_COLORS[t.type]} />
-                    {/* red tint scaled by how much it out-pays the previous tx */}
-                    {r > 0 && (
-                      <rect x={x} y={lineY} width={w} height={depth} fill={OOO_COLOR} opacity={r} />
+                    {/* red hatch over the ones displaced from fee order (the same
+                        set that makes up the block's "% out of order") */}
+                    {t.outOfOrder && (
+                      <rect x={x} y={lineY} width={w} height={depth} fill="url(#ooo-hatch)" />
                     )}
                   </>
                 )}
@@ -303,7 +306,7 @@ function StackedLadder({ data }: { data: BlockLadder }) {
       <div className="text-xs theme-text-muted">
         grey block = base fee burned (constant) · stalactites = tip kept (log
         scale, full range), colored by type (legacy amber / modern purple) · red
-        tint = out-paid the previous tx (redder = bigger) · width = gas
+        hatch = displaced from fee order · width = gas
       </div>
     </>
   );

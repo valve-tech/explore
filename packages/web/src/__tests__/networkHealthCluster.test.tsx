@@ -45,7 +45,7 @@ function ladder(overrides: Partial<BlockLadder> = {}): BlockLadder {
         tip: "120000000000000",
         tipGwei: 120,
         gasUsed: "63197",
-        status: "ordered",
+        outOfOrder: true,
         hash: "0x" + "a".repeat(64),
         to: "0x" + "c".repeat(40),
         value: "1000000000000000000",
@@ -59,7 +59,7 @@ function ladder(overrides: Partial<BlockLadder> = {}): BlockLadder {
         tip: "300000000000000",
         tipGwei: 300,
         gasUsed: "63197",
-        status: "jumped",
+        outOfOrder: false,
         hash: "0x" + "b".repeat(64),
         to: null, // contract creation branch in tooltip
         value: "0",
@@ -196,7 +196,7 @@ describe("<FeeLadder />", () => {
             tip: "0",
             tipGwei: 0, // zero-tip branch (depth 0)
             gasUsed: "21000",
-            status: "ordered",
+            outOfOrder: false,
             hash: "0x" + "d".repeat(64),
             to: "0x" + "e".repeat(40),
             value: "0",

@@ -95,7 +95,8 @@ export interface LadderTx {
   tip: string;
   tipGwei: number;
   gasUsed: string;
-  status: "ordered" | "jumped" | "nonce";
+  /** True when displaced from fee order — part of the block's "% out of order". */
+  outOfOrder: boolean;
   hash: string;
   to: string | null;
   value: string;

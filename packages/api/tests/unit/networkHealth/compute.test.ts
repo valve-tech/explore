@@ -234,22 +234,22 @@ describe("computeBlock — receipts arrive unordered", () => {
 });
 
 describe("computeLadder", () => {
-  it("classifies each tx by ordering situation", () => {
+  it("flags exactly the displaced txns, matching the block rate", () => {
     const l = computeLadder(workedBlock(), { burnsBaseFee: true });
     assert.equal(l.txs.length, 3);
-    // tx0 (tip150) and tx1 (tip80) both sit ahead of tx2 (tip200) → jumped;
-    // tx2 has nothing higher after it → ordered. All single-tx senders.
-    assert.equal(l.txs[0]!.status, "jumped");
-    assert.equal(l.txs[1]!.status, "jumped");
-    assert.equal(l.txs[2]!.status, "ordered");
+    // Fee order is C200, A150, B80. The block is [A150, B80, C200]: A150→B80 is
+    // already descending, so only C200 (gas100) is displaced.
+    assert.equal(l.txs[0]!.outOfOrder, false); // A150
+    assert.equal(l.txs[1]!.outOfOrder, false); // B80
+    assert.equal(l.txs[2]!.outOfOrder, true); // C200 — the one out of place
     assert.equal(l.txs[1]!.type, "legacy");
     assert.equal(l.txs[0]!.position, 0);
     assert.equal(l.txs[0]!.gasUsed, "100"); // carried through for bar width
-    // minimal displacement: only C200 (gas100) is out of fee order → 100/400
+    // the flagged gas (100) over comparable (400) is exactly the block rate
     assert.equal(l.priorityInversionRate, 0.25);
   });
 
-  it("labels multi-tx-sender displacement as nonce, not a jump", () => {
+  it("marks the single displaced tx, not the ones it leapfrogged", () => {
     const block: BlockInput = {
       number: 9n,
       timestamp: 1,
@@ -264,10 +264,12 @@ describe("computeLadder", () => {
       ],
     };
     const l = computeLadder(block, { burnsBaseFee: true });
-    // A0 sits ahead of B(200) but A has 2 txns → nonce-ambiguous, not "jumped".
-    assert.equal(l.txs[0]!.status, "nonce");
-    assert.equal(l.txs[1]!.status, "ordered");
-    assert.equal(l.txs[2]!.status, "ordered");
+    // Fee order 300, 200, 100 → the tip-100 tx at the front is displaced; the
+    // descending run 300→200 stays in order.
+    assert.deepEqual(
+      l.txs.map((t) => t.outOfOrder),
+      [true, false, false],
+    );
   });
 });
 
