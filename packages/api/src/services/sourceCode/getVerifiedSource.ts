@@ -3,6 +3,65 @@ import { cacheSource, getCachedSource } from "./cache.js";
 import { fetchFromBlockScout } from "./blockscout.js";
 import { fetchFromSourcify } from "./sourcify.js";
 import { currentChainId } from "../chains/context.js";
+import {
+  createBreakerState,
+  halfOpen,
+  isOpen,
+  recordFailure,
+  recordSuccess,
+} from "./breaker.js";
+
+/**
+ * One breaker per upstream, per process. See breaker.ts for why: without it a
+ * persistently-dead upstream costs its full timeout on every lookup of every
+ * unverified address, because such results are (correctly) never cached.
+ */
+const breakers = {
+  sourcify: createBreakerState(),
+  blockscout: createBreakerState(),
+};
+
+/** Test seam: reset breaker state between cases. */
+export function resetBreakers(): void {
+  breakers.sourcify = createBreakerState();
+  breakers.blockscout = createBreakerState();
+}
+
+/**
+ * Run an upstream through its breaker.
+ *
+ * Returns `{ answered: true, result }` when the upstream gave a definitive
+ * answer (source, or `null` for "not verified here"), and `{ answered: false }`
+ * when it failed OR was skipped. A skipped upstream is reported exactly like a
+ * failed one — it did NOT answer — which is what preserves the caller's rule
+ * that a miss is only cached when every upstream truly answered.
+ */
+async function viaBreaker(
+  name: keyof typeof breakers,
+  address: string,
+  fetcher: (address: string) => Promise<VerifiedSource | null>,
+): Promise<{ answered: boolean; result?: VerifiedSource | null }> {
+  const state = breakers[name];
+  const now = Date.now();
+
+  if (isOpen(state, now)) {
+    console.warn(`[sourceCode] ${name} circuit open — skipping for ${address}`);
+    return { answered: false };
+  }
+  // Cooled down but still marked failing → let ONE probe through.
+  if (state.openedAt !== null) halfOpen(state);
+
+  try {
+    const result = await fetcher(address);
+    recordSuccess(state);
+    return { answered: true, result };
+  } catch (err) {
+    if (!(err instanceof UpstreamError)) throw err;
+    recordFailure(state, Date.now());
+    console.warn(`[sourceCode] ${name} unavailable for ${address}: ${err.message}`);
+    return { answered: false };
+  }
+}
 
 /**
  * In-memory negative cache for addresses confirmed unverified. 10-min
@@ -44,36 +103,24 @@ export async function getVerifiedSource(
   // Track whether each upstream gave a definitive answer ("null" return) or
   // failed transiently (UpstreamError). We only poison the negative cache when
   // BOTH answered definitively — otherwise an outage cements as a 10-min lie.
-  let sourcifyAnswered = false;
-  try {
-    const sourcifyResult = await fetchFromSourcify(address);
-    sourcifyAnswered = true;
-    if (sourcifyResult) {
-      await cacheSource(sourcifyResult).catch((err) => {
-        console.error("[sourceCode] cache write failed:", err);
-      });
-      NOT_FOUND_CACHE.delete(key);
-      return sourcifyResult;
-    }
-  } catch (err) {
-    if (!(err instanceof UpstreamError)) throw err;
-    console.warn(`[sourceCode] sourcify unavailable for ${address}: ${err.message}`);
+  const sourcify = await viaBreaker("sourcify", address, fetchFromSourcify);
+  const sourcifyAnswered = sourcify.answered;
+  if (sourcify.result) {
+    await cacheSource(sourcify.result).catch((err) => {
+      console.error("[sourceCode] cache write failed:", err);
+    });
+    NOT_FOUND_CACHE.delete(key);
+    return sourcify.result;
   }
 
-  let blockscoutAnswered = false;
-  try {
-    const blockscoutResult = await fetchFromBlockScout(address);
-    blockscoutAnswered = true;
-    if (blockscoutResult) {
-      await cacheSource(blockscoutResult).catch((err) => {
-        console.error("[sourceCode] cache write failed:", err);
-      });
-      NOT_FOUND_CACHE.delete(key);
-      return blockscoutResult;
-    }
-  } catch (err) {
-    if (!(err instanceof UpstreamError)) throw err;
-    console.warn(`[sourceCode] blockscout unavailable for ${address}: ${err.message}`);
+  const blockscout = await viaBreaker("blockscout", address, fetchFromBlockScout);
+  const blockscoutAnswered = blockscout.answered;
+  if (blockscout.result) {
+    await cacheSource(blockscout.result).catch((err) => {
+      console.error("[sourceCode] cache write failed:", err);
+    });
+    NOT_FOUND_CACHE.delete(key);
+    return blockscout.result;
   }
 
   if (blockscoutAnswered && sourcifyAnswered) {

@@ -165,8 +165,24 @@ export async function buildTransactionDetails(
   // Second pass: decode logs emitted by contracts other than tx.to.
   // Common for routers that delegate into multiple sub-contracts.
   if (!options.skipDecode && decodedLogEntries.length < receipt.logs.length) {
-    for (const addr of otherEmitters(receipt.logs, tx.to ?? null)) {
-      const abi = await fetchAbi(addr);
+    // Fetch every emitter's ABI CONCURRENTLY. This loop used to `await`
+    // inside the for, so the route's cost was the SUM of the lookups rather
+    // than the slowest one. A router tx touching a dozen contracts, any of
+    // which miss the ABI cache and fall through to a slow/unreachable
+    // verification upstream, blew the caller's 15s budget and returned 504.
+    // Concurrency bounds that to the single slowest lookup.
+    //
+    // fetchAbi already de-dupes in-flight requests per address and never
+    // rejects (it returns null on any upstream failure), so a parallel fan-out
+    // adds no new failure mode and no duplicate upstream load.
+    const emitters = otherEmitters(receipt.logs, tx.to ?? null);
+    const abis = await Promise.all(emitters.map((addr) => fetchAbi(addr)));
+
+    // Merge order is still the emitter order above — mergeDecodedLogs is
+    // order-sensitive, so resolve concurrently but apply sequentially.
+    for (let e = 0; e < emitters.length; e++) {
+      const addr = emitters[e]!;
+      const abi = abis[e];
       if (!abi) continue;
 
       const logsForAddr = receipt.logs.filter(

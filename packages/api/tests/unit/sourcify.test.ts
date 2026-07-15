@@ -1,16 +1,27 @@
 /**
- * Unit tests for fetchFromSourcify — the Sourcify-side branch of the
- * source-code verification fallback chain (BlockScout → Sourcify → null).
+ * Unit tests for fetchFromSourcify — the primary branch of the verified-source
+ * chain (Sourcify → BlockScout fallback → null).
  *
- * Pins the wire shape down so a future Sourcify API migration can't
- * silently break the fallback path again. The 2025 migration retired
- * `/server/repository/contracts/{full,partial}_match/<chain>/<addr>/`
- * (now 404s for every request) and replaced it with a single
- * `/server/files/any/<chain>/<addr>` endpoint that returns
- * `{ status: "full" | "partial", files: [...] }`.
+ * Pins the wire shape so a Sourcify API migration can't silently break this
+ * again. It has now broken twice:
+ *   - 2025: `/server/repository/contracts/{full,partial}_match/…` retired.
+ *   - 2026-07-07: API **v1** (`/server/files/any/<chain>/<addr>`) entered a
+ *     scheduled brownout returning 503 to EVERY request through at least
+ *     2027-01-08. Because a 503 is an UpstreamError, every ABI lookup fell
+ *     through to the Blockscout fallback and its full timeout, which pushed
+ *     /api/tx past its 15s budget → 504 on any tx with several distinct log
+ *     emitters.
  *
- * Mocks globalThis.fetch and inspects (a) which URL was called and (b)
- * what the function returns for each upstream shape.
+ * Current contract (v2), verified against the live server:
+ *   GET /server/v2/contract/<chain>/<addr>?fields=abi,sources,compilation
+ *     200 → { abi, sources: { "<path>": { content } },
+ *             compilation: { compilerVersion, name, compilerSettings }, … }
+ *     404 → not verified
+ * `?fields=` is REQUIRED — without it v2 returns match metadata only, with no
+ * abi/sources, which would read as "verified but empty".
+ *
+ * Mocks globalThis.fetch and inspects (a) which URL was called and (b) what
+ * the function returns for each upstream shape.
  */
 
 import { afterEach, describe, it } from "node:test";
@@ -58,18 +69,44 @@ describe("fetchFromSourcify (current Sourcify API)", () => {
     mock = undefined;
   });
 
-  it("calls /server/files/any/<chain>/<addr> — NOT the retired /repository/contracts/ paths", async () => {
+  it("calls v2 /server/v2/contract/<chain>/<addr> — NOT the brownout'd v1 paths", async () => {
     mock = mockFetch(() => ({ status: 404, body: {} }));
     await fetchFromSourcify(ADDR);
     assert.equal(mock.calls.length, 1, "exactly one upstream request");
     const url = mock.calls[0]?.url ?? "";
-    assert.match(url, /\/server\/files\/any\/369\//, "must hit /server/files/any/369/");
+    assert.match(url, /\/server\/v2\/contract\/369\//, "must hit /server/v2/contract/369/");
     assert.doesNotMatch(
       url,
-      /\/repository\/contracts\//,
-      "must NOT hit the retired /repository/contracts/ paths (404 since 2025)",
+      /\/files\/any\//,
+      "must NOT hit v1 /files/any/ — 503 brownout since 2026-07-07",
     );
+    assert.doesNotMatch(url, /\/repository\/contracts\//, "must NOT hit the 2025-retired paths");
     assert.match(url, new RegExp(ADDR.toLowerCase(), "i"));
+  });
+
+  it("requests the abi/sources/compilation fields explicitly", async () => {
+    // Without ?fields= v2 returns match metadata only — no abi, no sources.
+    // A verified contract would look verified-but-empty.
+    mock = mockFetch(() => ({ status: 404, body: {} }));
+    await fetchFromSourcify(ADDR);
+    const url = mock.calls[0]?.url ?? "";
+    assert.match(url, /[?&]fields=/, "must select fields");
+    for (const field of ["abi", "sources", "compilation"]) {
+      assert.ok(url.includes(field), `must request the '${field}' field`);
+    }
+  });
+
+  it("treats the v1 brownout 503 as an UpstreamError, not a definitive miss", async () => {
+    // The exact body Sourcify serves during the brownout. A 5xx must never be
+    // read as "not verified" — that would negative-cache a lie.
+    mock = mockFetch(() => ({
+      status: 503,
+      body: {
+        error: "Service Unavailable - API v1 Brownout",
+        message: "API v1 is temporarily unavailable during a scheduled brownout period.",
+      },
+    }));
+    await assert.rejects(() => fetchFromSourcify(ADDR), UpstreamError);
   });
 
   it("returns null on definitive 404 (Sourcify said 'not verified here')", async () => {
@@ -102,26 +139,28 @@ describe("fetchFromSourcify (current Sourcify API)", () => {
     }
   });
 
-  it("returns a VerifiedSource for a partial match (most PulseChain verifications are partial)", async () => {
+  it("maps a v2 payload into a VerifiedSource", async () => {
+    // Shape copied from the live server:
+    //   /server/v2/contract/369/0xA1077…?fields=abi,sources,compilation
     mock = mockFetch(() => ({
       status: 200,
       body: {
-        status: "partial",
-        files: [
-          {
-            name: "WPLS.sol",
-            path: "contracts/partial_match/369/0xabc/sources/WPLS.sol",
+        matchId: "17623938",
+        match: "match",
+        chainId: "369",
+        address: ADDR,
+        abi: [{ type: "fallback" }],
+        sources: {
+          "WPLS.sol": {
             content: "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\ncontract WPLS {}\n",
           },
-          {
-            name: "metadata.json",
-            path: "contracts/partial_match/369/0xabc/metadata.json",
-            content: JSON.stringify({
-              compiler: { version: "0.8.20+commit.a1b79de6" },
-              output: { abi: [{ type: "fallback" }] },
-            }),
-          },
-        ],
+        },
+        compilation: {
+          language: "Solidity",
+          compilerVersion: "0.8.20+commit.a1b79de6",
+          name: "WPLS",
+          compilerSettings: { optimizer: { enabled: true, runs: 200 } },
+        },
       },
     }));
 
@@ -129,65 +168,93 @@ describe("fetchFromSourcify (current Sourcify API)", () => {
     assert.ok(out, "should return a VerifiedSource");
     assert.equal(out.address, ADDR.toLowerCase());
     assert.equal(out.chainSource, "sourcify");
-    assert.equal(out.contractName, "WPLS");
     assert.equal(out.compilerVersion, "0.8.20+commit.a1b79de6");
     assert.equal(out.sourceFiles.length, 1);
     assert.equal(out.sourceFiles[0]?.name, "WPLS.sol");
     assert.deepEqual(out.abi, [{ type: "fallback" }]);
+    // v2 reports the compiled contract's real name rather than v1's
+    // first-source-file-basename guess.
+    assert.equal(out.contractName, "WPLS");
+    // v1 exposed no optimizer settings, so this used to be hardcoded false/null
+    // — i.e. every verified contract was reported unoptimized.
+    assert.equal(out.optimizationUsed, true);
+    assert.equal(out.optimizationRuns, 200);
   });
 
-  it("returns a VerifiedSource for a full match (same shape, status differs)", async () => {
+  it("keeps non-.sol sources (v1's .sol filter dropped Vyper/Yul)", async () => {
     mock = mockFetch(() => ({
       status: 200,
       body: {
-        status: "full",
-        files: [
-          { name: "Foo.sol", path: "contracts/full_match/369/0xabc/Foo.sol", content: "contract Foo {}" },
-        ],
+        match: "match",
+        abi: [],
+        sources: { "contracts/Foo.vy": { content: "# vyper" } },
+        compilation: { compilerVersion: "0.3.10", name: "Foo" },
       },
     }));
     const out = await fetchFromSourcify(ADDR);
     assert.ok(out);
     assert.equal(out.sourceFiles.length, 1);
+    assert.equal(out.sourceFiles[0]?.name, "contracts/Foo.vy");
+  });
+
+  it("falls back to the file basename when compilation.name is absent", async () => {
+    mock = mockFetch(() => ({
+      status: 200,
+      body: {
+        match: "match",
+        abi: [],
+        sources: { "Foo.sol": { content: "contract Foo {}" } },
+        compilation: { compilerVersion: "0.8.20" },
+      },
+    }));
+    const out = await fetchFromSourcify(ADDR);
+    assert.ok(out);
     assert.equal(out.contractName, "Foo");
   });
 
-  it("returns null when the response has no .sol source files", async () => {
+  it("returns null when the payload carries no sources", async () => {
+    mock = mockFetch(() => ({
+      status: 200,
+      body: { match: "match", abi: [{ type: "fallback" }], sources: {}, compilation: { name: "X" } },
+    }));
+    assert.equal(await fetchFromSourcify(ADDR), null);
+  });
+
+  it("returns null when sources is absent entirely", async () => {
+    mock = mockFetch(() => ({ status: 200, body: { match: "match" } }));
+    assert.equal(await fetchFromSourcify(ADDR), null);
+  });
+
+  it("tolerates a source entry with no content", async () => {
     mock = mockFetch(() => ({
       status: 200,
       body: {
-        status: "partial",
-        files: [
-          { name: "metadata.json", path: "x", content: "{}" },
-          // No .sol files
-        ],
+        match: "match",
+        abi: [],
+        sources: { "Empty.sol": {}, "Foo.sol": { content: "contract Foo {}" } },
+        compilation: { name: "Foo" },
       },
     }));
     const out = await fetchFromSourcify(ADDR);
-    assert.equal(out, null);
-  });
-
-  it("returns null when files array is empty", async () => {
-    mock = mockFetch(() => ({ status: 200, body: { status: "partial", files: [] } }));
-    const out = await fetchFromSourcify(ADDR);
-    assert.equal(out, null);
-  });
-
-  it("tolerates malformed metadata.json (partial matches often have non-canonical metadata)", async () => {
-    mock = mockFetch(() => ({
-      status: 200,
-      body: {
-        status: "partial",
-        files: [
-          { name: "metadata.json", path: "x", content: "this is not json" },
-          { name: "Foo.sol", path: "y", content: "contract Foo {}" },
-        ],
-      },
-    }));
-    const out = await fetchFromSourcify(ADDR);
-    assert.ok(out, "malformed metadata must not nuke the whole response");
-    assert.equal(out.compilerVersion, null);
-    assert.deepEqual(out.abi, []);
+    assert.ok(out, "a contentless entry must not nuke the whole response");
+    assert.equal(out.sourceFiles.length, 1);
     assert.equal(out.sourceFiles[0]?.name, "Foo.sol");
+  });
+
+  it("defaults abi to [] when v2 omits it", async () => {
+    mock = mockFetch(() => ({
+      status: 200,
+      body: {
+        match: "match",
+        sources: { "Foo.sol": { content: "contract Foo {}" } },
+        compilation: { name: "Foo" },
+      },
+    }));
+    const out = await fetchFromSourcify(ADDR);
+    assert.ok(out);
+    assert.deepEqual(out.abi, []);
+    assert.equal(out.compilerVersion, null);
+    assert.equal(out.optimizationUsed, false);
+    assert.equal(out.optimizationRuns, null);
   });
 });

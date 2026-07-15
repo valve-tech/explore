@@ -7,17 +7,9 @@ import {
 } from "./types.js";
 import { currentChain } from "../chains/context.js";
 
-interface SourcifyFile {
-  name: string;
-  path: string;
-  content: string;
-}
-
 /**
- * Fetch verified source from Sourcify. Used when BlockScout doesn't have
- * the contract. Sourcify distinguishes "full" (bytecode + metadata match
- * exactly) and "partial" (metadata-only) matches — we try full first and
- * fall back to partial.
+ * Fetch verified source from Sourcify (API v2) — the primary verified-source
+ * lookup; Blockscout is only a fallback.
  *
  * The chain in the URL comes from the request's chain context; chains with
  * `sourcifyEnabled: false` (e.g. the testnet) resolve to a definitive miss.
@@ -34,12 +26,23 @@ export async function fetchFromSourcify(
   try {
     const chainId = chain.chainId;
 
-    // Sourcify migration (2025): the old `/repository/contracts/{full,partial}_match/<chain>/<addr>/`
-    // existence-check + `/files/<chain>/<addr>` file-fetch flow was retired and now 404s for
-    // every request. The replacement is a single `/files/any/<chain>/<addr>` call returning
-    // `{ status: "full" | "partial", files: [...] }`, with HTTP 404 meaning "not verified at
-    // either match strength." One round-trip instead of two.
-    const url = `${SOURCIFY_API_URL}/files/any/${chainId}/${address}`;
+    // Sourcify API v2. v1 (`/files/any/<chain>/<addr>`) entered a scheduled
+    // BROWNOUT on 2026-07-07 and now answers 503 to every request — including
+    // for contracts it has verified — until at least 2027-01-08, after which
+    // it is removed. A 503 is an UpstreamError, so every ABI lookup fell
+    // through to the Blockscout fallback and its full timeout; that is what
+    // made /api/tx exceed its budget and 504 for any tx with several distinct
+    // log emitters. Do NOT "restore" a v1 path.
+    //
+    //   GET /v2/contract/<chain>/<addr>?fields=abi,sources,compilation
+    //     200 → { abi, sources: { "<path>": { content } },
+    //             compilation: { compilerVersion, name, compilerSettings }, … }
+    //     404 → not verified (definitive miss, same semantics as v1)
+    //
+    // Field selection is required: without `?fields=` v2 returns match
+    // metadata only (no abi/sources), which would look like a verified
+    // contract with nothing in it.
+    const url = `${SOURCIFY_API_URL}/v2/contract/${chainId}/${address}?fields=abi,sources,compilation`;
     let res: Response;
     try {
       res = await fetch(url, { signal: controller.signal });
@@ -54,41 +57,43 @@ export async function fetchFromSourcify(
     if (!res.ok) throw new UpstreamError("sourcify", `HTTP ${res.status}`);
 
     const body = (await res.json()) as {
-      status?: "full" | "partial";
-      files?: SourcifyFile[];
+      abi?: unknown[];
+      sources?: Record<string, { content?: string }>;
+      compilation?: {
+        compilerVersion?: string;
+        name?: string;
+        compilerSettings?: { optimizer?: { enabled?: boolean; runs?: number } };
+      };
     };
-    if (!body.files || body.files.length === 0) return null;
 
-    const sourceFiles: SourceFile[] = [];
-    let abi: unknown[] = [];
-    let compilerVersion: string | null = null;
-
-    for (const file of body.files) {
-      if (file.name === "metadata.json") {
-        try {
-          const metadata = JSON.parse(file.content) as {
-            compiler?: { version?: string };
-            output?: { abi?: unknown[] };
-          };
-          compilerVersion = metadata.compiler?.version ?? null;
-          abi = metadata.output?.abi ?? [];
-        } catch {
-          // ignore — metadata may not parse for partial matches
-        }
-      } else if (file.name.endsWith(".sol")) {
-        sourceFiles.push({ name: file.name, content: file.content });
-      }
-    }
+    // v2 keys sources by their compilation path ("WPLS.sol",
+    // "contracts/Foo.sol"). Unlike v1 there is no metadata.json mixed into
+    // the list, so take every entry rather than filtering to `.sol` — that
+    // filter would have silently dropped Vyper/Yul sources.
+    const sourceFiles: SourceFile[] = Object.entries(body.sources ?? {})
+      .filter(([, file]) => typeof file?.content === "string")
+      .map(([path, file]) => ({ name: path, content: file.content as string }));
 
     if (sourceFiles.length === 0) return null;
+
+    const abi: unknown[] = Array.isArray(body.abi) ? body.abi : [];
+    const compilerVersion = body.compilation?.compilerVersion ?? null;
+    const optimizer = body.compilation?.compilerSettings?.optimizer;
 
     return {
       address: address.toLowerCase(),
       chainSource: "sourcify",
-      contractName: sourceFiles[0]?.name.replace(".sol", "") ?? null,
+      // v2 reports the compiled contract's real name. v1 didn't, so this used
+      // to be the first source file's basename — wrong whenever a file held
+      // more than one contract or was named differently from its contract.
+      contractName:
+        body.compilation?.name ?? sourceFiles[0]?.name.replace(/\.[^.]+$/, "") ?? null,
       compilerVersion,
-      optimizationUsed: false,
-      optimizationRuns: null,
+      // v1 exposed no optimizer settings so these were hardcoded false/null —
+      // i.e. we reported "not optimized" for every verified contract. v2
+      // carries the real compilerSettings, so report what the build used.
+      optimizationUsed: optimizer?.enabled ?? false,
+      optimizationRuns: optimizer?.runs ?? null,
       sourceFiles,
       abi,
       sourceMap: null,
