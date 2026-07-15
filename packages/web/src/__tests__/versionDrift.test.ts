@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hasDrifted, shouldReloadNow } from "../lib/versionDrift";
+import { hasDrifted } from "../lib/versionDrift";
 
 const BAKED = "9400775aaaabbbbccccdddd";
 const DEPLOYED = "0a159c8eeeeffff11112222";
@@ -23,20 +23,5 @@ describe("hasDrifted", () => {
     expect(hasDrifted("unknown", BAKED)).toBe(false);
     expect(hasDrifted(DEPLOYED, "unknown")).toBe(false);
     expect(hasDrifted("unknown", "unknown")).toBe(false);
-  });
-});
-
-describe("shouldReloadNow", () => {
-  it("reloads when drifted and idle", () => {
-    expect(shouldReloadNow(DEPLOYED, BAKED, false)).toBe(true);
-  });
-
-  it("defers while busy — never interrupt in-flight work", () => {
-    expect(shouldReloadNow(DEPLOYED, BAKED, true)).toBe(false);
-  });
-
-  it("does not reload when there is no drift, busy or not", () => {
-    expect(shouldReloadNow(BAKED, BAKED, false)).toBe(false);
-    expect(shouldReloadNow(BAKED, BAKED, true)).toBe(false);
   });
 });

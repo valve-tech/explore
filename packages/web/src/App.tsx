@@ -8,8 +8,7 @@ import AppShell from "./components/AppShell";
 import Landing from "./components/Landing";
 import RouteFallback from "./components/RouteFallback";
 import WatchNotifications from "./components/watcher/WatchNotifications";
-import { BUILD_INFO } from "./lib/buildInfo";
-import { shouldReloadNow } from "./lib/versionDrift";
+import { useVersionDriftReload } from "./hooks/useVersionDriftReload";
 
 // Route-level code splitting. Landing stays eager (it's the default route and
 // renders the first paint); every other route loads its chunk on demand. The
@@ -94,14 +93,9 @@ export default function App() {
 
   // Auto-reload a stale tab once the deployed build moves ahead of this bundle.
   // `busy` defers the reload past in-flight work (a running simulation, fork op,
-  // or debugger step) — the effect re-runs and fires once the app goes idle.
+  // or debugger step) — the hook re-fires once the app goes idle.
   const busy = useIsFetching() + useIsMutating() > 0;
-
-  useEffect(() => {
-    if (!shouldReloadNow(servedSha, BUILD_INFO.sha, busy)) return;
-    const timer = setTimeout(() => window.location.reload(), 5_000);
-    return () => clearTimeout(timer);
-  }, [servedSha, busy]);
+  useVersionDriftReload(servedSha, busy);
 
   return (
     <div

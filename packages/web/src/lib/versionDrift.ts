@@ -16,15 +16,3 @@ export function hasDrifted(served: string | null | undefined, baked: string): bo
   if (!isKnown(served) || !isKnown(baked)) return false;
   return served !== baked;
 }
-
-/**
- * True when we should reload right now: drifted AND no in-flight work.
- * While busy we defer — the caller re-evaluates on its next poll.
- */
-export function shouldReloadNow(
-  served: string | null | undefined,
-  baked: string,
-  busy: boolean,
-): boolean {
-  return hasDrifted(served, baked) && !busy;
-}
