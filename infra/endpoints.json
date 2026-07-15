@@ -1,0 +1,141 @@
+{
+  "$comment": [
+    "Source of truth for what should be live. Consumed by scripts/check-infra.mjs.",
+    "expect: an HTTP status code | 'auth-gated' (alive iff it returns a well-formed",
+    "auth error) | 'grpc' (alive on 200/415) | 'not-live' (expected down today).",
+    "owner: 'repo' (this codebase deploys it) | 'fleet' (server-side infra).",
+    "NOTE: baked.valve.city is deliberately absent — it is a unit-test fixture in",
+    "packages/web/src/__tests__/apiBase.extra.test.ts, not a real host."
+  ],
+  "endpoints": [
+    {
+      "name": "explore (frontend + API)",
+      "url": "https://explore.valve.city/",
+      "method": "GET",
+      "category": "frontend",
+      "expect": 200,
+      "owner": "repo",
+      "notes": "Express serves packages/web/dist; /api is same-origin"
+    },
+    {
+      "name": "explore /health",
+      "url": "https://explore.valve.city/health",
+      "method": "GET",
+      "category": "api",
+      "expect": 200,
+      "owner": "repo",
+      "notes": "Liveness + build version; drives the SHA drift check"
+    },
+    {
+      "name": "explore /api/network-health",
+      "url": "https://explore.valve.city/api/network-health?limit=1",
+      "method": "GET",
+      "category": "api",
+      "expect": 200,
+      "owner": "repo",
+      "notes": "Representative live-data read path"
+    },
+    {
+      "name": "ipfs.explore mirror",
+      "url": "https://ipfs.explore.valve.city/",
+      "method": "GET",
+      "category": "frontend",
+      "expect": "not-live",
+      "owner": "fleet",
+      "notes": "No A record and no _dnslink TXT as of 2026-07-14. Flip to 200 once published."
+    },
+    {
+      "name": "rpc.valve.city",
+      "url": "https://rpc.valve.city/v1/test/evm/369",
+      "method": "POST",
+      "body": { "jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": [] },
+      "category": "rpc",
+      "expect": "auth-gated",
+      "owner": "fleet",
+      "notes": "Alive when it rejects an invalid/absent key with a JSON-RPC error"
+    },
+    {
+      "name": "evm-1-rpc",
+      "url": "https://evm-1-rpc.valve.city/v1/",
+      "method": "POST",
+      "body": { "jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": [] },
+      "category": "rpc",
+      "expect": "auth-gated",
+      "owner": "fleet",
+      "notes": "Ethereum"
+    },
+    {
+      "name": "evm-369-rpc",
+      "url": "https://evm-369-rpc.valve.city/v1/",
+      "method": "POST",
+      "body": { "jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": [] },
+      "category": "rpc",
+      "expect": "auth-gated",
+      "owner": "fleet",
+      "notes": "PulseChain"
+    },
+    {
+      "name": "one.valve.city",
+      "url": "https://one.valve.city/",
+      "method": "GET",
+      "category": "rpc",
+      "expect": 200,
+      "owner": "fleet",
+      "notes": "Root manifest; /rpc/ returned 'Unsupported chain' for 369 on 2026-07-14 — open question"
+    },
+    {
+      "name": "chifra.valve.city",
+      "url": "https://chifra.valve.city/",
+      "method": "GET",
+      "category": "rpc",
+      "expect": 301,
+      "owner": "fleet",
+      "notes": "Redirects; explorer data source alongside RPC"
+    },
+    {
+      "name": "evm-1-substreams",
+      "url": "https://evm-1-substreams.valve.city/",
+      "method": "GET",
+      "category": "substreams",
+      "expect": "grpc",
+      "owner": "fleet",
+      "notes": "gRPC endpoint — a plain GET yields 200 or 415 when alive"
+    },
+    {
+      "name": "evm-369-substreams",
+      "url": "https://evm-369-substreams.valve.city/",
+      "method": "GET",
+      "category": "substreams",
+      "expect": "grpc",
+      "owner": "fleet",
+      "notes": "gRPC endpoint"
+    },
+    {
+      "name": "evm-943-substreams",
+      "url": "https://evm-943-substreams.valve.city/",
+      "method": "GET",
+      "category": "substreams",
+      "expect": "grpc",
+      "owner": "fleet",
+      "notes": "gRPC endpoint; first chain stood up"
+    },
+    {
+      "name": "gib.show icons",
+      "url": "https://gib.show/image/369",
+      "method": "GET",
+      "category": "icons",
+      "expect": 200,
+      "owner": "fleet",
+      "notes": "Chain logos; see docs/GIB_SHOW.md"
+    },
+    {
+      "name": "reth snapshots",
+      "url": "https://evm943-snapshot-reth.valve.city/",
+      "method": "GET",
+      "category": "snapshots",
+      "expect": "not-live",
+      "owner": "fleet",
+      "notes": "TODO(user): the evm{1,369,943}-snapshot-reth.valve.city subdomains are stale — snapshots are now consolidated under a versioned path. Replace this entry with the real scheme, then set expect to 200."
+    }
+  ]
+}
