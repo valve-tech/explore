@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
+import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { useAlertWebSocket, type AlertEvent } from "./hooks/useAlertWebSocket";
 import AlertToast from "./components/AlertToast";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -7,6 +8,8 @@ import AppShell from "./components/AppShell";
 import Landing from "./components/Landing";
 import RouteFallback from "./components/RouteFallback";
 import WatchNotifications from "./components/watcher/WatchNotifications";
+import { BUILD_INFO } from "./lib/buildInfo";
+import { shouldReloadNow } from "./lib/versionDrift";
 
 // Route-level code splitting. Landing stays eager (it's the default route and
 // renders the first paint); every other route loads its chunk on demand. The
@@ -35,6 +38,7 @@ const WorkspaceDetail = lazy(() => import("./components/workspace/WorkspaceDetai
 
 export default function App() {
   const [apiStatus, setApiStatus] = useState<"connected" | "disconnected" | "checking">("checking");
+  const [servedSha, setServedSha] = useState<string | null>(null);
 
   const { lastAlert } = useAlertWebSocket();
   const location = useLocation();
@@ -71,8 +75,13 @@ export default function App() {
       try {
         const res = await fetch("/health", { signal: AbortSignal.timeout(3000) });
         if (cancelled) return;
-        const data = (await res.json()) as { status: string; db: boolean };
+        const data = (await res.json()) as {
+          status: string;
+          db: boolean;
+          version?: { sha?: string };
+        };
         setApiStatus(data.status === "ok" && data.db ? "connected" : "disconnected");
+        setServedSha(data.version?.sha ?? null);
       } catch {
         if (!cancelled) setApiStatus("disconnected");
       }
@@ -82,6 +91,17 @@ export default function App() {
     const interval = setInterval(() => void check(), 15_000);
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
+
+  // Auto-reload a stale tab once the deployed build moves ahead of this bundle.
+  // `busy` defers the reload past in-flight work (a running simulation, fork op,
+  // or debugger step) — the effect re-runs and fires once the app goes idle.
+  const busy = useIsFetching() + useIsMutating() > 0;
+
+  useEffect(() => {
+    if (!shouldReloadNow(servedSha, BUILD_INFO.sha, busy)) return;
+    const timer = setTimeout(() => window.location.reload(), 5_000);
+    return () => clearTimeout(timer);
+  }, [servedSha, busy]);
 
   return (
     <div

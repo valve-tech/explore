@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "../App";
+
+// App reads useIsFetching()/useIsMutating() (the stale-tab reload's busy
+// guard), which throw without a QueryClientProvider ancestor. No test here
+// runs a real query, so one client shared across the file is enough.
+const testQueryClient = new QueryClient();
+function withProviders(path: string) {
+  return (
+    <QueryClientProvider client={testQueryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
 
 /**
  * Router root (React Router 7). Each route is rendered inside a MemoryRouter at
@@ -77,11 +92,7 @@ function stubHealthFetch() {
 }
 
 async function renderAt(path: string) {
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <App />
-    </MemoryRouter>,
-  );
+  render(withProviders(path));
 }
 
 describe("App routing", () => {
@@ -172,11 +183,7 @@ describe("App — alert toast lifecycle", () => {
     lastAlertRef.current = {
       data: { alert: { id: "alert-1" }, match: { hash: TX } },
     };
-    render(
-      <MemoryRouter initialEntries={["/"]}>
-        <App />
-      </MemoryRouter>,
-    );
+    render(withProviders("/"));
     expect(screen.getByText("toast:alert-1")).toBeInTheDocument();
 
     // The toast auto-dismisses after 6s.
@@ -190,11 +197,7 @@ describe("App — alert toast lifecycle", () => {
     lastAlertRef.current = {
       data: { alert: { id: "alert-1" }, match: { hash: TX } },
     };
-    const { rerender } = render(
-      <MemoryRouter initialEntries={["/"]}>
-        <App />
-      </MemoryRouter>,
-    );
+    const { rerender } = render(withProviders("/"));
     expect(screen.getByText("toast:alert-1")).toBeInTheDocument();
 
     // A new alert object arrives before the first timer elapses → the prior
@@ -203,11 +206,7 @@ describe("App — alert toast lifecycle", () => {
       data: { alert: { id: "alert-2" }, match: { hash: TX } },
     };
     act(() => {
-      rerender(
-        <MemoryRouter initialEntries={["/"]}>
-          <App />
-        </MemoryRouter>,
-      );
+      rerender(withProviders("/"));
     });
     expect(screen.getByText("toast:alert-2")).toBeInTheDocument();
   });
@@ -216,11 +215,7 @@ describe("App — alert toast lifecycle", () => {
     lastAlertRef.current = {
       data: { alert: { id: "alert-1" }, match: { hash: TX } },
     };
-    const { unmount } = render(
-      <MemoryRouter initialEntries={["/"]}>
-        <App />
-      </MemoryRouter>,
-    );
+    const { unmount } = render(withProviders("/"));
     expect(screen.getByText("toast:alert-1")).toBeInTheDocument();
     // Timer is still pending → unmount cleanup clears it (the effect's return).
     expect(() => unmount()).not.toThrow();
@@ -242,11 +237,7 @@ describe("App — alert toast lifecycle", () => {
       (AbortSignal as { timeout?: unknown }).timeout = () =>
         new AbortController().signal;
     }
-    render(
-      <MemoryRouter initialEntries={["/"]}>
-        <App />
-      </MemoryRouter>,
-    );
+    render(withProviders("/"));
     expect(await screen.findByText("page:landing")).toBeInTheDocument();
     await Promise.resolve();
     vi.useFakeTimers();
@@ -264,11 +255,7 @@ describe("App — alert toast lifecycle", () => {
       (AbortSignal as { timeout?: unknown }).timeout = () =>
         new AbortController().signal;
     }
-    render(
-      <MemoryRouter initialEntries={["/"]}>
-        <App />
-      </MemoryRouter>,
-    );
+    render(withProviders("/"));
     // App renders regardless; the catch sets status="disconnected" (line 76).
     expect(await screen.findByText("page:landing")).toBeInTheDocument();
     // Let the rejected health promise settle.
