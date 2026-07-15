@@ -19,6 +19,7 @@
     "test:web": "npm run test --workspace=packages/web",
     "test:sdk": "npm run test --workspace=packages/sdk",
     "test:scripts": "node --test scripts/*.test.mjs",
+    "check:infra": "node scripts/check-infra.mjs",
     "deploy:ipfs": "bash scripts/deploy-ipfs.sh"
   },
   "devDependencies": {
