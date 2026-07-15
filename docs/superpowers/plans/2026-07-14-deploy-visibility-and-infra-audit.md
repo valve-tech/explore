@@ -535,12 +535,21 @@ Run: `npm run typecheck`
 Expected: clean.
 
 Run: `npm run build --workspace=packages/web`
-Expected: build succeeds. Then confirm the SHA is actually in the bundle:
+Expected: build succeeds. Then confirm the build identity is actually in the bundle:
 
 ```bash
-grep -c "$(git rev-parse HEAD)" packages/web/dist/assets/*.js | grep -v ':0' | head -1
+grep -rq "$(git rev-parse --short HEAD)" packages/web/dist/assets/ && echo "shortSha inlined"
 ```
-Expected: at least one asset contains the full SHA (proves `define` inlined it).
+Expected: `shortSha inlined` (proves `define` ran and baked real values).
+
+**Do NOT grep for the full 40-char SHA here — it will not be found, and that is
+correct at this point.** esbuild's production minifier does per-property DCE on
+the `define`d object literal and drops any key no bundled code reads via static
+dot notation. At this task nothing reads `.sha` yet (Settings only reads
+`shortSha`/`branch`/`commitISO`/`builtAtISO`), so `.sha` is eliminated from the
+shipped chunk. It is retained once Task 4 reads it — and Task 4 asserts exactly
+that. (Note this is a *minifier* behavior: an unminified `vite build --minify false`
+does still contain `.sha`.)
 
 - [ ] **Step 7: Surface the version in Settings**
 
@@ -785,6 +794,27 @@ Expected: PASS — no regressions.
 
 Run: `npm run lint && npm run typecheck`
 Expected: clean.
+
+- [ ] **Step 6b: Assert `.sha` now survives the production minifier**
+
+This is the invariant the whole drift feature rests on, and it is invisible to
+both `typecheck` and vitest (vitest skips the minify pass). Task 3 shipped with
+`.sha` eliminated from the bundle because nothing read it; your `shouldReloadNow(servedSha, BUILD_INFO.sha, busy)`
+call is the static dot-notation read that must bring it back.
+
+```bash
+npm run build --workspace=packages/web >/dev/null 2>&1
+grep -rq "$(git rev-parse HEAD)" packages/web/dist/assets/ \
+  && echo "PASS: full sha retained in bundle" \
+  || echo "FAIL: .sha was pruned — the drift check would compare against undefined"
+```
+
+Expected: `PASS: full sha retained in bundle`.
+
+If this FAILs, the tab would silently never reload (comparing a served SHA
+against `undefined`), while every test and type-check stays green. Do not work
+around it by stringifying or spreading `BUILD_INFO` — those do not count as a
+read. Report BLOCKED instead.
 
 - [ ] **Step 7: Verify the reload behavior on a cold Vite server**
 
