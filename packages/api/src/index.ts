@@ -51,7 +51,6 @@ import { docsHandler, openapiJsonHandler } from "./openapi/handlers.js";
 import { startMonitor } from "./services/monitor.js";
 import { initScheduler } from "./services/actionScheduler.js";
 import { initWebSocket } from "./services/wsServer.js";
-import { startNonceVacuum, runVacuumOnce } from "./services/auth/nonceVacuum.js";
 import {
   warmAllChains,
   getChainWarmStatus,
@@ -268,11 +267,6 @@ async function start(): Promise<void> {
     initWebSocket(server);
     startMonitor();
     void initScheduler();
-    // Sweep on boot to clear anything stranded across the last restart, then
-    // schedule the hourly worker. Boot sweep is fire-and-forget — the table
-    // is small enough that even a cold restart finishes in milliseconds.
-    void runVacuumOnce();
-    startNonceVacuum();
     // Best-effort, non-blocking warm of every launch-set chain's block window.
     // Fast first paint + an immediate per-chain RPC health signal in /health.
     // A chain that can't warm is marked degraded, never fatal (see warmup.ts).

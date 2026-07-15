@@ -12,10 +12,11 @@ import { createMemoryNonceStore } from "@valve-tech/siwe-store";
  *
  * In-memory is sufficient because explore runs a single api process; nonces
  * are short-lived (5 min) and re-issued on demand, so a restart losing the
- * set just means in-flight challenges are re-fetched. (The former
- * Postgres-backed `auth_nonces` table is now unused — `viem/siwe` owns the
- * nonce, `siwe-store` owns the single-use state.) For a multi-instance api,
- * swap `createMemoryNonceStore` for a Redis/SQL `NonceStore` implementation.
+ * set just means in-flight challenges are re-fetched. The store self-expires,
+ * so there is nothing to sweep on a timer. (The former Postgres-backed
+ * `auth_nonces` table is now unused — `viem/siwe` owns the nonce,
+ * `siwe-store` owns the single-use state.) For a multi-instance api, swap
+ * `createMemoryNonceStore` for a Redis/SQL `NonceStore` implementation.
  */
 
 const NONCE_TTL_SECONDS = 5 * 60;
@@ -34,13 +35,4 @@ export async function issueNonce(): Promise<{ nonce: string; expiresAt: number }
  */
 export async function consumeNonce(nonce: string): Promise<boolean> {
   return store.consume(nonce);
-}
-
-/**
- * Retained as a no-op for the periodic vacuum worker: the in-memory store
- * self-expires, so there is nothing to sweep. Kept so `nonceVacuum.ts` and
- * its wiring don't need to change in this migration.
- */
-export async function vacuumExpiredNonces(): Promise<number> {
-  return 0;
 }
