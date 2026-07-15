@@ -84,4 +84,6 @@ API tests use Node's `node:test` against a live server. SDK and web tests use Vi
 - **SDK** — ESM-only, `.js` extensions in TS sources, 100% coverage threshold enforced (CI fails on any uncovered branch — extract genuinely-untestable paths into a pure helper, e.g. `src/util/errors.ts`).
 - **Frontend** — TanStack Query for server state (persisted to IndexedDB, `staleTime: Infinity`); local `useState` for UI; CSS custom properties in `index.css` `@theme`; dark theme only; `void handler()` on async event handlers.
 
+- **Plan execution is subagent-driven by default.** When executing an implementation plan from `docs/superpowers/plans/`, use subagent-driven development (a fresh subagent per task + review between tasks) without asking which mode to use. Only fall back to inline execution when explicitly requested.
+
 For task-specific guidance ("how do I add an alert type / RPC method / SDK component"), see the **Navigation Guide** in [`docs/CODEBASE_MAP.md`](docs/CODEBASE_MAP.md).

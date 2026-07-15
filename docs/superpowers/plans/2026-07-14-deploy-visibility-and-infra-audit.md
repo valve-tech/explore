@@ -28,7 +28,7 @@
 | `scripts/build-info.mjs` (create) | Shared resolver: env → git → `"unknown"`. Sole source of build identity. |
 | `scripts/build-info.d.mts` (create) | Types so `vite.config.ts` can import the `.mjs` under `tsc -b`. |
 | `scripts/build-info.test.mjs` (create) | `node:test` unit tests for all three resolution branches. |
-| `packages/api/src/lib/buildInfo.ts` (create) | API-side resolver + memoized `getBuildInfo()`. |
+| `packages/api/src/lib/buildInfo.ts` (create) | Memoized `getBuildInfo()` wrapping the **shared** resolver. No duplicated logic. |
 | `packages/api/src/index.ts` (modify) | Add `version` to the `/health` payload. |
 | `packages/web/vite.config.ts` (modify) | Inject `define: { __BUILD_INFO__ }` at build time. |
 | `packages/web/src/lib/buildInfo.ts` (create) | Typed access to the baked `__BUILD_INFO__`. |
@@ -263,70 +263,53 @@ git commit -m "feat(build): git-backed build-info resolver with env override"
 - Test: `packages/api/tests/integration.test.ts` (append a describe block)
 
 **Interfaces:**
-- Consumes: nothing from Task 1 at runtime (mirrors its shape; kept as a thin sibling to avoid cross-package path coupling into a root `.mjs`).
+- Consumes: `resolveBuildInfo()` and the `BuildInfo` type from `scripts/build-info.mjs` (Task 1), imported as `../../../../scripts/build-info.mjs`.
 - Produces: `getBuildInfo(): BuildInfo` and the `/health` response field `version: BuildInfo`, where `BuildInfo = { sha: string, shortSha: string, commitISO: string | null, branch: string, builtAtISO: string }`. Task 4 and Task 6 both read `version.sha`.
 
+**Decision (supersedes the spec's "thin sibling" note):** the resolver is NOT
+duplicated here. `scripts/build-info.mjs` is the single source of truth for both
+the web build and the API; this module adds only memoization. The spec's
+cross-package-coupling concern was empirically checked before this plan ran:
+
+- `npx tsc --project packages/api/tsconfig.json` emits cleanly (exit 0) despite
+  `rootDir: "src"` — the `.mjs` enters the program only via its `.d.mts`
+  declaration, so it is never emitted and never trips TS6059.
+- The specifier survives emit verbatim, and `src/lib` and `dist/lib` sit at
+  identical depth (4 levels under the repo root), so
+  `../../../../scripts/build-info.mjs` resolves in dev (tsx) and prod (dist).
+- `scripts/build-info.mjs` computes its own `REPO_ROOT` from `import.meta.url`,
+  so git runs against the repo root regardless of which package calls it.
+
 - [ ] **Step 1: Write the failing unit test**
+
+The resolver's own branches (env / git / unknown) are already covered by
+`scripts/build-info.test.mjs` in Task 1 — do not re-test them here. This module
+owns exactly two things: memoization, and being wired to the shared resolver.
 
 Create `packages/api/tests/unit/buildInfo.test.ts`:
 
 ```ts
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { resolveBuildInfo, getBuildInfo } from "../../src/lib/buildInfo.js";
-
-const NOW = () => "2026-07-14T00:00:00.000Z";
-
-describe("resolveBuildInfo", () => {
-  it("prefers the BUILD_SHA env override", () => {
-    const info = resolveBuildInfo({
-      env: { BUILD_SHA: "abc1234def5678", BUILD_BRANCH: "main" },
-      now: NOW,
-      runGit: () => assert.fail("git must not be called when BUILD_SHA is set"),
-    });
-    assert.equal(info.sha, "abc1234def5678");
-    assert.equal(info.shortSha, "abc1234");
-    assert.equal(info.branch, "main");
-    assert.equal(info.commitISO, null);
-  });
-
-  it("falls back to git", () => {
-    const answers: Record<string, string> = {
-      "rev-parse HEAD": "9400775aaaabbbbccccdddd",
-      "show -s --format=%cI HEAD": "2026-07-01T11:30:39-05:00",
-      "rev-parse --abbrev-ref HEAD": "main",
-    };
-    const info = resolveBuildInfo({ env: {}, now: NOW, runGit: (args) => answers[args] ?? null });
-    assert.equal(info.sha, "9400775aaaabbbbccccdddd");
-    assert.equal(info.shortSha, "9400775");
-    assert.equal(info.commitISO, "2026-07-01T11:30:39-05:00");
-  });
-
-  it("degrades to unknown without git", () => {
-    const info = resolveBuildInfo({ env: {}, now: NOW, runGit: () => null });
-    assert.equal(info.sha, "unknown");
-    assert.equal(info.shortSha, "unknown");
-    assert.equal(info.commitISO, null);
-    assert.equal(info.branch, "unknown");
-  });
-
-  it("never throws when git throws", () => {
-    const info = resolveBuildInfo({
-      env: {},
-      now: NOW,
-      runGit: () => { throw new Error("git: command not found"); },
-    });
-    assert.equal(info.sha, "unknown");
-  });
-});
+import { getBuildInfo } from "../../src/lib/buildInfo.js";
+import { resolveBuildInfo } from "../../../../scripts/build-info.mjs";
 
 describe("getBuildInfo", () => {
   it("memoizes — repeated calls return the identical object", () => {
     assert.equal(getBuildInfo(), getBuildInfo());
   });
 
+  it("agrees with the shared resolver — proves it is not a private copy", () => {
+    assert.equal(getBuildInfo().sha, resolveBuildInfo().sha);
+  });
+
   it("resolves a real sha in-repo", () => {
     assert.match(getBuildInfo().sha, /^[0-9a-f]{40}$|^unknown$/);
+  });
+
+  it("derives shortSha from sha", () => {
+    const info = getBuildInfo();
+    assert.equal(info.shortSha, info.sha.slice(0, 7));
   });
 });
 ```
@@ -342,95 +325,21 @@ Create `packages/api/src/lib/buildInfo.ts`:
 
 ```ts
 /**
- * Build identity for the API — mirrors scripts/build-info.mjs (which the web
- * build uses via vite `define`). Kept as a thin sibling rather than importing
- * the root .mjs so the API package has no path coupling outside itself.
+ * Build identity for the API.
  *
- * Resolution order (never throws): BUILD_SHA env override → git → "unknown".
+ * The resolver itself lives in scripts/build-info.mjs — the single source of
+ * truth shared with the web build (which injects it via vite `define`). This
+ * module adds only per-process memoization, so there is no second copy of the
+ * env → git → "unknown" logic to drift out of sync.
+ *
+ * The .mjs is imported through its .d.mts declaration, so it never enters this
+ * package's tsc program (no rootDir violation despite rootDir: "src") and the
+ * specifier survives emit — src/lib and dist/lib sit at the same depth below
+ * the repo root, so it resolves in dev (tsx) and prod (dist) alike.
  */
-import { execSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolveBuildInfo, type BuildInfo } from "../../../../scripts/build-info.mjs";
 
-export interface BuildInfo {
-  sha: string;
-  shortSha: string;
-  commitISO: string | null;
-  branch: string;
-  builtAtISO: string;
-}
-
-const UNKNOWN = "unknown";
-
-// src/lib (dev, tsx) and dist/lib (prod, tsc) are both 4 levels below the repo root.
-const REPO_ROOT = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "..",
-  "..",
-);
-
-/** Run a git command in the repo root. Returns trimmed stdout, or null on any failure. */
-export function runGit(args: string): string | null {
-  try {
-    const out = execSync(`git ${args}`, {
-      cwd: REPO_ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    return out.trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-export interface ResolveOpts {
-  env?: NodeJS.ProcessEnv;
-  now?: () => string;
-  /** Injected for tests. Named to match scripts/build-info.mjs. */
-  runGit?: (args: string) => string | null;
-}
-
-export function resolveBuildInfo({
-  env = process.env,
-  now = () => new Date().toISOString(),
-  runGit: git = runGit,
-}: ResolveOpts = {}): BuildInfo {
-  const builtAtISO = now();
-
-  const call = (args: string): string | null => {
-    try {
-      return git(args);
-    } catch {
-      return null;
-    }
-  };
-
-  if (env.BUILD_SHA) {
-    const sha = env.BUILD_SHA;
-    return {
-      sha,
-      shortSha: sha.slice(0, 7),
-      commitISO: env.BUILD_COMMIT_ISO ?? null,
-      branch: env.BUILD_BRANCH ?? UNKNOWN,
-      builtAtISO,
-    };
-  }
-
-  const sha = call("rev-parse HEAD");
-  if (sha) {
-    return {
-      sha,
-      shortSha: sha.slice(0, 7),
-      commitISO: call("show -s --format=%cI HEAD"),
-      branch: call("rev-parse --abbrev-ref HEAD") ?? UNKNOWN,
-      builtAtISO,
-    };
-  }
-
-  return { sha: UNKNOWN, shortSha: UNKNOWN, commitISO: null, branch: UNKNOWN, builtAtISO };
-}
+export type { BuildInfo };
 
 let cached: BuildInfo | null = null;
 
@@ -444,7 +353,7 @@ export function getBuildInfo(): BuildInfo {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npm run test:unit --workspace=packages/api`
-Expected: PASS — 6 tests passing.
+Expected: PASS — 4 tests passing.
 
 - [ ] **Step 5: Wire `version` into `/health`**
 
