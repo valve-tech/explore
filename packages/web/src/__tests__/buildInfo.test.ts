@@ -5,6 +5,11 @@ import { BUILD_INFO } from "../lib/buildInfo";
  * The SHA is injected by vite `define` at build time (and in vitest, which
  * shares vite.config.ts). Assert the shape, never a literal sha — the value
  * legitimately changes every commit.
+ *
+ * NOTE: vitest does not run the production minify pass, so every field is
+ * present here even when the minifier would drop it from a real build. These
+ * assertions therefore prove resolveBuildInfo()'s output shape, NOT what
+ * actually ships — see the CAUTION in ../lib/buildInfo.ts.
  */
 describe("BUILD_INFO", () => {
   it("is baked in with a well-formed shape", () => {
