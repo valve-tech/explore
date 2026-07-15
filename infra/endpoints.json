@@ -129,13 +129,22 @@
       "notes": "Chain logos; see docs/GIB_SHOW.md"
     },
     {
-      "name": "reth snapshots",
-      "url": "https://evm943-snapshot-reth.valve.city/",
+      "name": "reth snapshots 369 (discovery)",
+      "url": "https://one.valve.city/snapshot/evm/369/reth/versions.json",
       "method": "GET",
       "category": "snapshots",
-      "expect": "not-live",
+      "expect": 200,
       "owner": "fleet",
-      "notes": "TODO(user): the evm{1,369,943}-snapshot-reth.valve.city subdomains are stale — snapshots are now consolidated under a versioned path. Replace this entry with the real scheme, then set expect to 200."
+      "notes": "Public + free discovery doc; downloads under the same prefix are x402-metered (401 without a key). Serves reth 2.2.x + 2.3.x."
+    },
+    {
+      "name": "reth snapshots 943 (discovery)",
+      "url": "https://one.valve.city/snapshot/evm/943/reth/versions.json",
+      "method": "GET",
+      "category": "snapshots",
+      "expect": 200,
+      "owner": "fleet",
+      "notes": "As 369. Chain 1 has no entry: /snapshot/evm/1/reth/versions.json 404s (no snapshot produced yet), and 'not-live' only matches a network error, not a 404 — add an entry once chain 1 publishes."
     }
   ]
 }
