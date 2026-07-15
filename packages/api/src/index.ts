@@ -18,6 +18,7 @@ import { existsSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { runMigrations } from "./services/migrate.js";
 import { checkHealth, pool } from "./services/pool.js";
+import { getBuildInfo } from "./lib/buildInfo.js";
 import { awaitPendingCacheWrites } from "./services/tracer.js";
 import { forkManager } from "./services/forkManager.js";
 import simulateRouter from "./routes/simulate.js";
@@ -95,6 +96,7 @@ app.get("/health", async (_req, res) => {
     db: dbOk,
     chainsReady: allChainsReady(),
     chains,
+    version: getBuildInfo(),
   });
 });
 

@@ -845,3 +845,32 @@ describe("Summary", () => {
     assert.equal(failed, 0, `${failed} test(s) failed`);
   });
 });
+
+describe("GET /health — build version", () => {
+  it("exposes the running build identity without changing liveness", async () => {
+    const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(3000) });
+    assert.equal(res.status, 200);
+
+    const body = (await res.json()) as {
+      status: string;
+      db: boolean;
+      version?: {
+        sha: string;
+        shortSha: string;
+        commitISO: string | null;
+        branch: string;
+        builtAtISO: string;
+      };
+    };
+
+    // Liveness semantics unchanged.
+    assert.equal(body.status, "ok");
+    assert.equal(body.db, true);
+
+    // Version is additive and well-formed.
+    assert.ok(body.version, "expected a version object on /health");
+    assert.match(body.version.sha, /^[0-9a-f]{40}$|^unknown$/);
+    assert.equal(body.version.shortSha, body.version.sha.slice(0, 7));
+    assert.match(body.version.builtAtISO, /^\d{4}-\d{2}-\d{2}T/);
+  });
+});
