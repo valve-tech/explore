@@ -57,10 +57,22 @@ export function matchesExpectation(entry, probe) {
   return { ok: false, detail: `unknown expect: ${String(expect)}` };
 }
 
-async function probe(entry) {
+/**
+ * Probe one endpoint.
+ *
+ * `redirect: "manual"` is REQUIRED, not incidental: fetch follows 3xx by
+ * default, which would make any 3xx-expecting entry unsatisfiable (it would
+ * only ever see the post-redirect status). The manifest's `expect` values were
+ * measured with curl, which does not follow redirects either — this keeps the
+ * prober honest against them. chifra.valve.city (expect 301) is the live case.
+ *
+ * `fetchImpl` is injectable so tests can assert the redirect mode without I/O.
+ */
+export async function probe(entry, fetchImpl = fetch) {
   try {
-    const res = await fetch(entry.url, {
+    const res = await fetchImpl(entry.url, {
       method: entry.method,
+      redirect: "manual",
       headers: entry.body ? { "content-type": "application/json" } : undefined,
       body: entry.body ? JSON.stringify(entry.body) : undefined,
       signal: AbortSignal.timeout(TIMEOUT_MS),

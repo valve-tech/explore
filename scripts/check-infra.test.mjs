@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { matchesExpectation } from "./check-infra.mjs";
+import { matchesExpectation, probe } from "./check-infra.mjs";
 
 const entry = (expect) => ({ name: "x", url: "https://x/", method: "GET", expect });
 
@@ -37,4 +37,28 @@ test("grpc passes on 200 or 415", () => {
 test("not-live passes when the host does not resolve, fails when it answers", () => {
   assert.equal(matchesExpectation(entry("not-live"), { error: "getaddrinfo ENOTFOUND" }).ok, true);
   assert.equal(matchesExpectation(entry("not-live"), { status: 200, body: "" }).ok, false);
+});
+
+test("probe() calls fetch with redirect: manual — regression guard for 3xx expectations", async () => {
+  let seenOpts;
+  const fakeFetch = async (url, opts) => {
+    seenOpts = opts;
+    return { status: 301, text: async () => "" };
+  };
+  await probe(entry(301), fakeFetch);
+  assert.equal(seenOpts.redirect, "manual");
+});
+
+test("probe() returning 301 satisfies an expect:301 entry end-to-end (the chifra case)", async () => {
+  const fakeFetch = async () => ({ status: 301, text: async () => "" });
+  const result = await probe(entry(301), fakeFetch);
+  assert.equal(matchesExpectation(entry(301), result).ok, true);
+});
+
+test("probe() maps a thrown network error to { error }", async () => {
+  const fakeFetch = async () => {
+    throw new Error("boom");
+  };
+  const result = await probe(entry("not-live"), fakeFetch);
+  assert.equal(result.error, "boom");
 });
