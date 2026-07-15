@@ -20,6 +20,16 @@ test("auth-gated passes when the key is invalid or inactive", () => {
   assert.equal(matchesExpectation(entry("auth-gated"), { status: 200, body }).ok, true);
 });
 
+test("auth-gated fails on a generic non-auth JSON-RPC error (e.g. bad method)", () => {
+  const body = JSON.stringify({ jsonrpc: "2.0", id: 0, error: { code: -32601, message: "Method not found" } });
+  assert.equal(matchesExpectation(entry("auth-gated"), { status: 200, body }).ok, false);
+});
+
+test("auth-gated fails when .error has no message", () => {
+  const body = JSON.stringify({ jsonrpc: "2.0", id: 0, error: { code: -32000 } });
+  assert.equal(matchesExpectation(entry("auth-gated"), { status: 200, body }).ok, false);
+});
+
 test("auth-gated fails when the host is unreachable", () => {
   assert.equal(matchesExpectation(entry("auth-gated"), { error: "ENOTFOUND" }).ok, false);
 });

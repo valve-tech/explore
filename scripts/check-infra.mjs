@@ -49,9 +49,13 @@ export function matchesExpectation(entry, probe) {
     } catch {
       return { ok: false, detail: "non-JSON body — expected an auth error" };
     }
-    return parsed?.error
-      ? { ok: true, detail: `auth-gated (${parsed.error.message})` }
-      : { ok: false, detail: "no auth error in body" };
+    const message = parsed?.error?.message;
+    if (!message) return { ok: false, detail: "no auth error in body" };
+    // A generic error (bad method, rate limit, internal) means the endpoint is
+    // NOT merely auth-gated — it is misbehaving. Don't call that healthy.
+    return /api key|auth|unauthor|forbidden|credential/i.test(message)
+      ? { ok: true, detail: `auth-gated (${message})` }
+      : { ok: false, detail: `error is not auth-related: ${message}` };
   }
 
   return { ok: false, detail: `unknown expect: ${String(expect)}` };
@@ -127,7 +131,15 @@ async function main() {
     if (!served || served === "unknown") {
       failures++;
       console.log(`\nFAIL  deploy drift: ${entry.name} reports no build sha`);
-    } else if (want && served !== want) {
+    } else if (!want) {
+      // Never claim "in sync" off a comparison we could not make.
+      failures++;
+      console.log(
+        `\nFAIL  deploy drift: cannot verify — origin/main sha unknown ` +
+          `(git ls-remote failed); ${entry.name} serves ${served.slice(0, 7)}. ` +
+          `Pass --expected <sha> to check explicitly.`,
+      );
+    } else if (served !== want) {
       failures++;
       console.log(`\nFAIL  deploy drift: ${entry.name} serves ${served.slice(0, 7)}, origin/main is ${want.slice(0, 7)}`);
     } else {
