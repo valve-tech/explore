@@ -20,7 +20,24 @@ export interface VerifiedSource {
 
 export const SOURCIFY_API_URL = "https://sourcify.dev/server";
 
-export const FETCH_TIMEOUT = 15_000;
+/**
+ * Per-upstream fetch deadlines. These MUST sum to comfortably less than the
+ * caller's budget: /api/tx allows getTransactionDetails 15s
+ * (routes/explorer.ts). This was previously ONE shared `FETCH_TIMEOUT = 15_000`
+ * — i.e. exactly the whole route budget — so a single slow upstream could spend
+ * the caller's entire allowance and force a 504 with nothing left over.
+ *
+ * Sourcify is primary and can return megabytes of flattened source, so it takes
+ * the larger share. Blockscout is only consulted on a Sourcify miss, so a dead
+ * host should be discovered quickly rather than waited out: the TCP connect
+ * timeout to the (currently unreachable) api.scan.pulsechain.com is ~10.5s on
+ * its own, which is what made the first request on a cold container slow.
+ *
+ * Sum (11s) < budget (15s), leaving headroom for the RPC reads in the same
+ * route. Keep it that way if you touch these.
+ */
+export const SOURCIFY_FETCH_TIMEOUT = 8_000;
+export const BLOCKSCOUT_FETCH_TIMEOUT = 3_000;
 
 /**
  * Thrown by a source fetcher when the upstream is transiently unavailable

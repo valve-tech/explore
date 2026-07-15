@@ -1,5 +1,5 @@
 import {
-  FETCH_TIMEOUT,
+  SOURCIFY_FETCH_TIMEOUT,
   SOURCIFY_API_URL,
   UpstreamError,
   type SourceFile,
@@ -21,7 +21,7 @@ export async function fetchFromSourcify(
   if (!chain.sourcifyEnabled) return null;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  const timer = setTimeout(() => controller.abort(), SOURCIFY_FETCH_TIMEOUT);
 
   try {
     const chainId = chain.chainId;
@@ -176,7 +176,7 @@ export async function submitToSourcify(
   req: SubmitToSourcifyRequest,
 ): Promise<SourcifyVerifyResult> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  const timer = setTimeout(() => controller.abort(), SOURCIFY_FETCH_TIMEOUT);
 
   try {
     const url = `${SOURCIFY_API_URL}/verify`;

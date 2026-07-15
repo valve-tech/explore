@@ -5,10 +5,10 @@ import {
   BREAKER_COOLDOWN_MS,
   BREAKER_THRESHOLD,
   createBreakerState,
-  halfOpen,
-  isOpen,
+  isCooledDown,
   recordFailure,
   recordSuccess,
+  shouldSkip,
 } from "../../src/services/sourceCode/breaker.js";
 
 /**
@@ -22,21 +22,25 @@ import {
 
 const T0 = 1_000_000;
 
+const openIt = (s: ReturnType<typeof createBreakerState>, at = T0) => {
+  for (let i = 0; i < BREAKER_THRESHOLD; i++) recordFailure(s, at);
+};
+
 describe("breaker: closed until the threshold", () => {
   it("starts closed", () => {
-    assert.equal(isOpen(createBreakerState(), T0), false);
+    assert.equal(shouldSkip(createBreakerState()), false);
   });
 
   it("stays closed below the threshold", () => {
     const s = createBreakerState();
     for (let i = 0; i < BREAKER_THRESHOLD - 1; i++) recordFailure(s, T0);
-    assert.equal(isOpen(s, T0), false, "one failure must not trip a dead-upstream guard");
+    assert.equal(shouldSkip(s), false, "one failure must not trip a dead-upstream guard");
   });
 
   it("opens at the threshold", () => {
     const s = createBreakerState();
-    for (let i = 0; i < BREAKER_THRESHOLD; i++) recordFailure(s, T0);
-    assert.equal(isOpen(s, T0), true);
+    openIt(s);
+    assert.equal(shouldSkip(s), true);
   });
 });
 
@@ -46,55 +50,73 @@ describe("breaker: success resets", () => {
     recordFailure(s, T0);
     recordSuccess(s);
     for (let i = 0; i < BREAKER_THRESHOLD - 1; i++) recordFailure(s, T0);
-    assert.equal(isOpen(s, T0), false, "failures must not accumulate across a success");
+    assert.equal(shouldSkip(s), false, "failures must not accumulate across a success");
   });
 
   it("a success closes an open circuit", () => {
     const s = createBreakerState();
-    for (let i = 0; i < BREAKER_THRESHOLD; i++) recordFailure(s, T0);
+    openIt(s);
     recordSuccess(s);
-    assert.equal(isOpen(s, T0), false);
+    assert.equal(shouldSkip(s), false);
   });
 });
 
-describe("breaker: cooldown", () => {
-  it("stays open for the cooldown", () => {
+describe("breaker: an open circuit never blocks a caller", () => {
+  it("keeps skipping even after the cooldown elapses", () => {
+    // The whole point: a cooled-down circuit is re-probed in the BACKGROUND.
+    // If shouldSkip went false here, one unlucky request per cooldown would
+    // pay the dead upstream's full timeout — forever.
     const s = createBreakerState();
-    for (let i = 0; i < BREAKER_THRESHOLD; i++) recordFailure(s, T0);
-    assert.equal(isOpen(s, T0 + BREAKER_COOLDOWN_MS - 1), true);
-  });
-
-  it("closes once the cooldown elapses, so a recovered upstream is re-probed", () => {
-    const s = createBreakerState();
-    for (let i = 0; i < BREAKER_THRESHOLD; i++) recordFailure(s, T0);
-    assert.equal(isOpen(s, T0 + BREAKER_COOLDOWN_MS), false);
+    openIt(s);
+    assert.equal(shouldSkip(s), true, "before cooldown");
+    // shouldSkip is clock-independent by design — the cooldown only decides
+    // whether to SCHEDULE a probe (isCooledDown), never whether to let a
+    // caller through.
+    assert.equal(isCooledDown(s, T0 + BREAKER_COOLDOWN_MS), true, "probe is due");
+    assert.equal(
+      shouldSkip(s),
+      true,
+      "after cooldown too — only a probe's result may close the circuit",
+    );
   });
 });
 
-describe("breaker: half-open probe", () => {
-  it("a single failure re-opens immediately after a probe is let through", () => {
+describe("breaker: cooldown gates the background probe", () => {
+  it("does not probe before the cooldown", () => {
     const s = createBreakerState();
-    for (let i = 0; i < BREAKER_THRESHOLD; i++) recordFailure(s, T0);
-
-    const later = T0 + BREAKER_COOLDOWN_MS;
-    assert.equal(isOpen(s, later), false, "cooled down → probe allowed");
-    halfOpen(s);
-
-    // The probe fails: a still-dead upstream must not get another full
-    // threshold's worth of timeouts before re-opening.
-    recordFailure(s, later);
-    assert.equal(isOpen(s, later), true, "one failed probe must re-open the circuit");
+    openIt(s);
+    assert.equal(isCooledDown(s, T0 + BREAKER_COOLDOWN_MS - 1), false);
   });
 
-  it("a successful probe fully closes the circuit", () => {
+  it("probes once the cooldown elapses", () => {
     const s = createBreakerState();
-    for (let i = 0; i < BREAKER_THRESHOLD; i++) recordFailure(s, T0);
-    const later = T0 + BREAKER_COOLDOWN_MS;
-    halfOpen(s);
-    recordSuccess(s);
+    openIt(s);
+    assert.equal(isCooledDown(s, T0 + BREAKER_COOLDOWN_MS), true);
+  });
 
-    // Back to a clean slate: one later failure must not re-open.
-    recordFailure(s, later);
-    assert.equal(isOpen(s, later), false);
+  it("never probes a closed circuit", () => {
+    assert.equal(isCooledDown(createBreakerState(), T0 + BREAKER_COOLDOWN_MS), false);
+  });
+
+  it("a failed probe restarts the cooldown", () => {
+    const s = createBreakerState();
+    openIt(s);
+    const probeAt = T0 + BREAKER_COOLDOWN_MS;
+    assert.equal(isCooledDown(s, probeAt), true);
+
+    recordFailure(s, probeAt); // probe came back dead
+    assert.equal(isCooledDown(s, probeAt), false, "cooldown restarts from the probe");
+    assert.equal(isCooledDown(s, probeAt + BREAKER_COOLDOWN_MS), true);
+  });
+});
+
+describe("breaker: failure count is clamped", () => {
+  it("does not grow without bound while a circuit stays open", () => {
+    const s = createBreakerState();
+    for (let i = 0; i < 500; i++) recordFailure(s, T0);
+    assert.equal(s.failures, BREAKER_THRESHOLD, "clamped at the threshold");
+    // And a single success still fully closes it.
+    recordSuccess(s);
+    assert.equal(shouldSkip(s), false);
   });
 });

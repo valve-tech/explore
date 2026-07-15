@@ -141,6 +141,36 @@ export async function buildTransactionDetails(
   let decodedInput: TransactionDetails["decodedInput"] = null;
   let decodedLogEntries: TransactionDetails["decodedLogs"] = [];
 
+  // Warm every ABI this build can need in ONE concurrent pass.
+  //
+  // The calldata decode (tx.to) and the per-emitter log decode below both go
+  // through fetchAbi, which caches and de-dupes in-flight requests per address
+  // — so once this settles, the awaits further down are cache hits.
+  //
+  // Why bother: those lookups used to run as two SEQUENTIAL phases — tx.to
+  // first, the emitter fan-out second. Against an unreachable verification
+  // upstream each phase paid its own connect timeout, so a cold process spent
+  // two full timeouts before the breaker had seen enough failures to open.
+  // One pass makes the worst case a single timeout rather than one per phase.
+  //
+  // The address set mirrors exactly what the phases below would fetch, so this
+  // adds no upstream calls: `otherEmitters` already excludes tx.to, and tx.to
+  // is only warmed under the same conditions that would fetch it anyway — a
+  // plain value transfer (no calldata, no logs) still does zero ABI lookups.
+  if (!options.skipDecode) {
+    const needed = new Set<string>();
+    const hasCalldata = Boolean(tx.input) && tx.input !== "0x";
+    if (tx.to && (hasCalldata || receipt.logs.length > 0)) {
+      needed.add(tx.to.toLowerCase());
+    }
+    if (receipt.logs.length > 0) {
+      for (const addr of otherEmitters(receipt.logs, tx.to ?? null)) needed.add(addr);
+    }
+    // fetchAbi never rejects — it returns null on any upstream failure — so
+    // this cannot introduce a new failure path.
+    await Promise.all([...needed].map((addr) => fetchAbi(addr)));
+  }
+
   if (!options.skipDecode) {
     decodedInput = await decodeTxInput(tx.to ?? null, tx.input);
   }

@@ -15,6 +15,11 @@
  * "did not answer", so we still never negative-cache off it) while paying the
  * timeout once per cooldown instead of once per address.
  *
+ * Once OPEN it stays skipped for user requests entirely — the re-probe runs
+ * detached (see getVerifiedSource.scheduleProbe), so no request ever waits on
+ * an upstream already known to be dead. That is the difference between "one
+ * slow request per minute, forever" and "one slow request per process".
+ *
  * Deliberately per-process and in-memory: it's a latency guard, not a
  * correctness mechanism, so a restart or a second replica re-probing costs one
  * timeout and nothing else.
@@ -23,7 +28,7 @@
 /** Consecutive transport failures before the circuit opens. */
 export const BREAKER_THRESHOLD = 2;
 
-/** How long the circuit stays open before we probe the upstream again. */
+/** How long the circuit stays open before a background probe is scheduled. */
 export const BREAKER_COOLDOWN_MS = 60_000;
 
 export interface BreakerState {
@@ -36,18 +41,26 @@ export function createBreakerState(): BreakerState {
 }
 
 /**
- * Should we skip this upstream right now? Pure — the clock is injected so the
- * cooldown is testable without waiting.
+ * Skip this upstream for a user request? True whenever the circuit is open —
+ * INCLUDING after the cooldown has elapsed. A cooled-down circuit is re-probed
+ * in the background rather than by making a caller wait; the probe's result is
+ * what closes it.
  */
-export function isOpen(state: BreakerState, nowMs: number): boolean {
-  if (state.openedAt === null) return false;
-  if (nowMs - state.openedAt >= BREAKER_COOLDOWN_MS) return false; // cooled down → probe again
-  return true;
+export function shouldSkip(state: BreakerState): boolean {
+  return state.openedAt !== null;
+}
+
+/** Open, and quiet long enough that it's worth probing again (in background). */
+export function isCooledDown(state: BreakerState, nowMs: number): boolean {
+  return state.openedAt !== null && nowMs - state.openedAt >= BREAKER_COOLDOWN_MS;
 }
 
 /** Record a transport failure; opens the circuit at the threshold. */
 export function recordFailure(state: BreakerState, nowMs: number): void {
-  state.failures += 1;
+  // Clamp: once open, `failures` has done its job. Letting it grow unbounded
+  // would be a slow leak of meaning, not of memory — the number stops being
+  // "consecutive failures" and starts being "total ever".
+  state.failures = Math.min(state.failures + 1, BREAKER_THRESHOLD);
   if (state.failures >= BREAKER_THRESHOLD) {
     state.openedAt = nowMs;
   }
@@ -57,14 +70,4 @@ export function recordFailure(state: BreakerState, nowMs: number): void {
 export function recordSuccess(state: BreakerState): void {
   state.failures = 0;
   state.openedAt = null;
-}
-
-/**
- * Called when a probe is allowed through after a cooldown: clear the open
- * marker so a single failure doesn't immediately re-open on a stale count,
- * but keep us one failure away from re-opening if it's still dead.
- */
-export function halfOpen(state: BreakerState): void {
-  state.openedAt = null;
-  state.failures = BREAKER_THRESHOLD - 1;
 }

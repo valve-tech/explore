@@ -5,26 +5,78 @@ import { fetchFromSourcify } from "./sourcify.js";
 import { currentChainId } from "../chains/context.js";
 import {
   createBreakerState,
-  halfOpen,
-  isOpen,
+  isCooledDown,
   recordFailure,
   recordSuccess,
+  shouldSkip,
+  type BreakerState,
 } from "./breaker.js";
 
+type UpstreamName = "sourcify" | "blockscout";
+
 /**
- * One breaker per upstream, per process. See breaker.ts for why: without it a
- * persistently-dead upstream costs its full timeout on every lookup of every
- * unverified address, because such results are (correctly) never cached.
+ * One breaker per upstream PER CHAIN. The chain matters: each chain configures
+ * its own `blockscoutBase` — 369 uses api.scan.pulsechain.com, 943 uses
+ * api.scan.v4.testnet.pulsechain.com — so they are entirely different hosts
+ * whose health is unrelated. A breaker keyed only by upstream name would let
+ * one chain's dead Blockscout skip another chain's healthy one, and 943 has
+ * `sourcifyEnabled: false`, meaning Blockscout is its ONLY verified-source.
  */
-const breakers = {
-  sourcify: createBreakerState(),
-  blockscout: createBreakerState(),
-};
+const breakers = new Map<string, BreakerState>();
+
+/** In-flight background probes, keyed like `breakers`. At most one per key. */
+const probing = new Set<string>();
+
+const breakerKey = (name: UpstreamName): string => `${name}:${currentChainId()}`;
+
+function breakerFor(key: string): BreakerState {
+  let state = breakers.get(key);
+  if (!state) {
+    state = createBreakerState();
+    breakers.set(key, state);
+  }
+  return state;
+}
 
 /** Test seam: reset breaker state between cases. */
 export function resetBreakers(): void {
-  breakers.sourcify = createBreakerState();
-  breakers.blockscout = createBreakerState();
+  breakers.clear();
+  probing.clear();
+}
+
+/**
+ * Re-probe a dead upstream OFF the request path.
+ *
+ * The point of the breaker is that no user ever waits on an upstream we
+ * already know is dead. A synchronous half-open probe would undo that: one
+ * unlucky request per cooldown would pay the full timeout, forever. Detaching
+ * it means the cost is one slow request per PROCESS, not one per minute.
+ *
+ * The circuit stays open while this runs (openedAt is untouched until the
+ * probe resolves), so concurrent requests keep skipping instead of piling up.
+ */
+function scheduleProbe(
+  key: string,
+  name: UpstreamName,
+  address: string,
+  fetcher: (address: string) => Promise<VerifiedSource | null>,
+  state: BreakerState,
+): void {
+  if (probing.has(key)) return;
+  probing.add(key);
+  void (async () => {
+    try {
+      await fetcher(address);
+      recordSuccess(state);
+      console.warn(`[sourceCode] ${name} recovered — circuit closed`);
+    } catch {
+      // Still dead (or a non-Upstream throw — either way it did not answer).
+      // Restart the cooldown from now.
+      recordFailure(state, Date.now());
+    } finally {
+      probing.delete(key);
+    }
+  })();
 }
 
 /**
@@ -37,19 +89,19 @@ export function resetBreakers(): void {
  * that a miss is only cached when every upstream truly answered.
  */
 async function viaBreaker(
-  name: keyof typeof breakers,
+  name: UpstreamName,
   address: string,
   fetcher: (address: string) => Promise<VerifiedSource | null>,
 ): Promise<{ answered: boolean; result?: VerifiedSource | null }> {
-  const state = breakers[name];
-  const now = Date.now();
+  const key = breakerKey(name);
+  const state = breakerFor(key);
 
-  if (isOpen(state, now)) {
-    console.warn(`[sourceCode] ${name} circuit open — skipping for ${address}`);
+  if (shouldSkip(state)) {
+    if (isCooledDown(state, Date.now())) {
+      scheduleProbe(key, name, address, fetcher, state);
+    }
     return { answered: false };
   }
-  // Cooled down but still marked failing → let ONE probe through.
-  if (state.openedAt !== null) halfOpen(state);
 
   try {
     const result = await fetcher(address);

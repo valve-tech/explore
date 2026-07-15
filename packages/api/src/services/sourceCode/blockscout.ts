@@ -1,5 +1,5 @@
 import {
-  FETCH_TIMEOUT,
+  BLOCKSCOUT_FETCH_TIMEOUT,
   UpstreamError,
   type SourceFile,
   type VerifiedSource,
@@ -38,7 +38,7 @@ export async function fetchFromBlockScout(
   if (!blockscoutBase) return null;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  const timer = setTimeout(() => controller.abort(), BLOCKSCOUT_FETCH_TIMEOUT);
 
   let res: Response;
   try {
