@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BUILD_INFO } from "../lib/buildInfo";
-import { hasDrifted } from "../lib/versionDrift";
+import { claimReload, hasDrifted } from "../lib/versionDrift";
 
 /** How long a drifted tab waits before it is eligible to reload. */
 export const RELOAD_DELAY_MS = 5_000;
@@ -17,6 +17,11 @@ export const RELOAD_DELAY_MS = 5_000;
  *
  * `busy` is passed in rather than read here so this hook is testable without a
  * QueryClientProvider.
+ *
+ * The actual reload is bounded by `claimReload` (see lib/versionDrift.ts): at
+ * most one reload per observed server sha, tracked in sessionStorage, so a
+ * server/bundle sha mismatch that never clears (e.g. an API restart without a
+ * matching web rebuild) can't loop this tab forever.
  */
 export function useVersionDriftReload(servedSha: string | null, busy: boolean): void {
   const drifted = hasDrifted(servedSha, BUILD_INFO.sha);
@@ -32,6 +37,7 @@ export function useVersionDriftReload(servedSha: string | null, busy: boolean): 
   }, [drifted]);
 
   useEffect(() => {
-    if (reloadArmed && !busy) window.location.reload();
-  }, [reloadArmed, busy]);
+    if (!reloadArmed || busy || !servedSha) return;
+    if (claimReload(servedSha, window.sessionStorage)) window.location.reload();
+  }, [reloadArmed, busy, servedSha]);
 }

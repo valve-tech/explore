@@ -23,11 +23,13 @@ describe("useVersionDriftReload", () => {
       configurable: true,
       value: { ...window.location, reload: reloadSpy },
     });
+    sessionStorage.clear();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    sessionStorage.clear();
   });
 
   it("never reloads when there is no drift, even well past the delay", () => {
@@ -104,5 +106,66 @@ describe("useVersionDriftReload", () => {
     act(() => vi.advanceTimersByTime(RELOAD_DELAY_MS * 3));
 
     expect(reloadSpy).not.toHaveBeenCalled();
+  });
+
+  it("loop guard: reloads at most once for a given served sha, even across a simulated post-reload remount", () => {
+    // First mount: drift persists across many polls/rerenders — the delay
+    // elapses, the tab reloads exactly once.
+    const first = renderHook(
+      ({ busy }) => useVersionDriftReload(DEPLOYED, busy),
+      { initialProps: { busy: false } },
+    );
+    for (let i = 0; i < 10; i++) {
+      act(() => first.rerender({ busy: false }));
+      act(() => vi.advanceTimersByTime(RELOAD_DELAY_MS));
+    }
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+
+    // In production window.location.reload() unloads the page and a fresh
+    // page load re-runs the whole app from scratch — simulate that by
+    // unmounting and mounting a brand new hook instance with the SAME served
+    // sha and the SAME (still-stale) baked sha, exactly as would happen if
+    // the reload loaded the identical stale bundle again.
+    first.unmount();
+    const second = renderHook(() => useVersionDriftReload(DEPLOYED, false));
+    act(() => vi.advanceTimersByTime(RELOAD_DELAY_MS * 3));
+    second.unmount();
+
+    // Still just the one reload — the sessionStorage guard remembers this sha.
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("loop guard does not disable the feature: a genuinely newer deploy reloads again", () => {
+    const first = renderHook(() => useVersionDriftReload(DEPLOYED, false));
+    act(() => vi.advanceTimersByTime(RELOAD_DELAY_MS));
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    first.unmount();
+
+    const NEXT_DEPLOYED = `${DEPLOYED}-next`;
+    const second = renderHook(() => useVersionDriftReload(NEXT_DEPLOYED, false));
+    act(() => vi.advanceTimersByTime(RELOAD_DELAY_MS));
+    second.unmount();
+
+    expect(reloadSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("a throwing sessionStorage does not crash and does not reload", () => {
+    const proto = Object.getPrototypeOf(window.sessionStorage) as Storage;
+    const getSpy = vi.spyOn(proto, "getItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    const setSpy = vi.spyOn(proto, "setItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+
+    expect(() => {
+      renderHook(() => useVersionDriftReload(DEPLOYED, false));
+      act(() => vi.advanceTimersByTime(RELOAD_DELAY_MS * 3));
+    }).not.toThrow();
+
+    expect(reloadSpy).not.toHaveBeenCalled();
+
+    getSpy.mockRestore();
+    setSpy.mockRestore();
   });
 });

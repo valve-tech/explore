@@ -87,6 +87,34 @@ export async function probe(entry, fetchImpl = fetch) {
   }
 }
 
+/**
+ * Decide the deploy-drift verdict. Pure — no I/O — so every branch is testable.
+ * `served` is the sha from /health (or null); `want` is origin/main's sha (or
+ * null when git could not tell us). Never report "in sync" off a comparison we
+ * could not actually make.
+ */
+export function driftVerdict({ served, want, name }) {
+  if (!served || served === "unknown") {
+    return { ok: false, detail: `deploy drift: ${name} reports no build sha` };
+  }
+  if (!want) {
+    return {
+      ok: false,
+      detail:
+        `deploy drift: cannot verify — origin/main sha unknown ` +
+        `(git ls-remote failed); ${name} serves ${served.slice(0, 7)}. ` +
+        `Pass --expected <sha> to check explicitly.`,
+    };
+  }
+  if (served !== want) {
+    return {
+      ok: false,
+      detail: `deploy drift: ${name} serves ${served.slice(0, 7)}, origin/main is ${want.slice(0, 7)}`,
+    };
+  }
+  return { ok: true, detail: `deploy in sync: ${served.slice(0, 7)}` };
+}
+
 function expectedSha(argv) {
   const flag = argv.indexOf("--expected");
   if (flag !== -1 && argv[flag + 1]) return argv[flag + 1];
@@ -121,6 +149,14 @@ async function main() {
 
   // Deploy drift — only the endpoints that serve /health can answer this.
   const health = endpoints.filter((e) => e.url.endsWith("/health"));
+  if (health.length === 0) {
+    // A monitoring script must fail loudly when it cannot do its job — an
+    // empty filter here must never be indistinguishable from "checked, and
+    // it's fine". Same shape as the null-`want` case below: never report
+    // success off a comparison that was never actually made.
+    failures++;
+    console.log(`\nFAIL  deploy drift: no /health endpoints in the manifest — drift check did not run`);
+  }
   for (const entry of health) {
     const res = await probe(entry);
     let served = null;
@@ -128,23 +164,9 @@ async function main() {
       served = JSON.parse(res.body)?.version?.sha ?? null;
     } catch { /* falls through to the unknown branch below */ }
 
-    if (!served || served === "unknown") {
-      failures++;
-      console.log(`\nFAIL  deploy drift: ${entry.name} reports no build sha`);
-    } else if (!want) {
-      // Never claim "in sync" off a comparison we could not make.
-      failures++;
-      console.log(
-        `\nFAIL  deploy drift: cannot verify — origin/main sha unknown ` +
-          `(git ls-remote failed); ${entry.name} serves ${served.slice(0, 7)}. ` +
-          `Pass --expected <sha> to check explicitly.`,
-      );
-    } else if (served !== want) {
-      failures++;
-      console.log(`\nFAIL  deploy drift: ${entry.name} serves ${served.slice(0, 7)}, origin/main is ${want.slice(0, 7)}`);
-    } else {
-      console.log(`\nPASS  deploy in sync: ${served.slice(0, 7)}`);
-    }
+    const verdict = driftVerdict({ served, want, name: entry.name });
+    if (!verdict.ok) failures++;
+    console.log(`\n${verdict.ok ? "PASS" : "FAIL"}  ${verdict.detail}`);
   }
 
   console.log(failures ? `\n${failures} problem(s).\n` : "\nAll good.\n");
