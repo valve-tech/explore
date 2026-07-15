@@ -16,6 +16,7 @@ import {
   type NotifyPermission,
 } from "../../lib/watcher/desktopNotify";
 import { CHAINS } from "../../lib/chains";
+import { BUILD_INFO } from "../../lib/buildInfo";
 
 function Toggle({
   checked,
@@ -67,6 +68,8 @@ export default function SettingsPanel() {
       <RpcEndpointSection />
 
       <NotificationsSection />
+
+      <BuildSection />
 
       {/* Section: Future home for other prefs */}
       <Section title="More" icon="heroicons:adjustments-horizontal">
@@ -294,6 +297,40 @@ function NotificationsSection() {
         />
         <span>{stateLabel}.</span>
       </div>
+    </Section>
+  );
+}
+
+/**
+ * Which commit this bundle is. Baked at build time (see lib/buildInfo), so it
+ * answers "what am I running?" even on the IPFS build, which has no /health.
+ */
+function BuildSection() {
+  const commitDate =
+    BUILD_INFO.commitISO === null
+      ? "unknown"
+      : new Date(BUILD_INFO.commitISO).toLocaleString();
+
+  return (
+    <Section title="Build" icon="heroicons:cube">
+      <Row
+        label="Commit"
+        hint={`Branch ${BUILD_INFO.branch} — committed ${commitDate}`}
+        control={
+          <code className="text-xs font-mono theme-text-muted">
+            {BUILD_INFO.shortSha}
+          </code>
+        }
+      />
+      <Row
+        label="Built"
+        hint="When this bundle was compiled."
+        control={
+          <code className="text-xs font-mono theme-text-muted">
+            {new Date(BUILD_INFO.builtAtISO).toLocaleString()}
+          </code>
+        }
+      />
     </Section>
   );
 }

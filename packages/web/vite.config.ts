@@ -1,12 +1,19 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { resolveBuildInfo } from "../../scripts/build-info.mjs";
 
 export default defineConfig({
   // IPFS build: relative asset paths so the bundle loads under `/ipfs/<CID>/`.
   // Relative base is only safe with HashRouter (see main.tsx) — the canonical
   // BrowserRouter build keeps absolute "/" so nested routes resolve assets.
   base: process.env.VITE_IPFS ? "./" : "/",
+  // Build identity baked at build time (Node context), so the running bundle
+  // can report which commit it is — including the VITE_IPFS build, which has
+  // no server and therefore no /health to ask.
+  define: {
+    __BUILD_INFO__: JSON.stringify(resolveBuildInfo()),
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
