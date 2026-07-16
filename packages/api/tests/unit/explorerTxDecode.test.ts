@@ -49,8 +49,11 @@ test("GET /api/tx/:hash/decode carries a boolean `degraded` flag", async () => {
   assert.equal(body.ok, true);
   // The whole point of the split route: "unverified" vs "couldn't reach the
   // verifier" must be distinguishable, so the flag is always present + typed.
+  // This live test asserts the field is WIRED through the envelope; the true vs
+  // false SEMANTICS are proven deterministically in degradation.test.ts (which
+  // controls the breaker state). Asserting a specific value here would couple
+  // the test to this tx's real-time verification status — which drifts: these
+  // emitters fell through to a dead Blockscout under Sourcify v1's brownout,
+  // but resolve cleanly via Sourcify v2 today, flipping degraded true→false.
   assert.equal(typeof body.result.degraded, "boolean");
-  // This tx (chain 369) touches unverified emitters and Blockscout is dead, so
-  // the verified-source lookup can't get a definitive answer → degraded.
-  assert.equal(body.result.degraded, true);
 });
