@@ -67,6 +67,12 @@ router.get(
       throw new ApiError(400, "Invalid transaction hash");
     }
 
+    // Opt-out: `?decode=0` returns core facts only (no ABI lookups), so the
+    // page can paint without waiting on a verified-source upstream. Anything
+    // other than "0" keeps the default complete behavior — no other caller of
+    // /api/tx changes. Decode is fetched separately via /tx/:hash/decode.
+    const skipDecode = req.query.decode === "0";
+
     // RPC can be slow for complex txs — 15s timeout per call. The details
     // fetch keeps its reject semantics (a genuine 404 must surface as 404, not
     // be swallowed into the timeout's null → a misleading 504). The two
@@ -74,7 +80,7 @@ router.get(
     // yet, so a rejection there degrades to [] rather than sinking the detail.
     const [details, internalTxs, tokenTransfers] = await Promise.all([
       withTimeout(
-        getTransactionDetails(hash),
+        getTransactionDetails(hash, { skipDecode }),
         15_000,
         null as Awaited<ReturnType<typeof getTransactionDetails>> | null,
       ),
@@ -85,7 +91,7 @@ router.get(
     if (!details) {
       throw new ApiError(
         504,
-        "Transaction fetch timed out — PulseChain RPC may be slow",
+        "Transaction fetch timed out — the node may be slow",
       );
     }
 
