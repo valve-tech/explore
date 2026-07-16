@@ -92,6 +92,11 @@ export interface TransactionDetails {
   type: string;
 }
 
+export type TransactionDecode = Pick<
+  TransactionDetails,
+  "decodedInput" | "decodedLogs"
+>;
+
 export interface AddressInfo {
   address: string;
   balance: string;
@@ -203,14 +208,34 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
 export async function fetchTransaction(
   hash: string,
   chainId: number = DEFAULT_CHAIN_ID,
+  opts: { decode?: boolean } = {},
 ): Promise<TransactionDetails> {
   // Bring-your-own-RPC: when a per-chain override is set, fetch the raw tx +
   // receipt straight from the user's node (the heavy reads run on their infra)
   // and hand them to the backend's /from-raw enrichment, which does the
   // mapping + ABI decode + internal/token enrichment. No override → the GET
-  // path, byte-identical to before.
+  // path, byte-identical to before. This path is already complete, so the
+  // decode split does not apply — `opts.decode` is ignored here.
   if (isRpcOverridden(chainId)) return readTransactionViaRpc(hash, chainId);
-  return apiFetch<TransactionDetails>(scoped(`${API_BASE}/tx/${hash}`, chainId));
+
+  // `decode: false` → core only (decode=0); the page fetches decode separately
+  // via fetchTransactionDecode so it can paint without waiting on it.
+  const base = `${API_BASE}/tx/${hash}`;
+  const url = opts.decode === false ? `${base}?decode=0` : base;
+  return apiFetch<TransactionDetails>(scoped(url, chainId));
+}
+
+/**
+ * The decode half of the tx page. Hits GET /api/tx/:hash/decode, which returns
+ * only { decodedInput, decodedLogs } and 504s (rather than returning empty)
+ * when a verified-source upstream is unavailable — so the caller can tell
+ * "nothing to decode" from "couldn't decode".
+ */
+export async function fetchTransactionDecode(
+  hash: string,
+  chainId: number = DEFAULT_CHAIN_ID,
+): Promise<TransactionDecode> {
+  return apiFetch<TransactionDecode>(scoped(`${API_BASE}/tx/${hash}/decode`, chainId));
 }
 
 /**
