@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { fetchTransaction, type TransactionDetails } from "../../api/explorer";
 import { useActiveChainId } from "../../lib/activeChain";
+import { useTxDecode } from "../../hooks/useTxDecode";
 import type { NavTarget } from "./TxDetail/primitives";
 import { OverviewSection } from "./TxDetail/OverviewSection";
 import { DecodedInputSection } from "./TxDetail/DecodedInputSection";
@@ -23,13 +24,17 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const chainId = useActiveChainId();
 
+  const decode = useTxDecode(hash, chainId);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     setTx(null);
 
-    fetchTransaction(hash, chainId)
+    // Core only — decode arrives via useTxDecode so the page never waits on a
+    // verified-source upstream to paint.
+    fetchTransaction(hash, chainId, { decode: false })
       .then((data) => {
         if (!cancelled) setTx(data);
       })
@@ -114,14 +119,26 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
         </div>
       )}
       <OverviewSection tx={tx} onNavigate={onNavigate} />
-      {tx.decodedInput && <DecodedInputSection decoded={tx.decodedInput} />}
-      {(tx.decodedLogs.length > 0 || tx.rawLogs.length > 0) && (
-        <EventsSection
-          decodedLogs={tx.decodedLogs}
-          rawLogs={tx.rawLogs}
-          onNavigate={onNavigate}
-        />
-      )}
+      {(() => {
+        // Overlay: prefer freshly-fetched decode, fall back to whatever the
+        // core payload carried (populated only in BYO mode).
+        const decodedInput = decode.decodedInput ?? tx.decodedInput;
+        const decodedLogs =
+          decode.decodedLogs.length > 0 ? decode.decodedLogs : tx.decodedLogs;
+        return (
+          <>
+            {decodedInput && <DecodedInputSection decoded={decodedInput} />}
+            {(decodedLogs.length > 0 || tx.rawLogs.length > 0) && (
+              <EventsSection
+                decodedLogs={decodedLogs}
+                rawLogs={tx.rawLogs}
+                onNavigate={onNavigate}
+                decodeState={decode.state}
+              />
+            )}
+          </>
+        );
+      })()}
       {tx.internalTransactions.length > 0 && (
         <InternalTxSection
           internalTransactions={tx.internalTransactions}

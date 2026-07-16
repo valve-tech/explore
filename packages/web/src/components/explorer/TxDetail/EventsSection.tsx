@@ -6,13 +6,23 @@ export function EventsSection({
   decodedLogs,
   rawLogs,
   onNavigate,
+  decodeState = "ready",
 }: {
   decodedLogs: TransactionDetails["decodedLogs"];
   rawLogs: TransactionDetails["rawLogs"];
   onNavigate: AddressNavigate;
+  decodeState?: "pending" | "ready" | "unavailable";
 }) {
   return (
     <SectionCard title="Events / Logs" count={rawLogs.length}>
+      {decodeState === "pending" && (
+        <div className="pt-2 text-xs theme-text-secondary">decoding…</div>
+      )}
+      {decodeState === "unavailable" && (
+        <div className="pt-2 text-xs theme-text-secondary">
+          decoding unavailable — showing raw logs
+        </div>
+      )}
       <div className="pt-3 space-y-2">
         {rawLogs.map((rawLog, i) => {
           const decoded = decodedLogs.find(

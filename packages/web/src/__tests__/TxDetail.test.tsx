@@ -13,6 +13,12 @@ import type { TransactionDetails } from "../api/explorer";
 
 vi.mock("../api/explorer", () => ({
   fetchTransaction: vi.fn(),
+  // TxDetail fetches decode separately via useTxDecode; these tests only care
+  // about the core render, so hand back an empty decode.
+  fetchTransactionDecode: vi.fn().mockResolvedValue({
+    decodedInput: null,
+    decodedLogs: [],
+  }),
 }));
 
 import TxDetail from "../components/explorer/TxDetail";

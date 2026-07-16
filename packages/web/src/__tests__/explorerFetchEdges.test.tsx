@@ -22,7 +22,15 @@ import { renderWithProviders } from "./_test-utils";
  * assertions still prove the error/null branches execute.
  */
 
-vi.mock("../api/explorer", () => ({ fetchTransaction: vi.fn() }));
+vi.mock("../api/explorer", () => ({
+  fetchTransaction: vi.fn(),
+  // TxDetail fetches decode separately via useTxDecode; these arms exercise the
+  // core fetch, so hand back an empty decode.
+  fetchTransactionDecode: vi.fn().mockResolvedValue({
+    decodedInput: null,
+    decodedLogs: [],
+  }),
+}));
 
 import TxDetail from "../components/explorer/TxDetail";
 import { fetchTransaction } from "../api/explorer";
