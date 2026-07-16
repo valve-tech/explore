@@ -106,6 +106,45 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
+// GET /api/tx/:hash/decode
+// ---------------------------------------------------------------------------
+//
+// The decode half of the tx page, split off so the page can paint core facts
+// (GET /tx/:hash?decode=0) without waiting on a verified-source upstream.
+// Returns ONLY the two decoded fields. On a decode timeout this 504s rather
+// than returning an empty decodedLogs — empty means "nothing to decode", and
+// returning it for "upstream unreachable" is a lie the client can't tell apart.
+router.get(
+  "/tx/:hash/decode",
+  asyncRoute(async (req: Request, res: Response) => {
+    const hash = String(req.params.hash ?? "");
+    if (!HASH_RE.test(hash)) {
+      throw new ApiError(400, "Invalid transaction hash");
+    }
+
+    // Budget: sized against the upstream deadlines this waits on
+    // (SOURCIFY_FETCH_TIMEOUT 8s + BLOCKSCOUT_FETCH_TIMEOUT 3s = 11s), plus
+    // headroom for the cheap tx+receipt re-read. `null` sentinel → 504.
+    const details = await withTimeout(
+      getTransactionDetails(hash),
+      13_000,
+      null as Awaited<ReturnType<typeof getTransactionDetails>> | null,
+    );
+
+    if (!details) {
+      throw new ApiError(504, "Decode timed out — verified-source upstream slow or unavailable");
+    }
+
+    respond.ok(res, {
+      result: {
+        decodedInput: details.decodedInput,
+        decodedLogs: details.decodedLogs,
+      },
+    });
+  }, "explorer/tx-decode"),
+);
+
+// ---------------------------------------------------------------------------
 // POST /api/tx/:hash/from-raw
 // ---------------------------------------------------------------------------
 //

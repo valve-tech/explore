@@ -24,3 +24,20 @@ test("GET /api/tx/:hash (no flag) still decodes", async () => {
   const body = await res.json();
   assert.equal(body.result.decodedInput?.functionName, "swap");
 });
+
+test("GET /api/tx/:hash/decode returns only the decoded fields", async () => {
+  const res = await fetch(`${BASE}/api/tx/${TX}/decode?chainid=369`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.result.decodedInput?.functionName, "swap");
+  assert.ok(Array.isArray(body.result.decodedLogs));
+  // Core facts are NOT duplicated onto this response.
+  assert.equal(body.result.from, undefined);
+  assert.equal(body.result.rawLogs, undefined);
+});
+
+test("GET /api/tx/:hash/decode 400s on a malformed hash", async () => {
+  const res = await fetch(`${BASE}/api/tx/0xnothex/decode?chainid=369`);
+  assert.equal(res.status, 400);
+});
