@@ -78,13 +78,35 @@ new one.
 
    Budget: its own `withTimeout`, sized against the upstream deadlines it waits
    on (`SOURCIFY_FETCH_TIMEOUT` 8s + `BLOCKSCOUT_FETCH_TIMEOUT` 3s = 11s; see
-   `services/sourceCode/types.ts`). On timeout it returns **504 with a clear
-   error**, not an empty result. An empty `decodedLogs: []` means "this
-   transaction has nothing to decode"; returning that for "we could not reach
-   the upstream" is a lie the client cannot tell apart, and it is exactly the
-   confusion that made the original 504 blame the RPC.
+   `services/sourceCode/types.ts`). A genuine timeout (nothing resolved) still
+   returns **504** — there is no partial result to preserve.
 
    A 404 (unknown hash) propagates as today.
+
+   **AMENDED 2026-07-15 (from the final whole-branch review):** the original
+   "504-not-`[]`" rule below could not hold as written. `fetchAbi` deliberately
+   catches `UpstreamError` and returns `null` ("decode without an ABI rather
+   than failing the caller"), so a decode build during an upstream outage
+   resolves *fast and successfully* with empty decode — the timeout never fires,
+   and `/decode` returned `200 []`, indistinguishable from "nothing to decode".
+   Worse, with Blockscout permanently dead, "unverified" and "unreachable"
+   collapse to the same `null` before the route can tell them apart, so a naive
+   "504 when empty" would over-report unavailability for genuinely-unverified
+   contracts.
+
+   **Resolution — a `degraded` flag on a 200, not a 504.** `/decode` returns
+   `{ ok: true, result: { decodedInput, decodedLogs, degraded } }`. `degraded`
+   is `true` when any verified-source lookup during *this* build could not get a
+   definitive answer — an upstream threw `UpstreamError`, or its circuit breaker
+   was open and the lookup was skipped. This is request-scoped (a dedicated
+   `AsyncLocalStorage` in the sourceCode layer, set by `getVerifiedSource`, read
+   by the route), so it is accurate under partial decode (some contracts resolve
+   via Sourcify while Blockscout is down → decode is kept AND `degraded: true`)
+   and never fires on a healthy chain. The 504 remains only for a true timeout.
+
+   The empty-vs-unreachable honesty the original rule wanted is preserved by
+   `degraded`, not by the status code — and `degraded` additionally keeps the
+   partial decode that a 504 would have thrown away.
 
 ### Frontend
 
@@ -110,9 +132,12 @@ new one.
    `EventsSection` shows raw topics meanwhile.
 
 6. **Honesty affordance.** While `state === "pending"`, `EventsSection` shows a
-   quiet "decoding…" note. On `"unavailable"`, it says decoding is unavailable
-   rather than implying the transaction had nothing to decode. This is the whole
-   reason the endpoint 504s instead of returning `[]`.
+   quiet "decoding…" note. `useTxDecode` maps a `degraded: true` response (and a
+   504/reject) to `state: "unavailable"`, and `EventsSection` then says decoding
+   was unavailable rather than implying the transaction had nothing to decode.
+   Because `degraded` can accompany a *partial* decode, the note reads "some
+   events couldn't be decoded — source lookup unavailable" and coexists with the
+   decoded rows that did resolve.
 
 ### Why not TanStack Query here
 
