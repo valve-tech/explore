@@ -19,6 +19,7 @@ import {
   isContract,
 } from "../services/explorer.js";
 import { chainClient, currentChainId } from "../services/chains/context.js";
+import { withDegradationTracking } from "../services/sourceCode/degradation.js";
 import { ApiError, asyncRoute, respond } from "../lib/respond.js";
 
 const router = Router();
@@ -125,20 +126,21 @@ router.get(
     // Budget: sized against the upstream deadlines this waits on
     // (SOURCIFY_FETCH_TIMEOUT 8s + BLOCKSCOUT_FETCH_TIMEOUT 3s = 11s), plus
     // headroom for the cheap tx+receipt re-read. `null` sentinel → 504.
-    const details = await withTimeout(
-      getTransactionDetails(hash),
+    const outcome = await withTimeout(
+      withDegradationTracking(() => getTransactionDetails(hash)),
       13_000,
-      null as Awaited<ReturnType<typeof getTransactionDetails>> | null,
+      null as { result: Awaited<ReturnType<typeof getTransactionDetails>>; degraded: boolean } | null,
     );
 
-    if (!details) {
+    if (!outcome) {
       throw new ApiError(504, "Decode timed out — verified-source upstream slow or unavailable");
     }
 
     respond.ok(res, {
       result: {
-        decodedInput: details.decodedInput,
-        decodedLogs: details.decodedLogs,
+        decodedInput: outcome.result.decodedInput,
+        decodedLogs: outcome.result.decodedLogs,
+        degraded: outcome.degraded,
       },
     });
   }, "explorer/tx-decode"),

@@ -2,6 +2,7 @@ import { UpstreamError, type VerifiedSource } from "./types.js";
 import { cacheSource, getCachedSource } from "./cache.js";
 import { fetchFromBlockScout } from "./blockscout.js";
 import { fetchFromSourcify } from "./sourcify.js";
+import { markDegraded } from "./degradation.js";
 import { currentChainId } from "../chains/context.js";
 import {
   createBreakerState,
@@ -100,6 +101,8 @@ async function viaBreaker(
     if (isCooledDown(state, Date.now())) {
       scheduleProbe(key, name, address, fetcher, state);
     }
+    // Skipped because the circuit is open — we did NOT get a definitive answer.
+    markDegraded();
     return { answered: false };
   }
 
@@ -110,6 +113,8 @@ async function viaBreaker(
   } catch (err) {
     if (!(err instanceof UpstreamError)) throw err;
     recordFailure(state, Date.now());
+    // Transient upstream failure — no definitive answer for this lookup.
+    markDegraded();
     console.warn(`[sourceCode] ${name} unavailable for ${address}: ${err.message}`);
     return { answered: false };
   }

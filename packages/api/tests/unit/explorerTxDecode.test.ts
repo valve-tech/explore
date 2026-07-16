@@ -41,3 +41,16 @@ test("GET /api/tx/:hash/decode 400s on a malformed hash", async () => {
   const res = await fetch(`${BASE}/api/tx/0xnothex/decode?chainid=369`);
   assert.equal(res.status, 400);
 });
+
+test("GET /api/tx/:hash/decode carries a boolean `degraded` flag", async () => {
+  const res = await fetch(`${BASE}/api/tx/${TX}/decode?chainid=369`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  // The whole point of the split route: "unverified" vs "couldn't reach the
+  // verifier" must be distinguishable, so the flag is always present + typed.
+  assert.equal(typeof body.result.degraded, "boolean");
+  // This tx (chain 369) touches unverified emitters and Blockscout is dead, so
+  // the verified-source lookup can't get a definitive answer → degraded.
+  assert.equal(body.result.degraded, true);
+});
