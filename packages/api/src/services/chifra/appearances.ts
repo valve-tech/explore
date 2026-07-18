@@ -95,6 +95,31 @@ export async function listAppearances(
  * size. Returns `null` on outage so the caller can fall back gracefully. Cached
  * briefly per (chain, address), like `listAppearances`.
  */
+/**
+ * True appearance count from a `chifra list --count` row `{ fileSize, nRecords }`.
+ *
+ * The TrueBlocks appearance file is a fixed 8-byte HEADER followed by 8-byte
+ * records (blockNumber uint32 + transactionIndex uint32), so the record count
+ * is `fileSize / 8 - 1`. The header cost was previously missed
+ * (`Math.floor(fileSize / 8)`), which over-counted every address by exactly one
+ * — the address page then reported a phantom extra transaction and enabled a
+ * "Next" into a short or empty page. Verified against the live daemon: 344→42,
+ * 144→17 (both uncapped, both nRecords-exact).
+ *
+ * `fileSize` is preferred over `nRecords` because `nRecords` is capped at the
+ * daemon's maxRecords (250) — useless for large addresses — while `fileSize` is
+ * the uncapped on-disk size. `nRecords` is used only when `fileSize` is absent.
+ */
+export function appearanceCountFromRow(
+  row: { fileSize?: number; nRecords?: number } | undefined,
+): number | null {
+  if (!row) return null;
+  if (typeof row.fileSize === "number") {
+    return Math.max(0, Math.floor(row.fileSize / 8) - 1);
+  }
+  return row.nRecords ?? null;
+}
+
 export async function countAppearances(address: string): Promise<number | null> {
   const chain = currentChain().chifraChain;
   const cacheKey = `${chain}:${address.toLowerCase()}`;
@@ -103,21 +128,12 @@ export async function countAppearances(address: string): Promise<number | null> 
 
   try {
     const res = await client.list({ addrs: [address], chain, count: true });
-    // `--count` returns `{ address, fileSize, nRecords }`. `nRecords` is capped
-    // by the daemon's default maxRecords (250), but `fileSize` is the uncapped
-    // on-disk size — and a TrueBlocks appearance is exactly 8 bytes
-    // (blockNumber uint32 + transactionIndex uint32), so `fileSize / 8` is the
-    // true count. Fall back to nRecords only if fileSize is missing.
     const row = (res.data ?? []).find(
       (r) =>
         typeof (r as { fileSize?: unknown }).fileSize === "number" ||
         typeof (r as { nRecords?: unknown }).nRecords === "number",
     ) as { fileSize?: number; nRecords?: number } | undefined;
-    const value = row
-      ? typeof row.fileSize === "number"
-        ? Math.floor(row.fileSize / 8)
-        : row.nRecords ?? null
-      : null;
+    const value = appearanceCountFromRow(row);
     countCache.set(cacheKey, { value, t: Date.now() });
     if (countCache.size > 500) {
       const oldest = countCache.keys().next().value;

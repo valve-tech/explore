@@ -54,6 +54,10 @@ export default function AddressView({
 }: AddressViewProps) {
   const [info, setInfo] = useState<AddressInfo | null>(null);
   const [txs, setTxs] = useState<AddressTransaction[]>([]);
+  // The address's FULL transaction count (chifra appearance count), not the
+  // current page length — drives the tab badge and pagination. `txs` is
+  // replaced per page, so its length is only ever the page size.
+  const [total, setTotal] = useState(0);
   const [tokens, setTokens] = useState<AddressToken[]>([]);
   // True when the token list came from the indexed balance-changes gateway
   // (storage-diff truth) rather than the RPC/chifra fallback.
@@ -82,6 +86,7 @@ export default function AddressView({
         if (!cancelled) {
           setInfo(addrInfo);
           setTxs(txData.transactions);
+          setTotal(txData.total ?? txData.transactions.length);
           const indexed = holdingsData?.indexed ?? false;
           setTokens(indexed ? holdingsData!.holdings.map(holdingToToken) : tokenData);
           setTokensIndexed(indexed);
@@ -104,6 +109,7 @@ export default function AddressView({
     try {
       const data = await fetchAddressTransactions(address, newPage, 25, chainId);
       setTxs(data.transactions);
+      setTotal(data.total ?? data.transactions.length);
       setPage(newPage);
     } catch {
       // keep current
@@ -151,7 +157,7 @@ export default function AddressView({
       <SubTabBar
         active={subTab}
         onSelect={setSubTab}
-        txCount={txs.length}
+        txCount={total}
         tokenCount={tokens.length}
       />
 
@@ -160,6 +166,7 @@ export default function AddressView({
           ownerAddress={address}
           txs={txs}
           page={page}
+          total={total}
           onLoadPage={loadPage}
           onNavigate={onNavigate}
         />

@@ -185,6 +185,7 @@ describe("<TransactionsTab /> — pagination + empty", () => {
         ownerAddress={tx.from}
         txs={[]}
         page={1}
+        total={0}
         onLoadPage={vi.fn()}
         onNavigate={vi.fn()}
       />,
@@ -199,6 +200,7 @@ describe("<TransactionsTab /> — pagination + empty", () => {
         ownerAddress={tx.from}
         txs={[tx]}
         page={2}
+        total={26}
         onLoadPage={onLoadPage}
         onNavigate={vi.fn()}
       />,

@@ -6,10 +6,14 @@ export type AddressNavTarget = {
   value: string;
 };
 
+const PAGE_SIZE = 25;
+
 interface Props {
   ownerAddress: string;
   txs: AddressTransaction[];
   page: number;
+  /** Full appearance count for the address, across all pages. */
+  total: number;
   onLoadPage: (newPage: number) => void;
   onNavigate: (target: AddressNavTarget) => void;
 }
@@ -18,6 +22,7 @@ export function TransactionsTab({
   ownerAddress,
   txs,
   page,
+  total,
   onLoadPage,
   onNavigate,
 }: Props) {
@@ -42,7 +47,7 @@ export function TransactionsTab({
           </div>
           <Pagination
             page={page}
-            hasMore={txs.length >= 25}
+            hasMore={page * PAGE_SIZE < total}
             onLoadPage={onLoadPage}
           />
         </>

@@ -168,9 +168,10 @@ describe("<AddressView />", () => {
     }));
     mockInfo.mockResolvedValue(eoaInfo);
     mockTokens.mockResolvedValue([]);
-    mockTxs.mockResolvedValueOnce({ transactions: page1 });
-    // Subsequent loadPage call.
-    mockTxs.mockResolvedValueOnce({ transactions: [tx] });
+    // total 42 > one page → Next is enabled.
+    mockTxs.mockResolvedValueOnce({ transactions: page1, total: 42 });
+    // Subsequent loadPage call (page 2 of 42).
+    mockTxs.mockResolvedValueOnce({ transactions: [tx], total: 42 });
 
     renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />);
     await screen.findByText("Page 1");
@@ -178,6 +179,40 @@ describe("<AddressView />", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Page 2")).toBeInTheDocument();
     expect(mockTxs).toHaveBeenCalledWith(ADDR, 2, 25, expect.any(Number));
+  });
+
+  it("shows the TRUE total in the tab badge, not the current page size", async () => {
+    // The reported bug: the badge showed 25 (the page length) while the address
+    // actually has 42 transactions across two pages.
+    const page1 = Array.from({ length: 25 }, (_, i) => ({
+      ...tx,
+      hash: "0x" + String(i).padStart(64, "0"),
+    }));
+    mockInfo.mockResolvedValue(eoaInfo);
+    mockTokens.mockResolvedValue([]);
+    mockTxs.mockResolvedValue({ transactions: page1, total: 42 });
+
+    renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />);
+    const tab = await screen.findByRole("button", { name: /Transactions/ });
+    // Badge reflects the real total, and NOT the page size.
+    expect(tab).toHaveTextContent("42");
+    expect(tab).not.toHaveTextContent("25");
+  });
+
+  it("disables Next on an exactly-full final page (no phantom empty page)", async () => {
+    // total 25 with a full 25-row page: the old `txs.length >= 25` heuristic
+    // wrongly enabled Next into an empty page 2. Driven by total, Next is off.
+    const page1 = Array.from({ length: 25 }, (_, i) => ({
+      ...tx,
+      hash: "0x" + String(i).padStart(64, "0"),
+    }));
+    mockInfo.mockResolvedValue(eoaInfo);
+    mockTokens.mockResolvedValue([]);
+    mockTxs.mockResolvedValue({ transactions: page1, total: 25 });
+
+    renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />);
+    await screen.findByText("Page 1");
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
   it("shows the contract badge + View Contract link for a contract address", async () => {
