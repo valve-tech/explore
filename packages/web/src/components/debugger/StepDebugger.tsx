@@ -32,6 +32,7 @@ import { CallContextBreadcrumb } from "./StepDebugger/CallContextBreadcrumb";
 import { CallTreeFromOpcodes } from "./StepDebugger/CallTreeFromOpcodes";
 import { findFunctionLine } from "./StepDebugger/findFunctionLine";
 import { findDefinitionLine } from "./StepDebugger/findDefinitionLine";
+import { activeFrame, buildFrameLineIndex } from "./StepDebugger/lineToStepIndex";
 import {
   emptyHistory,
   pushEntry as pushHistoryEntry,
@@ -309,6 +310,15 @@ export default function StepDebugger({
     return out;
   }, [callTrace, frameStepMap, steps]);
 
+  // The frame the cursor is currently inside — the deepest frameRanges entry
+  // covering currentStep. Shared by activeContractAddress, jumpToDefinition,
+  // and the source-gutter line index below; they all need "which invocation
+  // is the user looking at right now."
+  const activeFrameRange = useMemo(
+    () => activeFrame(frameRanges, currentStep),
+    [frameRanges, currentStep],
+  );
+
   // Source maps for EVERY contract in the trace, so the call tree can trace
   // internal functions across all of them (Remix's model), not just the active
   // contract. Keyed by the pcs each contract actually executed.
@@ -485,16 +495,10 @@ export default function StepDebugger({
       // even searching so we never even render a flash.
       if (SOLIDITY_GLOBALS.has(name)) return;
 
-      let addr: string | null = null;
-      let frame: { entry: number; end: number } | null = null;
-      let bestDepth = -1;
-      for (const f of frameRanges) {
-        if (f.entry <= currentStep && currentStep < f.end && f.depth > bestDepth) {
-          bestDepth = f.depth;
-          addr = f.addr;
-          frame = { entry: f.entry, end: f.end };
-        }
-      }
+      const addr = activeFrameRange?.addr ?? null;
+      const frame = activeFrameRange
+        ? { entry: activeFrameRange.entry, end: activeFrameRange.end }
+        : null;
       const addrKey = addr?.toLowerCase();
       const files = addrKey ? sourcesByAddr[addrKey] : undefined;
       if (!files || files.length === 0) return; // no source — silent
@@ -531,7 +535,7 @@ export default function StepDebugger({
       );
       pushRecent({ step: landedStep, overrideLine: hit.line, label: name, kind: "definition" });
     },
-    [frameRanges, currentStep, sourcesByAddr, traceSourceMaps, steps, goTo, pushRecent],
+    [activeFrameRange, currentStep, sourcesByAddr, traceSourceMaps, steps, goTo, pushRecent],
   );
 
   // Apply a history entry (back/forward). Same shape as the other navigators
@@ -692,17 +696,10 @@ export default function StepDebugger({
   // The contract executing at the cursor = the deepest frame whose range covers
   // the current step. For DELEGATECALL the frame's `to` is the code contract,
   // which is exactly the source we want to show.
-  const activeContractAddress = useMemo(() => {
-    let best: string | null = null;
-    let bestDepth = -1;
-    for (const f of frameRanges) {
-      if (f.entry <= currentStep && currentStep < f.end && f.depth > bestDepth) {
-        bestDepth = f.depth;
-        best = f.addr;
-      }
-    }
-    return best ?? callTrace?.to ?? contractAddress ?? null;
-  }, [frameRanges, currentStep, callTrace, contractAddress]);
+  const activeContractAddress = useMemo(
+    () => activeFrameRange?.addr ?? callTrace?.to ?? contractAddress ?? null,
+    [activeFrameRange, callTrace, contractAddress],
+  );
 
   const { data: sourceData = null, isLoading: sourceLoading } = useContractSource(activeContractAddress);
 
@@ -795,21 +792,29 @@ export default function StepDebugger({
   }, [currentStep, activeContractAddress, currentSourceFile, effectiveLine]);
 
   // Reverse link: which source lines have an opcode (so their gutter is a
-  // clickable jump target), and the first step that lands on each line. Built
-  // for the file currently shown so clicking a line jumps execution there.
+  // clickable jump target), and the first step (within the CURRENT FRAME)
+  // that lands on each line. Built for the file currently shown so clicking a
+  // line jumps execution there — scoped to the active frame so a click lands
+  // in the invocation being inspected, using that frame's own per-contract
+  // source map (traceSourceMaps) so PCs from other contracts can't mis-map
+  // (mirrors jumpToDefinition's frame + per-contract-map pattern above).
+  //
+  // Falls back to `sourceMappings` — the active contract's own map, already
+  // fetched for the whole trace — when there's no active frame (no callTrace,
+  // so frameRanges is empty) or traceSourceMaps hasn't resolved that address
+  // yet. sourceMappings is keyed to the same activeContractAddress, so it's a
+  // correct stand-in, not just a "don't crash" default.
   const { executableLines, lineToFirstStep } = useMemo(() => {
-    const lines = new Set<number>();
-    const firstStep = new Map<number, number>();
-    if (!currentSourceFile) return { executableLines: lines, lineToFirstStep: firstStep };
-    for (let i = 0; i < steps.length; i++) {
-      const loc = sourceMappings[steps[i]!.pc];
-      if (loc && loc.file === currentSourceFile.name) {
-        lines.add(loc.line);
-        if (!firstStep.has(loc.line)) firstStep.set(loc.line, i);
-      }
-    }
-    return { executableLines: lines, lineToFirstStep: firstStep };
-  }, [steps, sourceMappings, currentSourceFile]);
+    const addrKey = activeFrameRange?.addr?.toLowerCase();
+    const pcMap = (addrKey && traceSourceMaps[addrKey]) || sourceMappings;
+    const { executableLines, lineToStep } = buildFrameLineIndex(
+      steps,
+      activeFrameRange ? { entry: activeFrameRange.entry, end: activeFrameRange.end } : null,
+      pcMap,
+      currentSourceFile?.name ?? null,
+    );
+    return { executableLines, lineToFirstStep: lineToStep };
+  }, [steps, activeFrameRange, traceSourceMaps, sourceMappings, currentSourceFile]);
 
   const jumpToLine = useCallback(
     (line: number) => {
