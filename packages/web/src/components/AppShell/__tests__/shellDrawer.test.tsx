@@ -1,5 +1,5 @@
 import { it, expect, vi, beforeEach } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, within } from "@testing-library/react";
 import { renderWithProviders } from "../../../__tests__/_test-utils";
 import AppShell from "../../AppShell";
 
@@ -41,4 +41,23 @@ it("opens the drawer from the hamburger and closes on backdrop tap", () => {
   expect(backdrop).toBeInTheDocument();
   fireEvent.click(backdrop);
   expect(screen.queryByLabelText("Close menu")).not.toBeInTheDocument();
+});
+
+it("renders the drawer with dialog semantics and full nav labels (not the collapsed icon rail)", () => {
+  renderWithProviders(
+    <AppShell apiStatus="connected">
+      <div>content</div>
+    </AppShell>,
+  );
+  fireEvent.click(screen.getByLabelText("Open menu"));
+
+  // Dialog semantics: the drawer aside must be a modal dialog, not a plain nav.
+  const dialog = screen.getByRole("dialog", { name: "Navigation" });
+  expect(dialog).toHaveAttribute("aria-modal", "true");
+
+  // Full-label regression guard: a known nav label from navGroups.ts must be
+  // visible inside the drawer. In the collapsed 56px icon rail this label
+  // span isn't rendered at all, so a regression to effectiveCollapsed=true
+  // here would make this assertion fail.
+  expect(within(dialog).getByText("Explorer")).toBeInTheDocument();
 });
