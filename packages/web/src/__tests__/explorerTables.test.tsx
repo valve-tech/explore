@@ -78,12 +78,12 @@ describe("TokensTab", () => {
     type: "ERC-20",
   };
 
-  it("renders a token holding row", () => {
+  it("renders a token holding row with a searchable contract address", () => {
     renderWithProviders(<TokensTab tokens={[token]} onNavigate={vi.fn()} />);
     expect(screen.getByText("Wrapped Pulse")).toBeInTheDocument();
     expect(screen.getByText("WPLS")).toBeInTheDocument();
     expect(screen.getByText("5,456.51")).toBeInTheDocument();
-    expect(screen.getByText("0xA107...9a27")).toBeInTheDocument();
+    expect(screen.getByTitle(WPLS)).toBeInTheDocument(); // contract, full value searchable
     expect(screen.getByText("ERC-20")).toBeInTheDocument();
   });
 

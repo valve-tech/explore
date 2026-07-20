@@ -1,7 +1,7 @@
 import type { AddressToken } from "../../../api/explorer";
-import { truncateAddr } from "../format";
 import type { AddressNavTarget } from "./TransactionsTab";
-import { Tooltip } from "../../primitives/Tooltip";
+import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { DataTable, type Column } from "../../primitives/DataTable";
 
 export function TokensTab({
   tokens,
@@ -13,6 +13,51 @@ export function TokensTab({
   /** True when balances came from the indexed balance-changes archive. */
   indexed?: boolean;
 }) {
+  const columns: Column<AddressToken>[] = [
+    {
+      key: "name",
+      header: "Token",
+      primary: true,
+      cell: (token) => <span className="theme-text">{token.name || "Unknown"}</span>,
+    },
+    {
+      key: "symbol",
+      header: "Symbol",
+      cell: (token) => <span className="font-mono theme-text-secondary">{token.symbol}</span>,
+    },
+    {
+      key: "balance",
+      header: "Balance",
+      cell: (token) => <span className="font-mono theme-text">{token.formattedBalance}</span>,
+    },
+    {
+      key: "contract",
+      header: "Contract",
+      cell: (token) => (
+        <button
+          onClick={() =>
+            onNavigate({
+              type: "address",
+              value: token.contractAddress,
+            })
+          }
+          className="font-mono text-xs hover:underline cursor-pointer theme-accent"
+        >
+          <MiddleTruncate value={token.contractAddress} className="font-mono text-xs theme-accent" />
+        </button>
+      ),
+    },
+    {
+      key: "type",
+      header: "Type",
+      cell: (token) => (
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded theme-secondary-bg theme-text-secondary">
+          {token.type}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div
       className="rounded-lg bs overflow-hidden theme-card-bg"
@@ -22,75 +67,12 @@ export function TokensTab({
           Balances from the indexed balance-changes archive (storage-diff truth).
         </div>
       )}
-      {tokens.length === 0 ? (
-        <div
-          className="p-4 text-center text-sm theme-text-muted"
-        >
-          No tokens found
-        </div>
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="theme-secondary-bg">
-              {["Token", "Symbol", "Balance", "Contract", "Type"].map((h) => (
-                <th
-                  key={h}
-                  className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tokens.map((token, i) => (
-              <tr
-                key={i}
-                className="bs-t-muted hover:opacity-80"
-                style={{}}
-              >
-                <td
-                  className="px-3 py-2 theme-text"
-                >
-                  {token.name || "Unknown"}
-                </td>
-                <td
-                  className="px-3 py-2 font-mono theme-text-secondary"
-                >
-                  {token.symbol}
-                </td>
-                <td
-                  className="px-3 py-2 font-mono theme-text"
-                >
-                  {token.formattedBalance}
-                </td>
-                <td className="px-3 py-2">
-                  <Tooltip label={token.contractAddress}>
-                    <button
-                      onClick={() =>
-                        onNavigate({
-                          type: "address",
-                          value: token.contractAddress,
-                        })
-                      }
-                      className="font-mono text-xs hover:underline cursor-pointer theme-accent"
-                    >
-                      {truncateAddr(token.contractAddress)}
-                    </button>
-                  </Tooltip>
-                </td>
-                <td className="px-3 py-2">
-                  <span
-                    className="text-[10px] font-medium px-1.5 py-0.5 rounded theme-secondary-bg theme-text-secondary"
-                  >
-                    {token.type}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <DataTable
+        columns={columns}
+        rows={tokens}
+        rowKey={(token, i) => `${token.contractAddress}-${i}`}
+        emptyLabel="No tokens found"
+      />
     </div>
   );
 }

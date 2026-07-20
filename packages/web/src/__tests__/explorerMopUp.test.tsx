@@ -365,9 +365,9 @@ describe("<TokensTab /> — row navigation", () => {
         onNavigate={onNavigate}
       />,
     );
-    // The contract address renders truncated (truncateAddr → head6...tail4)
-    // inside a button.
-    fireEvent.click(screen.getByText("0xA107...9a27"));
+    // The contract address renders via MiddleTruncate (visually clipped, full
+    // value searchable via its title attribute) inside a button.
+    fireEvent.click(screen.getByTitle(WPLS));
     expect(onNavigate).toHaveBeenCalledWith({ type: "address", value: WPLS });
     // name "" → "Unknown" fallback rendered.
     expect(screen.getByText("Unknown")).toBeInTheDocument();
