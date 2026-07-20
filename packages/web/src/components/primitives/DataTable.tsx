@@ -39,32 +39,40 @@ export function DataTable<T>({
   }
 
   if (!isMobile) {
+    // Wrapped in overflow-x-auto so a table wider than the viewport scrolls
+    // inside its own box (picking up the global always-visible scrollbar
+    // styling) instead of overflowing the page.
     return (
-      <table className={className ?? "w-full text-sm"}>
-        <thead>
-          <tr className="theme-secondary-bg">
-            {columns.map((c) => (
-              <th
-                key={c.key}
-                className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
-              >
-                {c.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={rowKey(row, i)} className="bs-t-muted hover:opacity-80">
+      <div className="overflow-x-auto">
+        <table className={className ?? "w-full text-sm"}>
+          <thead>
+            <tr className="theme-secondary-bg">
               {columns.map((c) => (
-                <td key={c.key} className="px-3 py-2">
-                  {c.cell(row)}
-                </td>
+                <th
+                  key={c.key}
+                  className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
+                >
+                  {c.header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr
+                key={rowKey(row, i)}
+                className="bs-t-muted hover:opacity-80"
+              >
+                {columns.map((c) => (
+                  <td key={c.key} className="px-3 py-2">
+                    {c.cell(row)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   }
 

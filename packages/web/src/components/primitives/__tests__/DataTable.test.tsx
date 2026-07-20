@@ -36,6 +36,16 @@ describe("DataTable", () => {
     expect(screen.getAllByText(/0x/).length).toBe(2);
   });
 
+  it("wraps the table in a horizontal-scroll container (no page overflow)", () => {
+    mockMobile(false);
+    const { container } = render(
+      <DataTable columns={columns} rows={rows} rowKey={(r) => r.hash} />,
+    );
+    const wrapper = container.querySelector(".overflow-x-auto");
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.querySelector("table")).not.toBeNull();
+  });
+
   it("renders cards (no <table>) at phone width, with labels for non-primary columns", () => {
     mockMobile(true);
     const { container } = render(
