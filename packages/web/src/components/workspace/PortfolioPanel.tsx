@@ -7,6 +7,8 @@ import { truncateAddr } from "../explorer/format";
 import { formatAmountDisplay } from "../../lib/format/tokenAmount";
 import { chainById, DEFAULT_CHAIN_ID } from "../../lib/chains";
 import { TokenImage } from "../primitives/TokenImage";
+import { MiddleTruncate } from "../primitives/MiddleTruncate";
+import { DataTable, type Column } from "../primitives/DataTable";
 
 /** Native coin decimals (wei → coin). */
 const NATIVE_DECIMALS = 18;
@@ -114,7 +116,11 @@ function aggregate(results: HoldingsResult[]): AggToken[] {
       } else {
         byToken.set(key, {
           address: key,
-          symbol: h.symbol || truncateAddr(h.tokenAddress),
+          // Falsy (empty string) when the token has no symbol — HoldingsTable
+          // falls back to a searchable MiddleTruncate of the contract address
+          // at render time, rather than pre-truncating it here with a
+          // JS-sliced string that can never be found by its full value.
+          symbol: h.symbol,
           name: h.name,
           decimals: h.decimals,
           total: amount,
@@ -133,33 +139,47 @@ function aggregate(results: HoldingsResult[]): AggToken[] {
 }
 
 function HoldingsTable({ rows, chainId }: { rows: AggToken[]; chainId: number }) {
+  const columns: Column<AggToken>[] = [
+    {
+      key: "token",
+      header: "Token",
+      primary: true,
+      cell: (t) => (
+        <span className="flex items-center gap-inline">
+          <TokenImage address={t.address} chainId={chainId} symbol={t.symbol} size={16} />
+          <span className="font-medium">
+            {t.symbol || (
+              <MiddleTruncate value={t.address} className="font-mono text-xs theme-text-secondary" />
+            )}
+          </span>
+          {t.name && <span className="theme-text-muted">{t.name}</span>}
+        </span>
+      ),
+    },
+    {
+      key: "total",
+      header: "Total held",
+      cell: (t) => (
+        <div className="text-right font-mono">
+          {formatAmountDisplay(t.total, t.decimals, { maxFractionDigits: 4 })}
+        </div>
+      ),
+    },
+    {
+      key: "holders",
+      header: "Addresses",
+      cell: (t) => <div className="text-right theme-text-secondary">{t.holders}</div>,
+    },
+  ];
+
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="theme-text-muted text-left">
-          <th className="font-normal pb-1.5">Token</th>
-          <th className="font-normal pb-1.5 text-right">Total held</th>
-          <th className="font-normal pb-1.5 text-right">Addresses</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((t) => (
-          <tr key={t.address} className="theme-text">
-            <td className="py-1">
-              <span className="flex items-center gap-inline">
-                <TokenImage address={t.address} chainId={chainId} symbol={t.symbol} size={16} />
-                <span className="font-medium">{t.symbol}</span>
-                {t.name && <span className="theme-text-muted">{t.name}</span>}
-              </span>
-            </td>
-            <td className="py-1 text-right font-mono">
-              {formatAmountDisplay(t.total, t.decimals, { maxFractionDigits: 4 })}
-            </td>
-            <td className="py-1 text-right theme-text-secondary">{t.holders}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <DataTable
+      columns={columns}
+      rows={rows}
+      rowKey={(t) => t.address}
+      className="w-full text-xs"
+      emptyLabel="No token holdings"
+    />
   );
 }
 
