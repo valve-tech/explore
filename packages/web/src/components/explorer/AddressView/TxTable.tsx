@@ -141,7 +141,7 @@ function ToCell({
 
   const isIn = tx.to.toLowerCase() === ownerAddress.toLowerCase();
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5 min-w-0">
       <DirectionBadge isIn={isIn} />
       <LinkButton target={{ type: "address", value: tx.to }} onNavigate={onNavigate}>
         <MiddleTruncate value={tx.to} className="font-mono text-xs theme-accent" />
@@ -163,7 +163,13 @@ function LinkButton({
     <ExplorerLink
       target={target}
       onNavigate={onNavigate}
-      className="font-mono text-xs hover:underline cursor-pointer theme-accent"
+      // `min-w-0`: harmless everywhere this renders as a plain inline link,
+      // but load-bearing in ToCell — there this anchor is a flex item of the
+      // IN/OUT-badge row, and without it the anchor's automatic (content-based)
+      // min-width keeps it from shrinking, so the MiddleTruncate address inside
+      // never gets narrow enough to trigger its own ellipsis and instead runs
+      // off the card edge with a hard clip.
+      className="font-mono text-xs hover:underline cursor-pointer theme-accent min-w-0"
     >
       {children}
     </ExplorerLink>

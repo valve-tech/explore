@@ -140,17 +140,23 @@ export function SourceOpcodeSplit({
           // opcode pane. Persisted so the rail keeps showing on reload.
           // `lg:`-only affordance — the toggle button itself is unreachable
           // below `lg:`, same as before this change.
-          <Tooltip label="Show opcode pane" className="hidden lg:flex flex-shrink-0">
-            <button
-              onClick={toggleCollapsed}
-              className="hidden lg:flex items-start justify-center pt-3 flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-card-bg theme-text-muted theme-mono bs"
-              style={{
-                width: "20px",
-              }}
-            >
-              <Icon icon="heroicons:chevron-left" className="w-3 h-3" aria-hidden />
-            </button>
-          </Tooltip>
+          // `hidden lg:flex flex-shrink-0` lives on this wrapper, not on the
+          // Tooltip's own className — the Tooltip always renders
+          // `inline-flex`, which wins over a co-applied `hidden` in this
+          // Tailwind v4 build's generated CSS order.
+          <span className="hidden lg:flex flex-shrink-0">
+            <Tooltip label="Show opcode pane">
+              <button
+                onClick={toggleCollapsed}
+                className="hidden lg:flex items-start justify-center pt-3 flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-card-bg theme-text-muted theme-mono bs"
+                style={{
+                  width: "20px",
+                }}
+              >
+                <Icon icon="heroicons:chevron-left" className="w-3 h-3" aria-hidden />
+              </button>
+            </Tooltip>
+          </span>
         ) : (
           // Opcode trace — synced companion. The `.card` class already provides
           // the bg-card surface + outset border + 1px margin; no need to repeat
@@ -168,18 +174,24 @@ export function SourceOpcodeSplit({
                   onToggle={onToggleOpcode}
                 />
               </div>
-              <Tooltip label="Hide opcode pane" className="hidden lg:flex self-stretch flex-shrink-0">
-                <button
-                  onClick={toggleCollapsed}
-                  className="hidden lg:flex items-center justify-center self-stretch flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-text-muted theme-mono"
-                  style={{
-                    width: "20px",
-                    boxShadow: "inset 1px 0 0 0 var(--color-border-default)",
-                  }}
-                >
-                  <Icon icon="heroicons:chevron-right" className="w-3 h-3" aria-hidden />
-                </button>
-              </Tooltip>
+              {/* `hidden lg:flex self-stretch flex-shrink-0` on this wrapper,
+                  not on the Tooltip's own className — the Tooltip always
+                  renders `inline-flex`, which wins over a co-applied `hidden`
+                  in this Tailwind v4 build's generated CSS order. */}
+              <span className="hidden lg:flex self-stretch flex-shrink-0">
+                <Tooltip label="Hide opcode pane">
+                  <button
+                    onClick={toggleCollapsed}
+                    className="hidden lg:flex items-center justify-center self-stretch flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-text-muted theme-mono"
+                    style={{
+                      width: "20px",
+                      boxShadow: "inset 1px 0 0 0 var(--color-border-default)",
+                    }}
+                  >
+                    <Icon icon="heroicons:chevron-right" className="w-3 h-3" aria-hidden />
+                  </button>
+                </Tooltip>
+              </span>
             </div>
             <div className="flex-1 min-h-0">
               <OpcodeTracePane

@@ -66,18 +66,24 @@ export function TopBar({
         <Icon icon="heroicons:bars-3" className="w-5 h-5" />
       </button>
       {/* Desktop: collapses/expands the rail. */}
-      <Tooltip label={toggleTitle} className="hidden sm:flex">
-        <button
-          onClick={onToggleCollapse}
-          aria-label={toggleTitle}
-          className={`${control} hover:opacity-80 theme-text-secondary bs-r-muted bg-transparent`}
-        >
-          <Icon
-            icon={collapsed ? "heroicons:bars-3" : "heroicons:chevron-double-left"}
-            className="w-5 h-5"
-          />
-        </button>
-      </Tooltip>
+      {/* `hidden sm:flex` lives on this wrapper, not the Tooltip's own
+          className — the Tooltip always renders `inline-flex`, and
+          `inline-flex hidden` loses to `inline-flex` in this Tailwind v4
+          build's generated CSS order, so `hidden` never actually hides it. */}
+      <span className="hidden sm:flex">
+        <Tooltip label={toggleTitle}>
+          <button
+            onClick={onToggleCollapse}
+            aria-label={toggleTitle}
+            className={`${control} hover:opacity-80 theme-text-secondary bs-r-muted bg-transparent`}
+          >
+            <Icon
+              icon={collapsed ? "heroicons:bars-3" : "heroicons:chevron-double-left"}
+              className="w-5 h-5"
+            />
+          </button>
+        </Tooltip>
+      </span>
 
       <BackHistoryControl canGoBack={canGoBack} onBack={() => navigate(-1)} />
 
