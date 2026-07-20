@@ -1021,7 +1021,11 @@ Nine tables. Each is the same mechanical move: extract the existing per-cell JSX
 - `components/explorer/TxDetail/TokenTransfersSection.tsx` — primary: token.
 - `components/explorer/TxDetail/InternalTxSection.tsx` — primary: To/type.
 - `components/explorer/TxDetail/DecodedInputSection.tsx` — primary: param name.
-- `components/networkHealth/BlockTable.tsx` — primary: block number.
+- ~~`components/networkHealth/BlockTable.tsx`~~ — **NOT migrated (reversed during execution).**
+  All-numeric (no searchable-truncation benefit), 64+ rows, and its row-click-to-expand-FeeLadder
+  feature can't be expressed by `DataTable` (the workaround pushed the expanded panel below the whole
+  list — worse on mobile). Kept hand-rolled with its existing `overflow-x-auto` wrapper, i.e. it gets
+  the §6 baseline contained-scroll treatment instead. See ledger Task 5d.
 - `components/networkHealth/MinersPanel.tsx` — primary: miner address.
 - `components/workspace/PortfolioPanel.tsx` — primary: token.
 
@@ -1228,7 +1232,7 @@ Applies to every route, including out-of-scope ones. Pure Tailwind edits — no 
 
 - [ ] **Step 6: Contained-scroll wrapper on the non-migrated tables**
 
-For each of these, ensure the `<table>` is wrapped in `<div className="overflow-x-auto">` (several already are — only add where missing): `StorageLayoutViewer.tsx`, `ForkSimulator/DiffTables.tsx`, `monitoring/AlertHistory.tsx`, `actions/ActionLogs.tsx`, `debugger/GasProfiler/GasTable.tsx`, `debugger/GasProfiler/TopExpensiveOps.tsx`, `StateDiffPanel.tsx`, `drafts/WorkspaceDraft.tsx`. (Grep each file for `overflow-x-auto` first; skip if present.)
+For each of these, ensure the `<table>` is wrapped in `<div className="overflow-x-auto">` (several already are — only add where missing): `StorageLayoutViewer.tsx`, `ForkSimulator/DiffTables.tsx`, `monitoring/AlertHistory.tsx`, `actions/ActionLogs.tsx`, `debugger/GasProfiler/GasTable.tsx`, `debugger/GasProfiler/TopExpensiveOps.tsx`, `StateDiffPanel.tsx`, `drafts/WorkspaceDraft.tsx`, `networkHealth/BlockTable.tsx` (already has it — verify). (Grep each file for `overflow-x-auto` first; skip if present.)
 
 - [ ] **Step 7: Typecheck + test + spacing lint**
 
