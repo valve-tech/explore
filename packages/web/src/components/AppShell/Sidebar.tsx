@@ -51,6 +51,11 @@ export function Sidebar({
       className={wrapperClass}
       style={asDrawer ? undefined : { width: collapsed ? 56 : 240 }}
       aria-hidden={asDrawer && !drawerOpen ? true : undefined}
+      // A focusable descendant (the NavLinks) inside an `aria-hidden` subtree
+      // is an ARIA validity violation — `inert` removes it from the tab order
+      // (and from find-in-page/AT) to match. Only the closed drawer; the
+      // desktop sidebar is always interactive.
+      inert={asDrawer && !drawerOpen}
       {...(asDrawer
         ? { role: "dialog", "aria-modal": true, "aria-label": "Navigation" }
         : {})}

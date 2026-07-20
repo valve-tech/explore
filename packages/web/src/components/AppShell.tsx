@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useSidebarState } from "./AppShell/useSidebarState";
 import { useMobileNav } from "./AppShell/useMobileNav";
 import { useCommandPaletteShortcut } from "./AppShell/useCommandPaletteShortcut";
@@ -19,6 +19,17 @@ export default function AppShell({
   const { collapsed, onToggleCollapse } = useSidebarState();
   const { drawerOpen, openDrawer, closeDrawer } = useMobileNav();
   const isMobile = useIsMobile();
+
+  // Crossing mobile -> desktop (e.g. rotating a tablet, resizing a devtools
+  // viewport) while the drawer is open must close it: otherwise `drawerOpen`
+  // stays true after the drawer itself stops rendering as a drawer, and
+  // `useMobileNav`'s body scroll-lock (keyed on `drawerOpen`) persists until
+  // the next navigation. `closeDrawer` is a stable (`useCallback`-wrapped)
+  // setter, so this only re-fires on an actual `isMobile` flip, and setting
+  // `drawerOpen` to `false` when it's already `false` is a no-op re-render.
+  useEffect(() => {
+    if (!isMobile) closeDrawer();
+  }, [isMobile, closeDrawer]);
 
   useCommandPaletteShortcut(setPaletteOpen);
 
@@ -52,7 +63,12 @@ export default function AppShell({
         ) : (
           <Sidebar collapsed={collapsed} />
         )}
-        <div className="flex-1 overflow-auto min-w-0 p-3 md:p-4">{children}</div>
+        <div
+          data-testid="app-content"
+          className="flex-1 overflow-auto min-w-0 p-3 md:p-4"
+        >
+          {children}
+        </div>
       </div>
 
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}

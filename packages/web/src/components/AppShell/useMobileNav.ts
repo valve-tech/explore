@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 
 /**
@@ -38,9 +38,11 @@ export function useMobileNav() {
     };
   }, [drawerOpen]);
 
-  return {
-    drawerOpen,
-    openDrawer: () => setDrawerOpen(true),
-    closeDrawer: () => setDrawerOpen(false),
-  };
+  // Stable identities: AppShell's mobile->desktop reset effect depends on
+  // `closeDrawer`, and a fresh function on every render would re-run that
+  // effect on every AppShell render rather than only on the isMobile flip.
+  const openDrawer = useCallback(() => setDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  return { drawerOpen, openDrawer, closeDrawer };
 }
