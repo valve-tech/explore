@@ -1,11 +1,35 @@
 import type { TransactionDetails } from "../../../api/explorer";
 import { formatAmountDisplay } from "../../../lib/format/tokenAmount";
-import { AddressLink, SectionCard, type AddressNavigate } from "./primitives";
+import { SectionCard, type AddressNavigate } from "./primitives";
+import { ExplorerLink } from "../ExplorerLink";
+import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { DataTable, type Column } from "../../primitives/DataTable";
+
+type TokenTransfer = TransactionDetails["tokenTransfers"][number];
 
 /** Parse a string decimals count into a number, or null when absent/garbage.
  *  (Parsing the small decimals COUNT is fine — only AMOUNTS must stay bigint.) */
 function parseDecimals(decimalStr: string): number | null {
   return /^\d+$/.test(decimalStr) ? Number(decimalStr) : null;
+}
+
+/** Navigable, searchable (middle-truncated) address cell. */
+function AddressCell({
+  address,
+  onNavigate,
+}: {
+  address: string;
+  onNavigate: AddressNavigate;
+}) {
+  return (
+    <ExplorerLink
+      target={{ type: "address" as const, value: address }}
+      onNavigate={onNavigate}
+      className="font-mono text-sm hover:underline cursor-pointer theme-accent"
+    >
+      <MiddleTruncate value={address} className="font-mono text-sm theme-accent" />
+    </ExplorerLink>
+  );
 }
 
 export function TokenTransfersSection({
@@ -15,6 +39,43 @@ export function TokenTransfersSection({
   tokenTransfers: TransactionDetails["tokenTransfers"];
   onNavigate: AddressNavigate;
 }) {
+  const columns: Column<TokenTransfer>[] = [
+    {
+      key: "token",
+      header: "Token",
+      primary: true,
+      cell: (tt) => (
+        <div className="flex items-center gap-1.5">
+          <span className="theme-text">{tt.tokenName || "Unknown"}</span>
+          <span className="text-[10px] font-medium theme-text-muted">
+            {tt.tokenSymbol}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "from",
+      header: "From",
+      cell: (tt) => <AddressCell address={tt.from} onNavigate={onNavigate} />,
+    },
+    {
+      key: "to",
+      header: "To",
+      cell: (tt) => <AddressCell address={tt.to} onNavigate={onNavigate} />,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      cell: (tt) => (
+        <span className="font-mono theme-text">
+          {formatAmountDisplay(tt.value, parseDecimals(tt.tokenDecimal), {
+            symbol: tt.tokenSymbol,
+          })}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <SectionCard
       title="Token Transfers"
@@ -22,71 +83,13 @@ export function TokenTransfersSection({
       defaultOpen={false}
     >
       <div className="pt-3">
-        <div
-          className="rounded-md bs-muted overflow-x-auto"
-          style={{}}
-        >
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="theme-secondary-bg">
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  Token
-                </th>
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  From
-                </th>
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  To
-                </th>
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  Amount
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {tokenTransfers.map((tt, i) => (
-                <tr
-                  key={i}
-                  className="bs-t-muted hover:opacity-80"
-                  style={{}}
-                >
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="theme-text">
-                        {tt.tokenName || "Unknown"}
-                      </span>
-                      <span
-                        className="text-[10px] font-medium theme-text-muted"
-                      >
-                        {tt.tokenSymbol}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <AddressLink address={tt.from} onNavigate={onNavigate} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <AddressLink address={tt.to} onNavigate={onNavigate} />
-                  </td>
-                  <td
-                    className="px-3 py-2 font-mono theme-text"
-                  >
-                    {formatAmountDisplay(tt.value, parseDecimals(tt.tokenDecimal), {
-                      symbol: tt.tokenSymbol,
-                    })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="rounded-md bs-muted overflow-x-auto">
+          <DataTable
+            columns={columns}
+            rows={tokenTransfers}
+            rowKey={(tt, i) => `${tt.hash}-${i}`}
+            emptyLabel="No token transfers"
+          />
         </div>
       </div>
     </SectionCard>
