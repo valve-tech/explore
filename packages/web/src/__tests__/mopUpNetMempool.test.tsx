@@ -350,15 +350,12 @@ describe("<BlockTable /> mop-up", () => {
       data: ladder(),
     });
     renderWithProviders(<BlockTable blocks={[block()]} />);
-    // DataTable owns the <tr> (no row-level onClick), so the toggle target is
-    // the Block cell's number/chevron itself — click bubbles up from this
-    // text node to the wrapping clickable span.
-    const trigger = screen.getByText("#26804492");
+    const row = screen.getByText("#26804492").closest("tr")!;
     // expand → ladder mounts (block # header text appears inside the ladder)
-    fireEvent.click(trigger);
+    fireEvent.click(row);
     expect(screen.getAllByText(/block #26804492/).length).toBeGreaterThan(0);
     // collapse → setExpanded(cur === number ? null : ...) takes the null arm
-    fireEvent.click(trigger);
+    fireEvent.click(row);
     expect(screen.queryByText(/out of\s+fee order/)).not.toBeInTheDocument();
   });
 
