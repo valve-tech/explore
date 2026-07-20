@@ -261,6 +261,13 @@ textarea::placeholder {
 .bs-b-danger  { box-shadow: 0 1px 0 0 var(--color-danger); }
 .bs-b-warning { box-shadow: 0 1px 0 0 var(--color-warning); }
 
+/* Searchable middle-truncation (Etherscan quirk): full value stays in the DOM
+   as real text so Ctrl+F finds it and copy yields the full string; the leading
+   span clips with an ellipsis, the tail stays pinned. Width-responsive. */
+.mt      { display: inline-flex; align-items: baseline; max-width: 100%; min-width: 0; overflow: hidden; vertical-align: bottom; }
+.mt-lead { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-tail { flex: 0 0 auto; white-space: nowrap; }
+
 /*
  * Card/panel component — outset perimeter outline plus card background.
  * The 1px margin keeps adjacent cards from occluding each other's outlines.
