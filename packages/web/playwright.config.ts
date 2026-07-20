@@ -9,8 +9,10 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
-  // The address spec waits on real chain data (a live API + chifra round
-  // trip); give it a bit of headroom beyond the 30s default.
+  // Both specs run backend-free: viewport.spec measures layout, and
+  // searchable-address.spec stubs the address endpoints via page.route. The
+  // headroom beyond the 30s default is for cold vite chunk compilation on the
+  // first route hit under a parallel run.
   timeout: 45_000,
   use: {
     baseURL: "http://localhost:11800",
