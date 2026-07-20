@@ -47,14 +47,14 @@ describe("explorer/format — truncateAddr", () => {
 });
 
 describe("TxTable", () => {
-  it("renders a transaction row with truncated hash/from/to, block, and gas type", () => {
+  it("renders a transaction row with searchable hash/from/to, block, and gas type", () => {
     renderWithProviders(
       <TxTable txs={[tx]} ownerAddress={FROM} onNavigate={vi.fn()} />,
     );
-    expect(screen.getByText("0xd515...3c81")).toBeInTheDocument(); // hash
+    expect(screen.getByTitle(HASH)).toBeInTheDocument(); // hash, full value searchable
     expect(screen.getByText("26,804,224")).toBeInTheDocument(); // block, localized
-    expect(screen.getByText("0x1551...6fbb")).toBeInTheDocument(); // from
-    expect(screen.getByText("0x165c...52d9")).toBeInTheDocument(); // to
+    expect(screen.getByTitle(FROM)).toBeInTheDocument(); // from, full value searchable
+    expect(screen.getByTitle(TO)).toBeInTheDocument(); // to, full value searchable
     expect(screen.getByText("OUT")).toBeInTheDocument(); // owner is the sender
     expect(screen.getByText("EIP-1559")).toBeInTheDocument(); // tx-type label
   });

@@ -120,7 +120,7 @@ describe("<AddressView />", () => {
 
     // Header shows the address; transactions tab is default.
     expect(await screen.findByText(ADDR)).toBeInTheDocument();
-    expect(screen.getByText("0xd515...3c81")).toBeInTheDocument(); // tx hash row
+    expect(screen.getByTitle(tx.hash)).toBeInTheDocument(); // tx hash row, full value searchable
 
     // Switch to the Token Balances tab.
     fireEvent.click(screen.getByRole("button", { name: /Token Balances/ }));
