@@ -222,7 +222,7 @@ function Field({
   invalid?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-tight flex-1 w-full sm:min-w-[12rem]">
+    <label className="flex flex-col gap-tight w-full sm:flex-1 sm:min-w-[12rem]">
       <span className="text-[11px] theme-text-muted">{label}</span>
       <input
         value={value}
