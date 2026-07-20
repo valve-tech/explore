@@ -855,6 +855,161 @@ git commit -m "feat(web): DataTable primitive — table above sm:, stacked cards
 
 ---
 
+## Task 4b: `MiddleTruncate` — searchable CSS truncation (amendment)
+
+Added 2026-07-20 after review: displayed truncated addresses/hashes must be
+findable by Ctrl+F and copyable in full. JS-slice truncation puts the truncated
+string in the DOM and fails both. This primitive keeps the full value as DOM
+text and clips the middle with CSS (the Etherscan quirk). It supersedes
+`truncateAddr`/`shortAddress` **for displayed values**; the string helpers stay
+for non-DOM contexts.
+
+**Files:**
+- Create: `packages/web/src/components/primitives/MiddleTruncate.tsx`
+- Modify: `packages/web/src/index.css` (add the `.mt` / `.mt-lead` / `.mt-tail` utilities)
+- Test: `packages/web/src/components/primitives/__tests__/MiddleTruncate.test.tsx`
+
+**Interfaces:**
+- Produces:
+```ts
+export interface MiddleTruncateProps {
+  value: string;
+  tailChars?: number;          // default 4
+  className?: string;          // extra classes on the outer span (e.g. font-mono)
+  title?: string;              // defaults to `value` — full value on hover
+}
+export function MiddleTruncate(props: MiddleTruncateProps): React.ReactElement;
+```
+- DOM shape (full value is real text, split so copy/find stay contiguous):
+```tsx
+<span className={`mt ${className ?? ""}`} title={title ?? value}>
+  <span className="mt-lead">{value.slice(0, -tailChars)}</span>
+  <span className="mt-tail">{value.slice(-tailChars)}</span>
+</span>
+```
+When `value.length <= tailChars`, render the whole value in a single `mt-tail`
+span (no lead) so short values don't break.
+
+**CSS to add to `index.css`** (near the `.bs-*` utility block; box-shadow
+borders + zero radius already global):
+```css
+/* Searchable middle-truncation (Etherscan quirk): full value stays in the DOM
+   as real text so Ctrl+F finds it and copy yields the full string; the leading
+   span clips with an ellipsis, the tail stays pinned. Width-responsive. */
+.mt      { display: inline-flex; align-items: baseline; max-width: 100%; min-width: 0; overflow: hidden; vertical-align: bottom; }
+.mt-lead { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-tail { flex: 0 0 auto; white-space: nowrap; }
+```
+
+- [ ] **Step 1: Write the failing test**
+
+```tsx
+// packages/web/src/components/primitives/__tests__/MiddleTruncate.test.tsx
+import { describe, it, expect } from "vitest";
+import { render } from "@testing-library/react";
+import { MiddleTruncate } from "../MiddleTruncate";
+
+const ADDR = "0xA1077a294dDE1B09bB078844df40758a5D0f9a27";
+
+describe("MiddleTruncate", () => {
+  it("keeps the FULL value in the DOM (searchable + copyable)", () => {
+    const { container } = render(<MiddleTruncate value={ADDR} />);
+    // textContent is what Ctrl+F searches and what copy yields — must be intact,
+    // no ellipsis char injected into the text.
+    expect(container.textContent).toBe(ADDR);
+    expect(container.textContent).not.toContain("…");
+  });
+
+  it("pins the last N chars in the tail span", () => {
+    const { container } = render(<MiddleTruncate value={ADDR} tailChars={4} />);
+    const tail = container.querySelector(".mt-tail");
+    const lead = container.querySelector(".mt-lead");
+    expect(tail?.textContent).toBe("9a27");
+    expect(lead?.textContent).toBe(ADDR.slice(0, -4));
+  });
+
+  it("exposes the full value as the title", () => {
+    const { container } = render(<MiddleTruncate value={ADDR} />);
+    expect(container.querySelector(".mt")?.getAttribute("title")).toBe(ADDR);
+  });
+
+  it("renders a short value whole with no lead span", () => {
+    const { container } = render(<MiddleTruncate value="0x12" tailChars={4} />);
+    expect(container.textContent).toBe("0x12");
+    expect(container.querySelector(".mt-lead")).toBeNull();
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm run test --workspace=packages/web -- MiddleTruncate`
+Expected: FAIL — cannot resolve `../MiddleTruncate`.
+
+- [ ] **Step 3: Implement the component + CSS**
+
+```tsx
+// packages/web/src/components/primitives/MiddleTruncate.tsx
+import type { ReactElement } from "react";
+
+export interface MiddleTruncateProps {
+  value: string;
+  tailChars?: number;
+  className?: string;
+  title?: string;
+}
+
+/**
+ * Middle-truncate a hash/address for display WITHOUT losing searchability. The
+ * full `value` stays in the DOM as real text (two adjacent inline spans), so
+ * browser find (Ctrl+F) matches the full string and selecting copies it whole —
+ * the visible ellipsis is a CSS `text-overflow` artifact, not text content.
+ * The leading span clips responsively; the last `tailChars` stay pinned.
+ */
+export function MiddleTruncate({
+  value,
+  tailChars = 4,
+  className,
+  title,
+}: MiddleTruncateProps): ReactElement {
+  const outer = `mt${className ? ` ${className}` : ""}`;
+  if (value.length <= tailChars) {
+    return (
+      <span className={outer} title={title ?? value}>
+        <span className="mt-tail">{value}</span>
+      </span>
+    );
+  }
+  return (
+    <span className={outer} title={title ?? value}>
+      <span className="mt-lead">{value.slice(0, -tailChars)}</span>
+      <span className="mt-tail">{value.slice(-tailChars)}</span>
+    </span>
+  );
+}
+```
+
+Add the `.mt` / `.mt-lead` / `.mt-tail` CSS block (above) to `index.css`.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npm run test --workspace=packages/web -- MiddleTruncate`
+Expected: PASS (4 tests).
+
+- [ ] **Step 5: Typecheck + spacing lint**
+
+Run: `npm run --workspace=packages/web build && npm run lint:spacing --workspace=packages/web`
+Expected: green.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/web/src/components/primitives/MiddleTruncate.tsx packages/web/src/components/primitives/__tests__/MiddleTruncate.test.tsx packages/web/src/index.css
+git commit -m "feat(web): MiddleTruncate — searchable CSS middle-truncation (Etherscan quirk)"
+```
+
+---
+
 ## Task 5: Migrate the explorer/health tables to `DataTable`
 
 Nine tables. Each is the same mechanical move: extract the existing per-cell JSX into `Column.cell` renderers, pick a `primary` column, delete the hand-rolled `<table>`. Do them **one commit per table** so a reviewer can reject one without the others.
@@ -871,7 +1026,14 @@ Nine tables. Each is the same mechanical move: extract the existing per-cell JSX
 - `components/workspace/PortfolioPanel.tsx` — primary: token.
 
 **Interfaces:**
-- Consumes: `DataTable`, `Column` (Task 4); `shortAddress`/`shortHash` (Task 2).
+- Consumes: `DataTable`, `Column` (Task 4); `MiddleTruncate` (Task 4b) for every
+  displayed address/hash cell so they stay Ctrl+F-searchable; `shortAddress`/
+  `shortHash` (Task 2) only for non-DOM strings (e.g. a `title` fallback).
+
+**Display rule:** any table cell that today renders a truncated address or hash
+(`truncateAddr(x)`) must render `<MiddleTruncate value={x} className="font-mono …" />`
+instead — keeping the link/`ExplorerLink` wrapper around it. Do NOT put a
+JS-truncated string into the DOM for a primary hash/address cell.
 
 **Worked example — `TxTable.tsx` (the 9-column worst case).** Replace the whole file body with a columns array + `DataTable`. The existing `LinkButton`, `DirectionBadge`, `TxGasInfo`, `TxRowActions`, `formatPLS`, `formatRelativeTimestamp`, `truncateAddr` usages move verbatim into `cell` closures:
 
@@ -1236,10 +1398,32 @@ for (const path of ROUTES) {
     }));
     expect(
       overflow.scrollWidth,
-      `${document.location?.pathname ?? ""} overflows: scrollWidth ${overflow.scrollWidth} > 375`,
+      `${path} overflows: scrollWidth ${overflow.scrollWidth} > 375`,
     ).toBeLessThanOrEqual(375);
   });
 }
+```
+
+Add a second spec asserting displayed addresses stay searchable (the Etherscan
+quirk / Task 4b) — the full address must be present in page text even though it
+renders visually truncated:
+
+```ts
+// packages/web/e2e/searchable-address.spec.ts
+import { test, expect } from "@playwright/test";
+
+// A real PulseChain (chain 369) address that appears on the explorer home /
+// its own address page. Full 42-char value must be findable in the DOM.
+const ADDRESS = "0xA1077a294dDE1B09bB078844df40758a5D0f9a27"; // WPLS
+
+test("truncated address is still present in full in the DOM (Ctrl+F works)", async ({ page }) => {
+  await page.goto(`/address/${ADDRESS}`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(500);
+  // Playwright's getByText matches on textContent, exactly like browser find.
+  // If the address were JS-sliced into the DOM this would be zero matches.
+  const count = await page.getByText(ADDRESS, { exact: false }).count();
+  expect(count).toBeGreaterThan(0);
+});
 ```
 
 - [ ] **Step 5: Run the gate**

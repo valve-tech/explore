@@ -129,6 +129,28 @@ sync.
 `debugger/GasProfiler/GasTable`, `debugger/GasProfiler/TopExpensiveOps`,
 `StateDiffPanel`, `drafts/WorkspaceDraft`, `mempool/MempoolView`.
 
+### Searchable truncation (amendment 2026-07-20)
+
+**Displayed** addresses/hashes must remain findable via browser Ctrl+F and
+copyable in full. JS-slice truncation fails this: it puts the *truncated*
+string in the DOM, so a find for the full address matches nothing. The fix is
+the Etherscan quirk — **CSS middle-truncation**: the full value is real DOM
+text, and CSS clips the middle visually.
+
+New `components/primitives/MiddleTruncate.tsx`: a two-span inline-flex where the
+leading span gets `overflow:hidden; text-overflow:ellipsis` and the trailing
+span (last N chars) is pinned with `flex-shrink:0`. Browsers match Ctrl+F across
+the two inline spans, so the full value is searchable; selecting copies the full
+value (the `text-overflow` ellipsis is a render artifact, not text content). It
+is width-responsive — wide cells reveal more of the value, narrow cells less —
+which suits the responsiveness pass.
+
+This **supersedes JS-slice truncation for displayed** addresses/hashes. The
+`…`-vs-`...` separator question is therefore moot for display (the visible
+ellipsis is the browser's `text-overflow` render). The string helpers below stay
+for **non-DOM** contexts (command-palette result strings, tooltip/`title`/aria
+text) where a plain string, not an element, is needed.
+
 ### Truncation consolidation
 
 New `lib/format/hash.ts` exporting `truncateMiddle(value, { lead, tail })` plus
