@@ -70,7 +70,8 @@ export function SourceOpcodeSplit({
   // Persist the collapsed state so reloads remember the user's preferred
   // layout. Useful when reading mostly source code — the opcode rail can
   // hide and give the source pane the full width, with a thin column
-  // remaining to toggle it back.
+  // remaining to toggle it back. Desktop-only (`lg:`+) affordance — below
+  // `lg:` the segmented tab below decides which pane shows instead.
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     return localStorage.getItem(COLLAPSED_KEY) === "1";
   });
@@ -82,83 +83,113 @@ export function SourceOpcodeSplit({
     });
   }, []);
 
-  return (
-    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-260px)] min-h-[480px]">
-      {/* Source — takes all remaining width when the opcode pane is hidden. */}
-      <div
-        className={
-          collapsed
-            ? "flex-1 min-w-0 min-h-[240px]"
-            : "lg:flex-[3] min-w-0 min-h-[240px] flex-1"
-        }
-      >
-        <SourceTabContent
-          currentSourceFile={currentSourceFile}
-          allFiles={allFiles}
-          effectiveLine={effectiveLine}
-          highlightSpan={highlightSpan}
-          scrollKey={scrollKey}
-          slitherFindings={slitherFindings}
-          sourceLoading={sourceLoading}
-          activeContractAddress={activeContractAddress}
-          maxHeight="100%"
-          onLineClick={onJumpToLine}
-          onIdentifierClick={onIdentifierClick}
-          executableLines={executableLines}
-        />
-      </div>
+  // Below `lg:` there's no room for source + opcodes side by side (or even
+  // stacked without cramming both to ~half height), so a segmented control
+  // picks one full-width/full-height pane at a time. At `lg:`+ this is
+  // irrelevant — both panes render per the existing split.
+  const [mobilePane, setMobilePane] = useState<"source" | "opcodes">("source");
 
-      {collapsed ? (
-        // Collapsed rail: a thin column with a single button to restore the
-        // opcode pane. Persisted so the rail keeps showing on reload.
-        <Tooltip label="Show opcode pane" className="hidden lg:flex flex-shrink-0">
-          <button
-            onClick={toggleCollapsed}
-            className="hidden lg:flex items-start justify-center pt-3 flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-card-bg theme-text-muted theme-mono bs"
-            style={{
-              width: "20px",
-            }}
+  return (
+    <div className="flex flex-col">
+      <div className="flex lg:hidden bs-b-muted">
+        <button
+          onClick={() => setMobilePane("source")}
+          aria-label="Show source pane"
+          className={`flex-1 px-3 py-2 text-xs ${mobilePane === "source" ? "theme-accent-bg theme-accent" : "theme-text-secondary"}`}
+        >
+          Source
+        </button>
+        <button
+          onClick={() => setMobilePane("opcodes")}
+          aria-label="Show opcodes pane"
+          className={`flex-1 px-3 py-2 text-xs ${mobilePane === "opcodes" ? "theme-accent-bg theme-accent" : "theme-text-secondary"}`}
+        >
+          Opcodes
+        </button>
+      </div>
+      <div className="flex flex-col lg:flex-row gap-0 lg:h-[calc(100vh-260px)] lg:min-h-[480px]">
+        {/* Source — takes all remaining width when the opcode pane is hidden. */}
+        <div
+          className={`${mobilePane === "source" ? "" : "hidden"} lg:block ${
+            collapsed
+              ? "flex-1 min-w-0 min-h-[240px]"
+              : "lg:flex-[3] min-w-0 min-h-[240px] flex-1"
+          }`}
+        >
+          <SourceTabContent
+            currentSourceFile={currentSourceFile}
+            allFiles={allFiles}
+            effectiveLine={effectiveLine}
+            highlightSpan={highlightSpan}
+            scrollKey={scrollKey}
+            slitherFindings={slitherFindings}
+            sourceLoading={sourceLoading}
+            activeContractAddress={activeContractAddress}
+            maxHeight="100%"
+            onLineClick={onJumpToLine}
+            onIdentifierClick={onIdentifierClick}
+            executableLines={executableLines}
+          />
+        </div>
+
+        {collapsed ? (
+          // Collapsed rail: a thin column with a single button to restore the
+          // opcode pane. Persisted so the rail keeps showing on reload.
+          // `lg:`-only affordance — the toggle button itself is unreachable
+          // below `lg:`, same as before this change.
+          <Tooltip label="Show opcode pane" className="hidden lg:flex flex-shrink-0">
+            <button
+              onClick={toggleCollapsed}
+              className="hidden lg:flex items-start justify-center pt-3 flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-card-bg theme-text-muted theme-mono bs"
+              style={{
+                width: "20px",
+              }}
+            >
+              <Icon icon="heroicons:chevron-left" className="w-3 h-3" aria-hidden />
+            </button>
+          </Tooltip>
+        ) : (
+          // Opcode trace — synced companion. The `.card` class already provides
+          // the bg-card surface + outset border + 1px margin; no need to repeat
+          // them inline. Below `lg:` this pane's visibility additionally
+          // follows the segmented tab above; at `lg:`+ it's always shown here
+          // (this branch only renders when not collapsed).
+          <div
+            className={`${mobilePane === "opcodes" ? "flex" : "hidden"} lg:flex flex-col lg:flex-[2] lg:min-w-[340px] min-h-[240px] card overflow-hidden`}
           >
-            <Icon icon="heroicons:chevron-left" className="w-3 h-3" aria-hidden />
-          </button>
-        </Tooltip>
-      ) : (
-        // Opcode trace — synced companion. The `.card` class already provides
-        // the bg-card surface + outset border + 1px margin; no need to repeat
-        // them inline.
-        <div className="lg:flex-[2] lg:min-w-[340px] min-h-[240px] flex flex-col card overflow-hidden">
-          <div className="flex items-center bs-b">
-            <div className="flex-1 min-w-0">
-              <OpcodeFrequencyTags
-                frequencies={opcodeFreqs}
-                activeOp={opcodeFilter}
-                onToggle={onToggleOpcode}
+            <div className="flex items-center bs-b">
+              <div className="flex-1 min-w-0">
+                <OpcodeFrequencyTags
+                  frequencies={opcodeFreqs}
+                  activeOp={opcodeFilter}
+                  onToggle={onToggleOpcode}
+                />
+              </div>
+              <Tooltip label="Hide opcode pane" className="hidden lg:flex self-stretch flex-shrink-0">
+                <button
+                  onClick={toggleCollapsed}
+                  className="hidden lg:flex items-center justify-center self-stretch flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-text-muted theme-mono"
+                  style={{
+                    width: "20px",
+                    boxShadow: "inset 1px 0 0 0 var(--color-border-default)",
+                  }}
+                >
+                  <Icon icon="heroicons:chevron-right" className="w-3 h-3" aria-hidden />
+                </button>
+              </Tooltip>
+            </div>
+            <div className="flex-1 min-h-0">
+              <OpcodeTracePane
+                steps={steps}
+                currentStep={currentStep}
+                goTo={goTo}
+                filteredIndices={filteredIndices}
+                maxDepth={maxDepth}
               />
             </div>
-            <Tooltip label="Hide opcode pane" className="hidden lg:flex self-stretch flex-shrink-0">
-              <button
-                onClick={toggleCollapsed}
-                className="hidden lg:flex items-center justify-center self-stretch flex-shrink-0 cursor-pointer transition-opacity hover:opacity-80 theme-text-muted theme-mono"
-                style={{
-                  width: "20px",
-                  boxShadow: "inset 1px 0 0 0 var(--color-border-default)",
-                }}
-              >
-                <Icon icon="heroicons:chevron-right" className="w-3 h-3" aria-hidden />
-              </button>
-            </Tooltip>
           </div>
-          <div className="flex-1 min-h-0">
-            <OpcodeTracePane
-              steps={steps}
-              currentStep={currentStep}
-              goTo={goTo}
-              filteredIndices={filteredIndices}
-              maxDepth={maxDepth}
-            />
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

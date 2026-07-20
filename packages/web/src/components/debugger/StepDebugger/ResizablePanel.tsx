@@ -48,7 +48,7 @@ export function ResizablePanel({
   );
 
   return (
-    <div className="flex flex-shrink-0" style={{ width, height }}>
+    <div className="flex flex-shrink-0" style={{ width, height, maxWidth: "100%" }}>
       <div className="flex-1 min-w-0 overflow-hidden">{children}</div>
       {/* Drag handle — a hairline that widens its hit area on hover. */}
       <Tooltip label="Drag to resize" className="w-1 flex-shrink-0">

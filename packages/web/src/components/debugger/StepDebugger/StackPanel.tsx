@@ -41,9 +41,9 @@ export function StackPanel({
                 }}
               >
                 <span className="w-8 text-right mr-2 flex-shrink-0 theme-text-muted">{i}</span>
-                <Tooltip label={formatWord(word)} className="truncate min-w-0">
+                <Tooltip label={formatWord(word)} className="min-w-0">
                   <span
-                    className="truncate"
+                    className="break-all"
                     style={{
                       color: isInput
                         ? "var(--color-warning)"

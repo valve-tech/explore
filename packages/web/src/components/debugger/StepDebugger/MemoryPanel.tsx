@@ -18,7 +18,7 @@ export function MemoryPanel({
 
   return (
     <CollapsiblePanel title="Memory" count={memorySize} suffix="bytes" defaultOpen={false}>
-      <div className="overflow-y-auto px-3 py-1" style={{ maxHeight: "200px" }}>
+      <div className="overflow-y-auto overflow-x-auto px-3 py-1" style={{ maxHeight: "200px" }}>
         {loading ? (
           <div className="py-4 text-xs text-center theme-text-muted">Loading memory…</div>
         ) : memorySize === 0 ? (

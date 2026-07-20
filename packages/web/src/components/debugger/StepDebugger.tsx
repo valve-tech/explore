@@ -866,7 +866,7 @@ export default function StepDebugger({
         <FindingsPanel findings={slitherFindings} />
       )}
 
-      <div className="flex flex-col lg:flex-row gap-0" style={{ minHeight: "500px" }}>
+      <div className="flex flex-col lg:flex-row gap-0 lg:min-h-[500px]">
         {/* Tree column stretches to the content column's height (no dead space
             below it) while staying sticky and capped to the viewport so it
             remains a self-contained, scrollable pane as you move down the page. */}

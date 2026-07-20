@@ -37,7 +37,7 @@ export function StoragePanel({
               <span className="flex items-center gap-tight theme-mono">
                 <span>{isStorageOp(currentOp) ? "reads slot" : "slot"}</span>
                 <Tooltip label={formatWord(highlightSlot)}>
-                  <span className="theme-warning">
+                  <span className="break-all theme-warning">
                     {truncateWord(highlightSlot)}
                   </span>
                 </Tooltip>
@@ -55,8 +55,8 @@ export function StoragePanel({
               <div key={i} className="text-xs theme-mono">
                 <div className="flex items-center gap-tight">
                   <span className="theme-text-muted">slot:</span>
-                  <Tooltip label={formatWord(d.slot)} className="truncate min-w-0">
-                    <span className="truncate theme-warning">
+                  <Tooltip label={formatWord(d.slot)} className="min-w-0">
+                    <span className="break-all theme-warning">
                       {truncateWord(d.slot)}
                     </span>
                   </Tooltip>
@@ -64,8 +64,8 @@ export function StoragePanel({
                 {d.oldValue !== null && (
                   <div className="flex items-center gap-tight pl-4">
                     <span className="theme-danger">-</span>
-                    <Tooltip label={formatWord(d.oldValue)} className="truncate min-w-0">
-                      <span className="truncate theme-text-secondary">
+                    <Tooltip label={formatWord(d.oldValue)} className="min-w-0">
+                      <span className="break-all theme-text-secondary">
                         {truncateWord(d.oldValue)}
                       </span>
                     </Tooltip>
@@ -73,8 +73,8 @@ export function StoragePanel({
                 )}
                 <div className="flex items-center gap-tight pl-4">
                   <span className="theme-success">+</span>
-                  <Tooltip label={formatWord(d.newValue)} className="truncate min-w-0">
-                    <span className="truncate theme-accent">
+                  <Tooltip label={formatWord(d.newValue)} className="min-w-0">
+                    <span className="break-all theme-accent">
                       {truncateWord(d.newValue)}
                     </span>
                   </Tooltip>
