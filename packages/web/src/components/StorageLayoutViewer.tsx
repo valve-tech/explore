@@ -168,58 +168,60 @@ export default function StorageLayoutViewer() {
                 Storage Variables ({layout.storage.length})
               </span>
             </div>
-            <table className="w-full text-xs theme-mono">
-              <thead>
-                <tr className="theme-text-muted">
-                  <th className="text-left px-3 py-1.5">Slot</th>
-                  <th className="text-left px-3 py-1.5">Variable</th>
-                  <th className="text-left px-3 py-1.5">Type</th>
-                  <th className="text-left px-3 py-1.5">Size</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from(grouped.entries()).map(([contract, entries]) => (
-                  <>
-                    {grouped.size > 1 && (
-                      <tr key={`header-${contract}`}>
-                        <td colSpan={4} className="px-3 py-1 text-xs font-semibold theme-accent theme-secondary-bg">
-                          {contract}
-                        </td>
-                      </tr>
-                    )}
-                    {entries.map((entry, i) => {
-                      const typeInfo = layout.types[entry.type];
-                      const isSelected = selectedEntry?.label === entry.label && selectedEntry?.slot === entry.slot;
-                      const isMapping = typeInfo?.encoding === "mapping";
-                      const isArray = typeInfo?.encoding === "dynamic_array";
-
-                      return (
-                        <tr
-                          key={`${contract}-${i}`}
-                          onClick={() => handleComputeSlot(entry)}
-                          className={`cursor-pointer${isSelected ? " theme-accent-bg" : ""}`}
-                        >
-                          <td className="px-3 py-1.5 theme-text-muted">
-                            {entry.slot}
-                          </td>
-                          <td className="px-3 py-1.5 theme-text">
-                            {entry.label}
-                            {isMapping && <span className="theme-accent"> [map]</span>}
-                            {isArray && <span className="theme-accent"> [arr]</span>}
-                          </td>
-                          <td className="px-3 py-1.5 theme-text-secondary">
-                            {typeInfo?.label ?? entry.type}
-                          </td>
-                          <td className="px-3 py-1.5 theme-text-muted">
-                            {typeInfo?.numberOfBytes ?? "?"}B
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs theme-mono">
+                <thead>
+                  <tr className="theme-text-muted">
+                    <th className="text-left px-3 py-1.5">Slot</th>
+                    <th className="text-left px-3 py-1.5">Variable</th>
+                    <th className="text-left px-3 py-1.5">Type</th>
+                    <th className="text-left px-3 py-1.5">Size</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from(grouped.entries()).map(([contract, entries]) => (
+                    <>
+                      {grouped.size > 1 && (
+                        <tr key={`header-${contract}`}>
+                          <td colSpan={4} className="px-3 py-1 text-xs font-semibold theme-accent theme-secondary-bg">
+                            {contract}
                           </td>
                         </tr>
-                      );
-                    })}
-                  </>
-                ))}
-              </tbody>
-            </table>
+                      )}
+                      {entries.map((entry, i) => {
+                        const typeInfo = layout.types[entry.type];
+                        const isSelected = selectedEntry?.label === entry.label && selectedEntry?.slot === entry.slot;
+                        const isMapping = typeInfo?.encoding === "mapping";
+                        const isArray = typeInfo?.encoding === "dynamic_array";
+
+                        return (
+                          <tr
+                            key={`${contract}-${i}`}
+                            onClick={() => handleComputeSlot(entry)}
+                            className={`cursor-pointer${isSelected ? " theme-accent-bg" : ""}`}
+                          >
+                            <td className="px-3 py-1.5 theme-text-muted">
+                              {entry.slot}
+                            </td>
+                            <td className="px-3 py-1.5 theme-text">
+                              {entry.label}
+                              {isMapping && <span className="theme-accent"> [map]</span>}
+                              {isArray && <span className="theme-accent"> [arr]</span>}
+                            </td>
+                            <td className="px-3 py-1.5 theme-text-secondary">
+                              {typeInfo?.label ?? entry.type}
+                            </td>
+                            <td className="px-3 py-1.5 theme-text-muted">
+                              {typeInfo?.numberOfBytes ?? "?"}B
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Slot inspector */}
@@ -433,66 +435,68 @@ function DecompiledLayoutPanel({
               Inferred Storage Slots ({decompiled.slots.length})
             </span>
           </div>
-          <table className="w-full text-xs theme-mono">
-            <thead>
-              <tr className="theme-text-muted">
-                <th className="text-left px-3 py-1.5">Slot</th>
-                <th className="text-left px-3 py-1.5">Name</th>
-                <th className="text-left px-3 py-1.5">Type</th>
-                <th className="text-left px-3 py-1.5">Access</th>
-              </tr>
-            </thead>
-            <tbody>
-              {decompiled.slots.map((s) => {
-                const isSelected = selectedSlot === s.slot;
-                // Prefer the registry label when present — known proxy
-                // slots are immediately legible even though the contract
-                // isn't verified.
-                const displayName = s.known?.label ?? s.name;
-                const nameContent = (
-                  <>
-                    {displayName ?? <span className="theme-text-muted">—</span>}
-                    {s.known && (
-                      <span className="ml-1 text-[9px] uppercase tracking-wider font-semibold theme-accent">
-                        ★ known
-                      </span>
-                    )}
-                  </>
-                );
-                return (
-                  <tr
-                    key={s.slot}
-                    onClick={() => void handleRead(s.slot)}
-                    className={`cursor-pointer${isSelected ? " theme-accent-bg" : ""}`}
-                  >
-                    <td className="px-3 py-1.5 theme-text-muted">
-                      {truncateSlot(s.slot)}
-                    </td>
-                    <td className="px-3 py-1.5 theme-text">
-                      {s.known?.hint ? (
-                        <Tooltip label={s.known.hint}>{nameContent}</Tooltip>
-                      ) : (
-                        nameContent
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs theme-mono">
+              <thead>
+                <tr className="theme-text-muted">
+                  <th className="text-left px-3 py-1.5">Slot</th>
+                  <th className="text-left px-3 py-1.5">Name</th>
+                  <th className="text-left px-3 py-1.5">Type</th>
+                  <th className="text-left px-3 py-1.5">Access</th>
+                </tr>
+              </thead>
+              <tbody>
+                {decompiled.slots.map((s) => {
+                  const isSelected = selectedSlot === s.slot;
+                  // Prefer the registry label when present — known proxy
+                  // slots are immediately legible even though the contract
+                  // isn't verified.
+                  const displayName = s.known?.label ?? s.name;
+                  const nameContent = (
+                    <>
+                      {displayName ?? <span className="theme-text-muted">—</span>}
+                      {s.known && (
+                        <span className="ml-1 text-[9px] uppercase tracking-wider font-semibold theme-accent">
+                          ★ known
+                        </span>
                       )}
-                    </td>
-                    <td className="px-3 py-1.5 theme-text-secondary">
-                      {s.inferredType ?? "unknown"}
-                    </td>
-                    <td className="px-3 py-1.5 theme-text-muted">
-                      {s.access.join(" + ")}
+                    </>
+                  );
+                  return (
+                    <tr
+                      key={s.slot}
+                      onClick={() => void handleRead(s.slot)}
+                      className={`cursor-pointer${isSelected ? " theme-accent-bg" : ""}`}
+                    >
+                      <td className="px-3 py-1.5 theme-text-muted">
+                        {truncateSlot(s.slot)}
+                      </td>
+                      <td className="px-3 py-1.5 theme-text">
+                        {s.known?.hint ? (
+                          <Tooltip label={s.known.hint}>{nameContent}</Tooltip>
+                        ) : (
+                          nameContent
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 theme-text-secondary">
+                        {s.inferredType ?? "unknown"}
+                      </td>
+                      <td className="px-3 py-1.5 theme-text-muted">
+                        {s.access.join(" + ")}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {decompiled.slots.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-4 text-center theme-text-muted">
+                      No constant slot accesses found in the bytecode.
                     </td>
                   </tr>
-                );
-              })}
-              {decompiled.slots.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center theme-text-muted">
-                    No constant slot accesses found in the bytecode.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Inspector + pseudo-source */}

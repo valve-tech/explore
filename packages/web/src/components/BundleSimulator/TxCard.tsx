@@ -45,7 +45,7 @@ export function TxCard({ tx, index, onChange, onRemove, canRemove }: Props) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-row">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-row">
         <div>
           <label
             className={`flex items-center gap-inline text-xs font-medium mb-1 ${labelClass}`}
@@ -90,7 +90,7 @@ export function TxCard({ tx, index, onChange, onRemove, canRemove }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-row">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-row">
         <div>
           <label className={`text-xs font-medium mb-1 block ${labelClass}`}>
             Value (PLS)

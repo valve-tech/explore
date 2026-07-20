@@ -76,7 +76,7 @@ export function RpcChainRow({
             if (e.key === "Enter") apply();
           }}
           placeholder="https://your-node.example/rpc"
-          className={`w-full px-2 py-1.5 text-sm theme-mono theme-input-bg theme-text ${
+          className={`w-full min-w-0 px-2 py-1.5 text-sm theme-mono theme-input-bg theme-text ${
             error ? "bs-b-danger" : "bs-in-muted"
           }`}
         />

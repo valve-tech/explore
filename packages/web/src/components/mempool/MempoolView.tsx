@@ -325,7 +325,7 @@ function Toolbar({
     <div className="bs-b-muted">
       <div className="flex items-center gap-row px-3 py-2.5 flex-wrap">
         <div
-          className="flex items-center gap-inline flex-1 min-w-[180px] px-2.5 py-1.5"
+          className="flex items-center gap-inline w-full sm:flex-1 sm:min-w-[180px] px-2.5 py-1.5"
           style={{
             backgroundColor: "var(--color-bg-input)",
             boxShadow: "inset 0 0 0 1px var(--color-border-muted)",
@@ -339,7 +339,7 @@ function Toolbar({
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder="from address or tx hash…"
-            className="bare-input flex-1 bg-transparent outline-none text-xs font-mono theme-text"
+            className="bare-input flex-1 min-w-0 bg-transparent outline-none text-xs font-mono theme-text"
           />
         </div>
 

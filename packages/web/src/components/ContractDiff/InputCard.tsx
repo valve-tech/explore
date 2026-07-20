@@ -70,10 +70,9 @@ export function InputCard({
       </div>
 
       <div
+        className="grid grid-cols-1 sm:grid-cols-2"
         style={{
           padding: "20px 16px",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
           gap: "16px",
           alignItems: "end",
         }}

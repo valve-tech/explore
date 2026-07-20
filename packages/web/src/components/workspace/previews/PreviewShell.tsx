@@ -33,7 +33,7 @@ export function PreviewShell({
   }
   return (
     <>
-      <dl className="grid grid-cols-2 gap-x-row gap-y-1 text-xs">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-row gap-y-1 text-xs">
         {facts.map((f) => (
           <div key={f.label} className="contents">
             <dt className="theme-text-muted">{f.label}</dt>

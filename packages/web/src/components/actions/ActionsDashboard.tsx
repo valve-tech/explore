@@ -133,7 +133,7 @@ export default function ActionsDashboard() {
   return (
     <div>
       {/* Stats Bar */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <StatCard label="Total Actions" value={stats.total} />
         <StatCard label="Active" value={stats.active} color="var(--color-success)" />
         <StatCard label="Executions Today" value={stats.todayExecutions} color="var(--color-accent)" />

@@ -68,7 +68,7 @@ export function RpcSourceChip() {
       </Tooltip>
 
       {open && (
-        <div className="absolute z-20 top-full right-0 mt-1 w-[320px] p-3 theme-card-bg bs space-y-stack">
+        <div className="absolute z-20 top-full right-0 mt-1 w-[min(320px,calc(100vw-1rem))] p-3 theme-card-bg bs space-y-stack">
           <div className="flex items-center gap-inline text-xs uppercase tracking-widest theme-text-muted">
             <Icon icon="heroicons:bolt" className="w-3.5 h-3.5" />
             RPC source · {chainName}

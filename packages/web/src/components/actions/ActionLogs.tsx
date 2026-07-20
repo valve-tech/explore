@@ -81,170 +81,172 @@ export default function ActionLogs({ actionId, actionName, onBack }: ActionLogsP
       <div
         className="rounded-lg bs overflow-hidden theme-card-bg"
       >
-        <table className="w-full text-sm">
-          <thead>
-            <tr
-              className="theme-tertiary-bg bs-b"
-            >
-              <th
-                className="text-left px-4 py-2.5 font-medium theme-text-secondary"
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr
+                className="theme-tertiary-bg bs-b"
               >
-                Timestamp
-              </th>
-              <th
-                className="text-left px-4 py-2.5 font-medium theme-text-secondary"
-              >
-                Trigger
-              </th>
-              <th
-                className="text-right px-4 py-2.5 font-medium theme-text-secondary"
-              >
-                Duration
-              </th>
-              <th
-                className="text-center px-4 py-2.5 font-medium theme-text-secondary"
-              >
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="text-center py-8 theme-text-secondary"
+                <th
+                  className="text-left px-4 py-2.5 font-medium theme-text-secondary"
                 >
-                  Loading...
-                </td>
-              </tr>
-            ) : logs.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="text-center py-8 theme-text-secondary"
+                  Timestamp
+                </th>
+                <th
+                  className="text-left px-4 py-2.5 font-medium theme-text-secondary"
                 >
-                  No execution logs yet
-                </td>
+                  Trigger
+                </th>
+                <th
+                  className="text-right px-4 py-2.5 font-medium theme-text-secondary"
+                >
+                  Duration
+                </th>
+                <th
+                  className="text-center px-4 py-2.5 font-medium theme-text-secondary"
+                >
+                  Status
+                </th>
               </tr>
-            ) : (
-              logs.map((log) => {
-                const isExpanded = expandedRow === log.id;
-                let triggerType = "unknown";
-                try {
-                  const td = JSON.parse(log.trigger_data) as { type?: string };
-                  triggerType = td.type ?? "unknown";
-                } catch {
-                  // ignore
-                }
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="text-center py-8 theme-text-secondary"
+                  >
+                    Loading...
+                  </td>
+                </tr>
+              ) : logs.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="text-center py-8 theme-text-secondary"
+                  >
+                    No execution logs yet
+                  </td>
+                </tr>
+              ) : (
+                logs.map((log) => {
+                  const isExpanded = expandedRow === log.id;
+                  let triggerType = "unknown";
+                  try {
+                    const td = JSON.parse(log.trigger_data) as { type?: string };
+                    triggerType = td.type ?? "unknown";
+                  } catch {
+                    // ignore
+                  }
 
-                return (
-                  <tr key={log.id} style={{ cursor: "pointer" }}>
-                    <td colSpan={4} className="p-0">
-                      {/* Main row */}
-                      <div
-                        className="flex items-center px-4 py-2.5 transition-colors"
-                        onClick={() => setExpandedRow(isExpanded ? null : log.id)}
-                        style={{
-                          borderBottom: isExpanded
-                            ? "none"
-                            : "1px solid var(--color-border-muted)",
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.backgroundColor = "var(--color-bg-tertiary)";
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.backgroundColor = "transparent";
-                        }}
-                      >
-                        <span
-                          className="flex-1 theme-text"
-                        >
-                          {formatDate(log.triggered_at)}
-                        </span>
-                        <span
-                          className="flex-1 px-4 theme-text-secondary"
-                        >
-                          {triggerType}
-                        </span>
-                        <span
-                          className="flex-1 text-right px-4 theme-text-secondary theme-mono"
-                        >
-                          {log.duration_ms}ms
-                        </span>
-                        <span className="flex-none w-20 text-center">
-                          <span
-                            className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
-                            style={{
-                              backgroundColor: log.success
-                                ? "var(--color-success-muted)"
-                                : "var(--color-danger-muted)",
-                              color: log.success
-                                ? "var(--color-success)"
-                                : "var(--color-danger)",
-                            }}
-                          >
-                            {log.success ? "Success" : "Error"}
-                          </span>
-                        </span>
-                      </div>
-
-                      {/* Expanded detail */}
-                      {isExpanded && (
+                  return (
+                    <tr key={log.id} style={{ cursor: "pointer" }}>
+                      <td colSpan={4} className="p-0">
+                        {/* Main row */}
                         <div
-                          className="px-4 pb-3 space-y-2 bs-b-muted"
+                          className="flex items-center px-4 py-2.5 transition-colors"
+                          onClick={() => setExpandedRow(isExpanded ? null : log.id)}
+                          style={{
+                            borderBottom: isExpanded
+                              ? "none"
+                              : "1px solid var(--color-border-muted)",
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.backgroundColor = "var(--color-bg-tertiary)";
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.backgroundColor = "transparent";
+                          }}
                         >
-                          {log.stdout && (
-                            <div>
-                              <div
-                                className="text-xs font-medium mb-1 theme-text-secondary"
-                              >
-                                stdout
-                              </div>
-                              <pre
-                                className="text-xs p-2 rounded overflow-x-auto theme-primary-bg theme-success theme-mono bs-muted"
-                              >
-                                {log.stdout}
-                              </pre>
-                            </div>
-                          )}
-                          {log.stderr && (
-                            <div>
-                              <div
-                                className="text-xs font-medium mb-1 theme-text-secondary"
-                              >
-                                stderr
-                              </div>
-                              <pre
-                                className="text-xs p-2 rounded overflow-x-auto theme-primary-bg theme-danger theme-mono bs-muted"
-                              >
-                                {log.stderr}
-                              </pre>
-                            </div>
-                          )}
-                          {log.trigger_data && log.trigger_data !== "{}" && (
-                            <div>
-                              <div
-                                className="text-xs font-medium mb-1 theme-text-secondary"
-                              >
-                                Trigger Data
-                              </div>
-                              <pre
-                                className="text-xs p-2 rounded overflow-x-auto theme-primary-bg theme-text-secondary theme-mono bs-muted"
-                              >
-                                {JSON.stringify(JSON.parse(log.trigger_data), null, 2)}
-                              </pre>
-                            </div>
-                          )}
+                          <span
+                            className="flex-1 theme-text"
+                          >
+                            {formatDate(log.triggered_at)}
+                          </span>
+                          <span
+                            className="flex-1 px-4 theme-text-secondary"
+                          >
+                            {triggerType}
+                          </span>
+                          <span
+                            className="flex-1 text-right px-4 theme-text-secondary theme-mono"
+                          >
+                            {log.duration_ms}ms
+                          </span>
+                          <span className="flex-none w-20 text-center">
+                            <span
+                              className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                              style={{
+                                backgroundColor: log.success
+                                  ? "var(--color-success-muted)"
+                                  : "var(--color-danger-muted)",
+                                color: log.success
+                                  ? "var(--color-success)"
+                                  : "var(--color-danger)",
+                              }}
+                            >
+                              {log.success ? "Success" : "Error"}
+                            </span>
+                          </span>
                         </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div
+                            className="px-4 pb-3 space-y-2 bs-b-muted"
+                          >
+                            {log.stdout && (
+                              <div>
+                                <div
+                                  className="text-xs font-medium mb-1 theme-text-secondary"
+                                >
+                                  stdout
+                                </div>
+                                <pre
+                                  className="text-xs p-2 rounded overflow-x-auto theme-primary-bg theme-success theme-mono bs-muted"
+                                >
+                                  {log.stdout}
+                                </pre>
+                              </div>
+                            )}
+                            {log.stderr && (
+                              <div>
+                                <div
+                                  className="text-xs font-medium mb-1 theme-text-secondary"
+                                >
+                                  stderr
+                                </div>
+                                <pre
+                                  className="text-xs p-2 rounded overflow-x-auto theme-primary-bg theme-danger theme-mono bs-muted"
+                                >
+                                  {log.stderr}
+                                </pre>
+                              </div>
+                            )}
+                            {log.trigger_data && log.trigger_data !== "{}" && (
+                              <div>
+                                <div
+                                  className="text-xs font-medium mb-1 theme-text-secondary"
+                                >
+                                  Trigger Data
+                                </div>
+                                <pre
+                                  className="text-xs p-2 rounded overflow-x-auto theme-primary-bg theme-text-secondary theme-mono bs-muted"
+                                >
+                                  {JSON.stringify(JSON.parse(log.trigger_data), null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Pagination */}

@@ -124,7 +124,7 @@ export default function ComponentGallery() {
 
         <GalleryItem id="recent-rail" title="RecentRail — recent & pinned entities (live)">
           <Variant id="recent-rail/default">
-            <div className="w-[300px]">
+            <div className="w-full max-w-[300px]">
               <RecentRail />
             </div>
           </Variant>

@@ -239,38 +239,40 @@ export default function WorkspaceDraft() {
                   {ADDR.txCount24h.toLocaleString()} txs · {ADDR.uniqueCallers24h.toLocaleString()} callers (24h)
                 </div>
               </div>
-              <table className="w-full text-xs font-mono">
-                <thead>
-                  <tr className="theme-text-muted">
-                    <th className="text-left pb-2 font-normal">Method</th>
-                    <th className="text-left pb-2 font-normal">Hash</th>
-                    <th className="text-left pb-2 font-normal">From</th>
-                    <th className="text-left pb-2 font-normal">Age</th>
-                    <th className="text-left pb-2 font-normal">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ACTIVITY_ROWS.map((r, i) => (
-                    <tr
-                      key={i}
-                      className="border-t"
-                      style={{ borderColor: "var(--color-border-muted)" }}
-                    >
-                      <td className="py-2.5 theme-text">{r.method}</td>
-                      <td className="theme-accent">{r.hash}</td>
-                      <td className="theme-text-secondary">{r.from}</td>
-                      <td className="theme-text-muted">{r.age}</td>
-                      <td>
-                        <span
-                          className={`px-1.5 py-0.5 text-[10px] font-sans ${r.ok ? "theme-success-bg theme-success" : "theme-danger-bg theme-danger"}`}
-                        >
-                          {r.ok ? "ok" : "reverted"}
-                        </span>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs font-mono">
+                  <thead>
+                    <tr className="theme-text-muted">
+                      <th className="text-left pb-2 font-normal">Method</th>
+                      <th className="text-left pb-2 font-normal">Hash</th>
+                      <th className="text-left pb-2 font-normal">From</th>
+                      <th className="text-left pb-2 font-normal">Age</th>
+                      <th className="text-left pb-2 font-normal">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {ACTIVITY_ROWS.map((r, i) => (
+                      <tr
+                        key={i}
+                        className="border-t"
+                        style={{ borderColor: "var(--color-border-muted)" }}
+                      >
+                        <td className="py-2.5 theme-text">{r.method}</td>
+                        <td className="theme-accent">{r.hash}</td>
+                        <td className="theme-text-secondary">{r.from}</td>
+                        <td className="theme-text-muted">{r.age}</td>
+                        <td>
+                          <span
+                            className={`px-1.5 py-0.5 text-[10px] font-sans ${r.ok ? "theme-success-bg theme-success" : "theme-danger-bg theme-danger"}`}
+                          >
+                            {r.ok ? "ok" : "reverted"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 

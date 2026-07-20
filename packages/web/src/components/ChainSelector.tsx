@@ -78,7 +78,7 @@ export function ChainSelector({
 
       {open && (
         <div
-          className="absolute z-20 top-full left-0 mt-1 min-w-[200px] py-1 theme-card-bg bs"
+          className="absolute z-20 top-full left-0 mt-1 w-[min(200px,calc(100vw-1rem))] py-1 theme-card-bg bs max-sm:left-0 max-sm:right-0"
         >
           <ChainRow
             label="All chains"

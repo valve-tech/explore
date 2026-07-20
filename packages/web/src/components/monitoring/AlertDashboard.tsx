@@ -166,7 +166,7 @@ export default function AlertDashboard() {
   return (
     <div className="space-y-section">
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card p-4">
           <p
             className="text-xs font-medium mb-1 theme-text-secondary"

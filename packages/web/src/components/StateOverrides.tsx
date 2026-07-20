@@ -130,7 +130,7 @@ function SingleOverride({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-row">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-row">
         <div>
           <label className="text-xs mb-1 block theme-text-secondary">
             Balance (wei)

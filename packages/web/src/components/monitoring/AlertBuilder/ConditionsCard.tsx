@@ -113,7 +113,7 @@ export function ConditionsCard({ type, conditions, setConditions }: Props) {
             onChange={(v) => patch({ address: v })}
             placeholder="0x742d35Cc6634C0532925a3b844Bc9e7595f..."
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <TextField
               label="Threshold (PLS)"
               value={conditions.threshold ?? ""}
