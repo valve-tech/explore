@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import type { MinerStats } from "../../api/networkHealth";
 import { nativeAmount, pct } from "./format";
-import { shortAddress } from "../../lib/format/hash";
+import { MiddleTruncate } from "../primitives/MiddleTruncate";
+import { DataTable, type Column } from "../primitives/DataTable";
 
 /**
  * Per-validator rollup over the loaded window — who produced what. Descriptive,
@@ -24,6 +25,62 @@ export function MinersPanel({
   const [open, setOpen] = useState(false);
   // miners may be absent on a stale persisted response (added after first ship).
   if (!miners || !miners.length) return null;
+
+  const columns: Column<MinerStats>[] = [
+    {
+      key: "validator",
+      header: "Validator",
+      primary: true,
+      cell: (m) => (
+        <Link to={`/address/${m.miner}`} className="theme-accent hover:underline">
+          <MiddleTruncate value={m.miner} className="font-mono theme-accent" />
+        </Link>
+      ),
+    },
+    {
+      key: "blocks",
+      header: "Blocks",
+      cell: (m) => <div className="text-right theme-text">{m.blocks}</div>,
+    },
+    {
+      key: "share",
+      header: "Share",
+      cell: (m) => <ShareBar frac={totalBlocks ? m.blocks / totalBlocks : 0} />,
+    },
+    {
+      key: "tips",
+      header: "Tips earned",
+      cell: (m) => (
+        <div className="text-right" style={{ color: "var(--color-success)" }}>
+          {nativeAmount(m.tips, symbol)}
+        </div>
+      ),
+    },
+    {
+      key: "burned",
+      header: "Burned",
+      cell: (m) => (
+        <div className="text-right theme-text-secondary">
+          {nativeAmount(m.burned, symbol)}
+        </div>
+      ),
+    },
+    {
+      key: "legacyGas",
+      header: "Legacy gas",
+      cell: (m) => <div className="text-right theme-text">{pct(m.legacyGasShare, 0)}</div>,
+    },
+    {
+      key: "inversion",
+      header: "Out of order",
+      cell: (m) => (
+        <div className="text-right">
+          <Inversion rate={m.priorityInversionRate} />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-stack">
       <button
@@ -38,49 +95,15 @@ export function MinersPanel({
         Validators ({miners.length})
       </button>
       {open && (
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm theme-mono">
-          <thead>
-            <tr className="text-xs uppercase tracking-wide theme-text-muted">
-              <Th>Validator</Th>
-              <Th right>Blocks</Th>
-              <Th>Share</Th>
-              <Th right>Tips earned</Th>
-              <Th right>Burned</Th>
-              <Th right>Legacy gas</Th>
-              <Th right>Out of order</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {miners.map((m) => (
-              <tr key={m.miner} className="bs-t-muted">
-                <Td>
-                  <Link
-                    to={`/address/${m.miner}`}
-                    className="theme-accent hover:underline"
-                  >
-                    {shortAddress(m.miner)}
-                  </Link>
-                </Td>
-                <Td right>{m.blocks}</Td>
-                <Td>
-                  <ShareBar frac={totalBlocks ? m.blocks / totalBlocks : 0} />
-                </Td>
-                <Td right>
-                  <span style={{ color: "var(--color-success)" }}>
-                    {nativeAmount(m.tips, symbol)}
-                  </span>
-                </Td>
-                <Td right muted>{nativeAmount(m.burned, symbol)}</Td>
-                <Td right>{pct(m.legacyGasShare, 0)}</Td>
-                <Td right>
-                  <Inversion rate={m.priorityInversionRate} />
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        <div className="card overflow-hidden">
+          <DataTable
+            columns={columns}
+            rows={miners}
+            rowKey={(m) => m.miner}
+            className="w-full text-sm theme-mono"
+            emptyLabel="No validators in this window"
+          />
+        </div>
       )}
     </div>
   );
@@ -106,33 +129,5 @@ function Inversion({ rate }: { rate: number | null }) {
     <span className={rate > 0.15 ? "theme-warning" : "theme-text"}>
       {pct(rate, 0)}
     </span>
-  );
-}
-
-function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
-  return (
-    <th className={`p-2 font-normal ${right ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  right,
-  muted,
-}: {
-  children: React.ReactNode;
-  right?: boolean;
-  muted?: boolean;
-}) {
-  return (
-    <td
-      className={`p-2 ${right ? "text-right" : "text-left"} ${
-        muted ? "theme-text-secondary" : "theme-text"
-      }`}
-    >
-      {children}
-    </td>
   );
 }

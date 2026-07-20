@@ -410,7 +410,9 @@ describe("<MinersPanel /> mop-up", () => {
         miners={[
           // null rate → Inversion returns the muted dash
           miner({ priorityInversionRate: null }),
-          // >15% rate → warm class; short miner id ≤12 chars → short() identity
+          // >15% rate → warm class; short miner id → MiddleTruncate still
+          // splits it into lead/tail nodes, so the full value is only
+          // findable via its `title`, not as one getByText match.
           miner({ miner: "0xabc", priorityInversionRate: 0.5 }),
         ]}
         symbol="PLS"
@@ -420,9 +422,9 @@ describe("<MinersPanel /> mop-up", () => {
     // Expand the collapsed table.
     fireEvent.click(screen.getByText("Validators (2)"));
     expect(screen.getByText("Validator")).toBeInTheDocument();
-    // null-rate row → dash; short address rendered verbatim.
+    // null-rate row → dash; short address is searchable via its title.
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
-    expect(screen.getByText("0xabc")).toBeInTheDocument();
+    expect(screen.getByTitle("0xabc")).toBeInTheDocument();
     expect(screen.getByText("50%")).toBeInTheDocument();
   });
 });
