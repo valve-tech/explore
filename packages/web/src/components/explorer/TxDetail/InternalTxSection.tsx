@@ -1,8 +1,32 @@
 import type { TransactionDetails } from "../../../api/explorer";
-import { AddressLink, SectionCard, type AddressNavigate } from "./primitives";
+import { SectionCard, type AddressNavigate } from "./primitives";
 import { formatPLS } from "./format";
 import { useActiveChainId } from "../../../lib/activeChain";
 import { chainSymbol } from "../../../lib/chains";
+import { ExplorerLink } from "../ExplorerLink";
+import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { DataTable, type Column } from "../../primitives/DataTable";
+
+type InternalTransaction = TransactionDetails["internalTransactions"][number];
+
+/** Navigable, searchable (middle-truncated) address cell. */
+function AddressCell({
+  address,
+  onNavigate,
+}: {
+  address: string;
+  onNavigate: AddressNavigate;
+}) {
+  return (
+    <ExplorerLink
+      target={{ type: "address" as const, value: address }}
+      onNavigate={onNavigate}
+      className="font-mono text-sm hover:underline cursor-pointer theme-accent"
+    >
+      <MiddleTruncate value={address} className="font-mono text-sm theme-accent" />
+    </ExplorerLink>
+  );
+}
 
 export function InternalTxSection({
   internalTransactions,
@@ -12,6 +36,46 @@ export function InternalTxSection({
   onNavigate: AddressNavigate;
 }) {
   const symbol = chainSymbol(useActiveChainId());
+
+  const columns: Column<InternalTransaction>[] = [
+    {
+      key: "type",
+      header: "Type",
+      cell: (itx) => (
+        <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded theme-primary-bg theme-text-secondary">
+          {itx.type}
+        </span>
+      ),
+    },
+    {
+      key: "from",
+      header: "From",
+      cell: (itx) => <AddressCell address={itx.from} onNavigate={onNavigate} />,
+    },
+    {
+      key: "to",
+      header: "To",
+      primary: true,
+      cell: (itx) => <AddressCell address={itx.to} onNavigate={onNavigate} />,
+    },
+    {
+      key: "value",
+      header: "Value",
+      cell: (itx) => (
+        <span className="font-mono theme-text">{formatPLS(itx.valuePLS, symbol)}</span>
+      ),
+    },
+    {
+      key: "gasUsed",
+      header: "Gas Used",
+      cell: (itx) => (
+        <span className="font-mono theme-text-secondary">
+          {Number(itx.gasUsed).toLocaleString()}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <SectionCard
       title="Internal Transactions"
@@ -19,74 +83,13 @@ export function InternalTxSection({
       defaultOpen={false}
     >
       <div className="pt-3">
-        <div
-          className="rounded-md bs-muted overflow-x-auto"
-          style={{}}
-        >
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="theme-secondary-bg">
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  Type
-                </th>
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  From
-                </th>
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  To
-                </th>
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  Value
-                </th>
-                <th
-                  className="text-left px-3 py-2 text-xs font-medium theme-text-secondary"
-                >
-                  Gas Used
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {internalTransactions.map((itx, i) => (
-                <tr
-                  key={i}
-                  className="bs-t-muted hover:opacity-80"
-                  style={{}}
-                >
-                  <td className="px-3 py-2">
-                    <span
-                      className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded theme-primary-bg theme-text-secondary"
-                    >
-                      {itx.type}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <AddressLink address={itx.from} onNavigate={onNavigate} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <AddressLink address={itx.to} onNavigate={onNavigate} />
-                  </td>
-                  <td
-                    className="px-3 py-2 font-mono theme-text"
-                  >
-                    {formatPLS(itx.valuePLS, symbol)}
-                  </td>
-                  <td
-                    className="px-3 py-2 font-mono theme-text-secondary"
-                  >
-                    {Number(itx.gasUsed).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="rounded-md bs-muted overflow-x-auto">
+          <DataTable
+            columns={columns}
+            rows={internalTransactions}
+            rowKey={(_itx, i) => i}
+            emptyLabel="No internal transactions"
+          />
         </div>
       </div>
     </SectionCard>
