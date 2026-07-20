@@ -80,6 +80,17 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
+    // Playwright specs live in e2e/ and use their own runner (`playwright
+    // test`, per playwright.config.ts) — Vitest's default include glob
+    // (**/*.spec.ts) would otherwise pick them up and choke on `test()`
+    // calls outside a Playwright test file. Keep Vitest's usual defaults
+    // alongside it rather than replacing them.
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.{idea,git,cache,output,temp}/**",
+      "e2e/**",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

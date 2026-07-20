@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "lint:spacing": "if grep -rnE '(^|[^a-zA-Z0-9_-])(gap-[1235]|space-y-[4-8])([^.0-9-]|$)' src --include='*.tsx' --include='*.ts'; then echo '\\nBanned Tailwind spacing class found above. Use semantic tokens: gap-tight | gap-inline | gap-row | space-y-stack | space-y-section. Defined in src/index.css. (Half-steps like gap-1.5 are allowed.)'; exit 1; fi"
   },
   "dependencies": {
@@ -28,6 +30,7 @@
     "wagmi": "^2.19.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "^4.0.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

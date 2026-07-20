@@ -11,6 +11,13 @@ data/
 
 # Working-session screenshots + Playwright MCP scratch dir
 .playwright-mcp/
+
+# Playwright test runner output (test-results/, HTML report) — regenerated
+# per run, never committed. Browser binaries live in the OS cache
+# (~/Library/Caches/ms-playwright or equivalent), never in-repo.
+test-results/
+playwright-report/
+blob-report/
 /draft-*.png
 /palette-*.png
 /prod-*.png
