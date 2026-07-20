@@ -50,4 +50,10 @@ describe("useMediaQuery", () => {
     const { result } = renderHook(() => useIsMobile());
     expect(result.current).toBe(true);
   });
+
+  it("useIsMobile queries exactly (max-width: 639px)", () => {
+    installMatchMedia(true);
+    renderHook(() => useIsMobile());
+    expect(matchMedia).toHaveBeenCalledWith("(max-width: 639px)");
+  });
 });
