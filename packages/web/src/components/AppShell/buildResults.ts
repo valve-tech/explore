@@ -4,6 +4,7 @@ import { scanPath } from "../../lib/scanRoutes";
 import type { WorkspaceItemKind } from "../../lib/workspace/types";
 import type { Parsed } from "./parseInput";
 import { resolvedActions, type Resolution } from "./resolvedJumps";
+import { truncateMiddle } from "../../lib/format/hash";
 
 /* ------------------------------------------------------------------ */
 /* Palette result model                                               */
@@ -43,8 +44,11 @@ const PAGES: { label: string; to: string; icon: string }[] = [
 ];
 
 function truncMid(v: string): string {
+  // Guard preserved (rather than routing straight through `shortHash`) so
+  // non-0x values (e.g. block numbers) and the 16-char threshold stay
+  // byte-identical to the pre-consolidation behavior these results relied on.
   if (!v.startsWith("0x") || v.length <= 16) return v;
-  return `${v.slice(0, 8)}…${v.slice(-6)}`;
+  return truncateMiddle(v, { lead: 8, tail: 6 });
 }
 
 function recentToResult(e: RecentEntity): Result {

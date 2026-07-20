@@ -28,6 +28,7 @@ import { GasOracleWidget } from "./GasOracleWidget";
 import { subscriptSmallString, groupDecimalString } from "./format";
 import { useActiveChainId } from "../../lib/activeChain";
 import { chainSymbol } from "../../lib/chains";
+import { shortHash } from "../../lib/format/hash";
 
 const REFETCH_MS = 5_000;
 
@@ -278,7 +279,7 @@ function TxsCard({
                 <div
                   className="text-xs font-mono truncate theme-accent"
                 >
-                  {short(t.hash)}
+                  {shortHash(t.hash)}
                 </div>
                 <div
                   className="text-[11px] mt-0.5 truncate theme-text-muted"
@@ -401,7 +402,3 @@ function ago(unixSeconds: number): string {
   return `${Math.floor(delta / 86400)}d ago`;
 }
 
-function short(hash: string): string {
-  if (hash.length < 14) return hash;
-  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
-}

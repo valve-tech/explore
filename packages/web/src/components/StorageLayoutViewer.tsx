@@ -12,6 +12,7 @@ import type {
 } from "./StorageLayoutViewer/types";
 import { resolveSlot } from "./StorageLayoutViewer/slots";
 import { groupByContract } from "./StorageLayoutViewer/grouping";
+import { truncateMiddle } from "../lib/format/hash";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -542,6 +543,5 @@ function DecompiledLayoutPanel({
 
 /** Shorten a 0x-prefixed slot hex to head…tail for the table column. */
 function truncateSlot(slot: string): string {
-  if (slot.length <= 14) return slot;
-  return `${slot.slice(0, 8)}…${slot.slice(-4)}`;
+  return truncateMiddle(slot, { lead: 8, tail: 4 });
 }

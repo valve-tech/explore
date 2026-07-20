@@ -6,6 +6,7 @@ import { formatAmountDisplay } from "../../lib/format/tokenAmount";
 import { chainSymbol } from "../../lib/chains";
 import { useActiveChainId } from "../../lib/activeChain";
 import { pct, shareOf } from "./format";
+import { shortAddress } from "../../lib/format/hash";
 
 /**
  * Per-block fee ladder.
@@ -62,7 +63,7 @@ function gasLayout(gas: bigint[], plotW: number): number[] {
 
 function short(addr: string | null): string {
   if (!addr) return "—";
-  return addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
+  return shortAddress(addr);
 }
 
 /**

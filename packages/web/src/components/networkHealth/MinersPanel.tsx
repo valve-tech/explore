@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import type { MinerStats } from "../../api/networkHealth";
 import { nativeAmount, pct } from "./format";
+import { shortAddress } from "../../lib/format/hash";
 
 /**
  * Per-validator rollup over the loaded window — who produced what. Descriptive,
@@ -58,7 +59,7 @@ export function MinersPanel({
                     to={`/address/${m.miner}`}
                     className="theme-accent hover:underline"
                   >
-                    {short(m.miner)}
+                    {shortAddress(m.miner)}
                   </Link>
                 </Td>
                 <Td right>{m.blocks}</Td>
@@ -83,10 +84,6 @@ export function MinersPanel({
       )}
     </div>
   );
-}
-
-function short(a: string): string {
-  return a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
 }
 
 function ShareBar({ frac }: { frac: number }) {
