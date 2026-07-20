@@ -20,6 +20,8 @@ export interface SidebarState {
  * expanded/collapsed state is identical on every route — toggling it anywhere
  * sticks everywhere. (There is deliberately no per-route auto-collapse: that
  * made the sidebar appear to "remember" a state per tab, which it shouldn't.)
+ * Mobile uses a separate ephemeral drawer (useMobileNav); this collapse is
+ * desktop-only.
  */
 export function useSidebarState(): SidebarState {
   const [collapsed, setCollapsed] = useState(loadCollapsed);

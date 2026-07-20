@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { useSidebarState } from "./AppShell/useSidebarState";
+import { useMobileNav } from "./AppShell/useMobileNav";
 import { useCommandPaletteShortcut } from "./AppShell/useCommandPaletteShortcut";
+import { useIsMobile } from "../hooks/useMediaQuery";
 import { TopBar } from "./AppShell/TopBar";
 import { Sidebar } from "./AppShell/Sidebar";
 import { CommandPalette } from "./AppShell/CommandPalette";
@@ -15,22 +17,41 @@ export default function AppShell({
 }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { collapsed, onToggleCollapse } = useSidebarState();
+  const { drawerOpen, openDrawer, closeDrawer } = useMobileNav();
+  const isMobile = useIsMobile();
 
   useCommandPaletteShortcut(setPaletteOpen);
 
   return (
-    <div
-      className="h-full flex flex-col min-h-0 theme-primary-bg"
-    >
+    <div className="h-full flex flex-col min-h-0 theme-primary-bg">
       <TopBar
         collapsed={collapsed}
         onToggleCollapse={onToggleCollapse}
+        onOpenDrawer={openDrawer}
         apiStatus={apiStatus}
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
       <div className="flex-1 flex min-h-0">
-        <Sidebar collapsed={collapsed} />
+        {isMobile ? (
+          <>
+            {drawerOpen && (
+              <button
+                aria-label="Close menu"
+                onClick={closeDrawer}
+                className="fixed inset-0 z-30 bg-black/50"
+              />
+            )}
+            <Sidebar
+              collapsed={collapsed}
+              asDrawer
+              drawerOpen={drawerOpen}
+              onNavigate={closeDrawer}
+            />
+          </>
+        ) : (
+          <Sidebar collapsed={collapsed} />
+        )}
         <div className="flex-1 overflow-auto min-w-0 p-3 md:p-4">{children}</div>
       </div>
 

@@ -1,26 +1,59 @@
+import { useEffect, useRef } from "react";
 import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { NAV_GROUPS } from "../../lib/navGroups";
 import { useWatchRules } from "../../hooks/useWatchRules";
 import { isRuleActionable } from "../../lib/watcher/rules";
 import { Tooltip } from "../primitives/Tooltip";
+import { RpcSourceChip } from "../settings/RpcSourceChip";
+import { WorkspaceSyncStatus } from "../wallet/WorkspaceSyncStatus";
+import { WalletConnectButton } from "../wallet/WalletConnectButton";
 
 /** The nav item watches live under — the only one that carries a live badge. */
 const WATCH_BADGE_ROUTE = "/workspace";
 
-export function Sidebar({ collapsed }: { collapsed: boolean }) {
+export function Sidebar({
+  collapsed,
+  asDrawer = false,
+  drawerOpen = false,
+  onNavigate,
+}: {
+  collapsed: boolean;
+  asDrawer?: boolean;
+  drawerOpen?: boolean;
+  onNavigate?: () => void;
+}) {
   const { rules } = useWatchRules();
   // Active = enabled AND actionable, i.e. rules the engine actually subscribes.
   const activeWatches = rules.filter(
     (r) => r.enabled && isRuleActionable(r),
   ).length;
 
+  // In drawer mode the aside is always full-label (never the icon rail) and is
+  // positioned off-canvas, sliding in when open.
+  const effectiveCollapsed = asDrawer ? false : collapsed;
+
+  const wrapperClass = asDrawer
+    ? `fixed inset-y-0 left-0 z-40 w-72 flex flex-col theme-secondary-bg bs-r outline-none transition-transform duration-150 ${
+        drawerOpen ? "translate-x-0" : "-translate-x-full"
+      }`
+    : "flex flex-col transition-[width] duration-150 shrink-0 theme-secondary-bg bs-r";
+
+  const asideRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (asDrawer && drawerOpen) asideRef.current?.focus();
+  }, [asDrawer, drawerOpen]);
+
   return (
     <aside
-      className="flex flex-col transition-[width] duration-150 shrink-0 theme-secondary-bg bs-r"
-      style={{
-        width: collapsed ? 56 : 240,
-      }}
+      ref={asideRef}
+      tabIndex={asDrawer ? -1 : undefined}
+      className={wrapperClass}
+      style={asDrawer ? undefined : { width: collapsed ? 56 : 240 }}
+      aria-hidden={asDrawer && !drawerOpen ? true : undefined}
+      {...(asDrawer
+        ? { role: "dialog", "aria-modal": true, "aria-label": "Navigation" }
+        : {})}
     >
       <nav className="flex-1 overflow-y-auto py-4">
         {NAV_GROUPS.map((group) => (
@@ -29,7 +62,7 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                 centered divider (collapsed). Same height either way, so the
                 icon rows below land at the same Y and don't jump on toggle. */}
             <div className="h-7 flex items-center px-3">
-              {collapsed ? (
+              {effectiveCollapsed ? (
                 <div className="flex-1 h-px theme-border-bg-muted" />
               ) : (
                 <div
@@ -58,9 +91,10 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
               const link = (
               <NavLink
                 to={item.to}
+                onClick={onNavigate}
                 className="relative flex items-center transition-colors overflow-hidden"
                 style={({ isActive }) =>
-                  collapsed
+                  effectiveCollapsed
                     ? {
                         width: 40,
                         height: 36,
@@ -96,14 +130,14 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                 }
               >
                 <Icon icon={item.icon} className="w-5 h-5 shrink-0" />
-                {!collapsed && (
+                {!effectiveCollapsed && (
                   <span className="text-sm whitespace-nowrap flex-1">
                     {item.label}
                   </span>
                 )}
                 {item.to === WATCH_BADGE_ROUTE &&
                   activeWatches > 0 &&
-                  (collapsed ? (
+                  (effectiveCollapsed ? (
                     <Tooltip
                       className="absolute top-1 right-1.5"
                       label={`${activeWatches} active watch${
@@ -135,7 +169,7 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
                   ))}
               </NavLink>
               );
-              return collapsed ? (
+              return effectiveCollapsed ? (
                 <Tooltip
                   key={item.to}
                   className="w-full justify-center"
@@ -151,24 +185,33 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
         ))}
       </nav>
 
+      {asDrawer && (
+        <div className="bs-t-muted p-4 flex flex-col gap-row">
+          <RpcSourceChip />
+          <WorkspaceSyncStatus />
+          <WalletConnectButton />
+        </div>
+      )}
+
       <div
         className="py-2 flex theme-text-muted bs-t-muted"
         style={{
-          flexDirection: collapsed ? "column" : "row",
+          flexDirection: effectiveCollapsed ? "column" : "row",
           alignItems: "center",
-          paddingLeft: collapsed ? 0 : 12,
-          paddingRight: collapsed ? 0 : 12,
-          gap: collapsed ? 4 : 8,
-          justifyContent: collapsed ? "center" : "flex-start",
+          paddingLeft: effectiveCollapsed ? 0 : 12,
+          paddingRight: effectiveCollapsed ? 0 : 12,
+          gap: effectiveCollapsed ? 4 : 8,
+          justifyContent: effectiveCollapsed ? "center" : "flex-start",
         }}
       >
         {(() => {
           const settingsLink = (
             <NavLink
               to="/settings"
+              onClick={onNavigate}
               className="flex items-center transition-colors"
               style={({ isActive }) =>
-                collapsed
+                effectiveCollapsed
                   ? {
                       width: 40,
                       height: 40,
@@ -190,19 +233,20 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
               }
             >
               <Icon icon="heroicons:cog-6-tooth" className="w-5 h-5 shrink-0" />
-              {!collapsed && <span>Settings</span>}
+              {!effectiveCollapsed && <span>Settings</span>}
             </NavLink>
           );
-          return collapsed ? (
+          return effectiveCollapsed ? (
             <Tooltip label="Settings">{settingsLink}</Tooltip>
           ) : (
             settingsLink
           );
         })()}
-        {!collapsed && (
+        {!effectiveCollapsed && (
           <>
             <NavLink
               to="/ui"
+              onClick={onNavigate}
               className="text-[10px] uppercase tracking-widest"
               style={({ isActive }) => ({
                 color: isActive ? "var(--color-accent)" : "var(--color-text-muted)",
@@ -213,6 +257,7 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
             </NavLink>
             <NavLink
               to="/drafts"
+              onClick={onNavigate}
               className="text-[10px] uppercase tracking-widest"
               style={({ isActive }) => ({
                 color: isActive ? "var(--color-accent)" : "var(--color-text-muted)",
@@ -225,7 +270,7 @@ export function Sidebar({ collapsed }: { collapsed: boolean }) {
         )}
         {/* Collapsed: UI gallery + Drafts would otherwise be unreachable (the
             text links above are hidden), so surface them as icon links. */}
-        {collapsed && (
+        {effectiveCollapsed && (
           <>
             <Tooltip label="UI Gallery">
               <NavLink

@@ -17,11 +17,13 @@ import type { ApiStatus } from "./types";
 export function TopBar({
   collapsed,
   onToggleCollapse,
+  onOpenDrawer,
   apiStatus,
   onOpenPalette,
 }: {
   collapsed: boolean;
   onToggleCollapse: () => void;
+  onOpenDrawer: () => void;
   apiStatus: ApiStatus;
   onOpenPalette: () => void;
 }) {
@@ -55,7 +57,16 @@ export function TopBar({
     <div
       className="bs-b flex items-stretch h-12 shrink-0 theme-secondary-bg"
     >
-      <Tooltip label={toggleTitle}>
+      {/* Mobile: opens the drawer. */}
+      <button
+        onClick={onOpenDrawer}
+        aria-label="Open menu"
+        className={`${control} sm:hidden hover:opacity-80 theme-text-secondary bs-r-muted bg-transparent`}
+      >
+        <Icon icon="heroicons:bars-3" className="w-5 h-5" />
+      </button>
+      {/* Desktop: collapses/expands the rail. */}
+      <Tooltip label={toggleTitle} className="hidden sm:flex">
         <button
           onClick={onToggleCollapse}
           aria-label={toggleTitle}
@@ -111,7 +122,7 @@ export function TopBar({
         </button>
       </div>
 
-      <div className="flex items-center gap-inline px-2 shrink-0">
+      <div className="hidden sm:flex items-center gap-inline px-2 shrink-0">
         <RpcSourceChip />
         <WorkspaceSyncAutoPush />
         <WorkspaceSyncStatus />

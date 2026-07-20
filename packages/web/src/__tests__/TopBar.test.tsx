@@ -29,6 +29,7 @@ function baseProps() {
   return {
     collapsed: false,
     onToggleCollapse: vi.fn(),
+    onOpenDrawer: vi.fn(),
     onOpenPalette: vi.fn(),
     apiStatus: "connected" as const,
   };
