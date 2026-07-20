@@ -9,6 +9,10 @@ import { ExplorerLink } from "./ExplorerLink";
 import { TxGasInfo } from "./TxGasInfo";
 import { formatTimestamp } from "./BlockView/formatters";
 import { AddToWorkspaceButton } from "../workspace/AddToWorkspaceButton";
+import { MiddleTruncate } from "../primitives/MiddleTruncate";
+import { DataTable, type Column } from "../primitives/DataTable";
+
+type BlockTx = BlockDetails["transactions"][number];
 
 interface BlockViewProps {
   numberOrHash: string;
@@ -97,6 +101,98 @@ export default function BlockView({
   const gasPercent = block.gasLimit !== "0"
     ? ((Number(block.gasUsed) / Number(block.gasLimit)) * 100).toFixed(1)
     : "0";
+
+  const columns: Column<BlockTx>[] = [
+    {
+      key: "hash",
+      header: "Tx Hash",
+      primary: true,
+      cell: (tx) => (
+        <ExplorerLink
+          target={{ type: "tx", value: tx.hash }}
+          onNavigate={onNavigate}
+          className="font-mono text-xs hover:underline cursor-pointer theme-accent"
+        >
+          <MiddleTruncate value={tx.hash} className="font-mono text-xs theme-accent" />
+        </ExplorerLink>
+      ),
+    },
+    {
+      key: "method",
+      header: "Method",
+      cell: (tx) =>
+        tx.methodId && tx.methodId !== "0x" ? (
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded theme-primary-bg theme-text-secondary">
+            {tx.methodId}
+          </span>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded theme-success-bg theme-success">
+            Transfer
+          </span>
+        ),
+    },
+    {
+      key: "from",
+      header: "From",
+      cell: (tx) =>
+        tx.from ? (
+          <ExplorerLink
+            target={{ type: "address", value: tx.from }}
+            onNavigate={onNavigate}
+            className="font-mono text-xs hover:underline cursor-pointer theme-accent"
+          >
+            <MiddleTruncate value={tx.from} className="font-mono text-xs theme-accent" />
+          </ExplorerLink>
+        ) : (
+          <span className="text-xs theme-text-muted">-</span>
+        ),
+    },
+    {
+      key: "to",
+      header: "To",
+      cell: (tx) =>
+        tx.to ? (
+          <ExplorerLink
+            target={{ type: "address", value: tx.to }}
+            onNavigate={onNavigate}
+            className="font-mono text-xs hover:underline cursor-pointer theme-accent"
+          >
+            <MiddleTruncate value={tx.to} className="font-mono text-xs theme-accent" />
+          </ExplorerLink>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded theme-accent-bg theme-accent">
+            Create
+          </span>
+        ),
+    },
+    {
+      key: "value",
+      header: "Value",
+      cell: (tx) => (
+        <span className="font-mono text-xs whitespace-nowrap theme-text">
+          {formatPLS(tx.valuePLS, chainSymbol(chainId))}
+        </span>
+      ),
+    },
+    {
+      key: "gas",
+      header: "Gas / Type",
+      cell: (tx) => (
+        <TxGasInfo
+          type={tx.type}
+          gasPrice={tx.gasPrice}
+          maxFeePerGas={tx.maxFeePerGas}
+          maxPriorityFeePerGas={tx.maxPriorityFeePerGas}
+        />
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      hideLabelOnCard: true,
+      cell: (tx) => <TxRowActions hash={tx.hash} contractAddress={tx.to ?? null} compact />,
+    },
+  ];
 
   return (
     <div className="space-y-stack">
@@ -235,144 +331,12 @@ export default function BlockView({
           </h3>
         </div>
 
-        {block.transactions.length === 0 ? (
-          <div
-            className="p-4 text-center text-sm theme-text-muted"
-          >
-            No transactions in this block
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="theme-secondary-bg"
-                >
-                  <th
-                    className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
-                  >
-                    Tx Hash
-                  </th>
-                  <th
-                    className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
-                  >
-                    Method
-                  </th>
-                  <th
-                    className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
-                  >
-                    From
-                  </th>
-                  <th
-                    className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
-                  >
-                    To
-                  </th>
-                  <th
-                    className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
-                  >
-                    Value
-                  </th>
-                  <th
-                    className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
-                  >
-                    Gas / Type
-                  </th>
-                  <th className="px-3 py-2.5" />
-                </tr>
-              </thead>
-              <tbody>
-                {block.transactions.map((tx, i) => (
-                  <tr
-                    key={i}
-                    className="bs-t-muted hover:opacity-80"
-                  >
-                    <td className="px-3 py-2">
-                      <ExplorerLink
-                        target={{ type: "tx", value: tx.hash }}
-                        onNavigate={onNavigate}
-                        className="font-mono text-xs hover:underline cursor-pointer theme-accent"
-                        title={tx.hash}
-                      >
-                        {truncateAddr(tx.hash)}
-                      </ExplorerLink>
-                    </td>
-                    <td className="px-3 py-2">
-                      {tx.methodId && tx.methodId !== "0x" ? (
-                        <span
-                          className="text-[10px] font-mono px-1.5 py-0.5 rounded theme-primary-bg theme-text-secondary"
-                        >
-                          {tx.methodId}
-                        </span>
-                      ) : (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded theme-success-bg theme-success"
-                        >
-                          Transfer
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {tx.from ? (
-                        <ExplorerLink
-                          target={{ type: "address", value: tx.from }}
-                          onNavigate={onNavigate}
-                          className="font-mono text-xs hover:underline cursor-pointer theme-accent"
-                          title={tx.from}
-                        >
-                          {truncateAddr(tx.from)}
-                        </ExplorerLink>
-                      ) : (
-                        <span
-                          className="text-xs theme-text-muted"
-                        >
-                          -
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {tx.to ? (
-                        <ExplorerLink
-                          target={{ type: "address", value: tx.to }}
-                          onNavigate={onNavigate}
-                          className="font-mono text-xs hover:underline cursor-pointer theme-accent"
-                          title={tx.to}
-                        >
-                          {truncateAddr(tx.to)}
-                        </ExplorerLink>
-                      ) : (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded theme-accent-bg theme-accent"
-                        >
-                          Create
-                        </span>
-                      )}
-                    </td>
-                    <td
-                      className="px-3 py-2 font-mono text-xs whitespace-nowrap theme-text"
-                    >
-                      {formatPLS(tx.valuePLS, chainSymbol(chainId))}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      <TxGasInfo
-                        type={tx.type}
-                        gasPrice={tx.gasPrice}
-                        maxFeePerGas={tx.maxFeePerGas}
-                        maxPriorityFeePerGas={tx.maxPriorityFeePerGas}
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-right relative">
-                      <TxRowActions
-                        hash={tx.hash}
-                        contractAddress={tx.to ?? null}
-                        compact
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columns={columns}
+          rows={block.transactions}
+          rowKey={(tx, i) => `${tx.hash}-${i}`}
+          emptyLabel="No transactions in this block"
+        />
       </div>
     </div>
   );
