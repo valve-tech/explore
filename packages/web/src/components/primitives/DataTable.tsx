@@ -28,7 +28,9 @@ export function DataTable<T>({
 }: DataTableProps<T>): ReactElement {
   const isMobile = useIsMobile();
 
-  if (rows.length === 0) {
+  // No rows OR no columns: render the empty label instead of crashing (card
+  // mode indexes into `columns[0]` below, which is unsafe when empty).
+  if (rows.length === 0 || columns.length === 0) {
     return (
       <div className="px-3 py-6 text-sm text-center theme-text-muted">
         {emptyLabel}

@@ -59,4 +59,71 @@ describe("DataTable", () => {
     );
     expect(screen.getByText("No transactions")).toBeInTheDocument();
   });
+
+  it("omits the field label in card mode for hideLabelOnCard columns", () => {
+    mockMobile(true);
+    const columnsWithAction: Column<Row>[] = [
+      ...columns,
+      {
+        key: "actions",
+        header: "Actions",
+        cell: () => <button>act</button>,
+        hideLabelOnCard: true,
+      },
+    ];
+    render(
+      <DataTable columns={columnsWithAction} rows={rows} rowKey={(r) => r.hash} />,
+    );
+    // The action button's cell content renders...
+    expect(screen.getAllByText("act").length).toBe(2);
+    // ...but its header label does not, since hideLabelOnCard suppresses it.
+    expect(screen.queryByText("Actions")).not.toBeInTheDocument();
+    // A non-hidden column's header still renders as a label, distinguishing the two.
+    expect(screen.getAllByText("Block").length).toBe(2);
+  });
+
+  it("falls back to the first column as the card heading when none is primary", () => {
+    mockMobile(true);
+    const noPrimaryColumns: Column<Row>[] = [
+      { key: "hash", header: "Tx Hash", cell: (r) => <span>{r.hash}</span> },
+      { key: "block", header: "Block", cell: (r) => <span>{r.block}</span> },
+    ];
+    const { container } = render(
+      <DataTable columns={noPrimaryColumns} rows={rows} rowKey={(r) => r.hash} />,
+    );
+    expect(container.querySelector("table")).not.toBeInTheDocument();
+    // First column (hash) becomes the heading despite no `primary: true`.
+    expect(screen.getByText("0xabc")).toBeInTheDocument();
+    expect(screen.getByText("0xdef")).toBeInTheDocument();
+  });
+
+  it("renders the empty label (no table, no cards) at phone width when rows is empty", () => {
+    mockMobile(true);
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        rows={[]}
+        rowKey={(r) => r.hash}
+        emptyLabel="No transactions"
+      />,
+    );
+    expect(screen.getByText("No transactions")).toBeInTheDocument();
+    expect(container.querySelector("table")).not.toBeInTheDocument();
+    expect(container.querySelector("li")).not.toBeInTheDocument();
+  });
+
+  it("renders the empty label instead of throwing when columns is empty at phone width", () => {
+    mockMobile(true);
+    const { container } = render(
+      <DataTable
+        columns={[]}
+        rows={rows}
+        rowKey={(r) => r.hash}
+        emptyLabel="No columns configured"
+      />,
+    );
+    expect(screen.getByText("No columns configured")).toBeInTheDocument();
+    expect(container.querySelector("table")).not.toBeInTheDocument();
+    expect(container.querySelector("li")).not.toBeInTheDocument();
+  });
 });
