@@ -100,7 +100,10 @@ export function SourceOpcodeSplit({
           Source
         </button>
         <button
-          onClick={() => setMobilePane("opcodes")}
+          onClick={() => {
+            setMobilePane("opcodes");
+            if (collapsed) toggleCollapsed();
+          }}
           aria-label="Show opcodes pane"
           className={`flex-1 px-3 py-2 text-xs ${mobilePane === "opcodes" ? "theme-accent-bg theme-accent" : "theme-text-secondary"}`}
         >

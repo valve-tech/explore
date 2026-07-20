@@ -315,6 +315,42 @@ describe("SourceOpcodeSplit", () => {
     // button remains.
     expect(screen.queryByText("Opcode")).not.toBeInTheDocument();
   });
+
+  it("un-collapses the opcode pane when the mobile Opcodes tab is tapped while collapsed", () => {
+    // Seed a persisted collapsed state, as if it were left over from a
+    // desktop session, then viewed at phone width — the dead-end the fix
+    // closes.
+    localStorage.setItem("debugger:opcodePaneCollapsed", "1");
+    render(
+      <SourceOpcodeSplit
+        currentSourceFile={file}
+        allFiles={[file]}
+        effectiveLine={1}
+        highlightSpan={null}
+        scrollKey={0}
+        slitherFindings={[]}
+        sourceLoading={false}
+        activeContractAddress="0xabc"
+        executableLines={new Set([1])}
+        onJumpToLine={vi.fn()}
+        steps={steps}
+        currentStep={0}
+        goTo={vi.fn()}
+        filteredIndices={null}
+        maxDepth={1}
+        opcodeFreqs={[{ op: "PUSH1", count: 1, gas: 3 }]}
+        opcodeFilter=""
+        onToggleOpcode={vi.fn()}
+      />,
+    );
+    // Starts collapsed: only the restore rail renders, no opcode content.
+    expect(screen.queryByText("Opcode")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show opcodes pane" }));
+    // The mobile Opcodes tab un-collapses the pane, so its content renders
+    // instead of leaving an empty/rail-only view.
+    expect(screen.getByText("Opcode")).toBeInTheDocument();
+    expect(localStorage.getItem("debugger:opcodePaneCollapsed")).toBe("0");
+  });
 });
 
 describe("SoliditySourceViewer", () => {
