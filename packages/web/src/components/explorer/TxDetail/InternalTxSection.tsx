@@ -3,30 +3,10 @@ import { SectionCard, type AddressNavigate } from "./primitives";
 import { formatPLS } from "./format";
 import { useActiveChainId } from "../../../lib/activeChain";
 import { chainSymbol } from "../../../lib/chains";
-import { ExplorerLink } from "../ExplorerLink";
-import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { AddressCell } from "./AddressCell";
 import { DataTable, type Column } from "../../primitives/DataTable";
 
 type InternalTransaction = TransactionDetails["internalTransactions"][number];
-
-/** Navigable, searchable (middle-truncated) address cell. */
-function AddressCell({
-  address,
-  onNavigate,
-}: {
-  address: string;
-  onNavigate: AddressNavigate;
-}) {
-  return (
-    <ExplorerLink
-      target={{ type: "address" as const, value: address }}
-      onNavigate={onNavigate}
-      className="font-mono text-sm hover:underline cursor-pointer theme-accent"
-    >
-      <MiddleTruncate value={address} className="font-mono text-sm theme-accent" />
-    </ExplorerLink>
-  );
-}
 
 export function InternalTxSection({
   internalTransactions,
@@ -83,7 +63,7 @@ export function InternalTxSection({
       defaultOpen={false}
     >
       <div className="pt-3">
-        <div className="rounded-md bs-muted overflow-x-auto">
+        <div className="rounded-md bs-muted overflow-hidden">
           <DataTable
             columns={columns}
             rows={internalTransactions}

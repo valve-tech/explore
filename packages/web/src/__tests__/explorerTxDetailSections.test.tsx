@@ -112,6 +112,14 @@ describe("<DecodedInputSection />", () => {
     expect(screen.getByText(/transfer\(/)).toBeInTheDocument();
     expect(screen.getByText("to")).toBeInTheDocument();
     expect(screen.getByText("param1")).toBeInTheDocument(); // unnamed arg fallback
+
+    // Address-typed value: rendered via MiddleTruncate, so the FULL address
+    // stays searchable (as the `title` attribute) rather than JS-sliced.
+    expect(screen.getByTitle(TO)).toBeInTheDocument();
+
+    // uint256-typed value: rendered exact and unformatted — no thousands
+    // separators, no ellipsis, no truncation.
+    expect(screen.getByText("5456507558918974858760")).toBeInTheDocument();
   });
 
   it("omits the arg table for a no-arg call", () => {

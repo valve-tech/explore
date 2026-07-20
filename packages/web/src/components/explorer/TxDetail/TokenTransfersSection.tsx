@@ -1,8 +1,7 @@
 import type { TransactionDetails } from "../../../api/explorer";
 import { formatAmountDisplay } from "../../../lib/format/tokenAmount";
 import { SectionCard, type AddressNavigate } from "./primitives";
-import { ExplorerLink } from "../ExplorerLink";
-import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { AddressCell } from "./AddressCell";
 import { DataTable, type Column } from "../../primitives/DataTable";
 
 type TokenTransfer = TransactionDetails["tokenTransfers"][number];
@@ -11,25 +10,6 @@ type TokenTransfer = TransactionDetails["tokenTransfers"][number];
  *  (Parsing the small decimals COUNT is fine — only AMOUNTS must stay bigint.) */
 function parseDecimals(decimalStr: string): number | null {
   return /^\d+$/.test(decimalStr) ? Number(decimalStr) : null;
-}
-
-/** Navigable, searchable (middle-truncated) address cell. */
-function AddressCell({
-  address,
-  onNavigate,
-}: {
-  address: string;
-  onNavigate: AddressNavigate;
-}) {
-  return (
-    <ExplorerLink
-      target={{ type: "address" as const, value: address }}
-      onNavigate={onNavigate}
-      className="font-mono text-sm hover:underline cursor-pointer theme-accent"
-    >
-      <MiddleTruncate value={address} className="font-mono text-sm theme-accent" />
-    </ExplorerLink>
-  );
 }
 
 export function TokenTransfersSection({
@@ -83,7 +63,7 @@ export function TokenTransfersSection({
       defaultOpen={false}
     >
       <div className="pt-3">
-        <div className="rounded-md bs-muted overflow-x-auto">
+        <div className="rounded-md bs-muted overflow-hidden">
           <DataTable
             columns={columns}
             rows={tokenTransfers}
