@@ -8,7 +8,6 @@ import {
 import {
   getCategoryColor,
   getCallTypeColor,
-  truncateAddress,
   formatGas,
 } from "../components/debugger/GasProfiler/colors";
 import {
@@ -63,11 +62,7 @@ describe("GasProfiler/colors", () => {
     expect(getCallTypeColor("WAT")).toBe("#8b949e");
   });
 
-  it("truncateAddress + formatGas", () => {
-    expect(truncateAddress("0xA1077a294dDE1B09bB078844df40758a5D0f9a27")).toBe(
-      "0xA107...9a27",
-    );
-    expect(truncateAddress("0x1234")).toBe("0x1234");
+  it("formatGas", () => {
     expect(formatGas(1234567)).toBe((1234567).toLocaleString());
   });
 });

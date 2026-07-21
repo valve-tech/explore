@@ -83,9 +83,11 @@ describe("GasProfiler", () => {
 });
 
 describe("GasTable", () => {
-  it("renders one row per flat entry with truncated address + percentage", () => {
+  it("renders one row per flat entry with a searchable address + percentage", () => {
     renderWithProviders(<GasTable flat={gasProfile.flat} />);
-    expect(screen.getByText("0xa107...9a27")).toBeInTheDocument();
+    // MiddleTruncate keeps the full address in the DOM via its `title` attr,
+    // rather than a JS-sliced string that Ctrl+F / copy can't find whole.
+    expect(screen.getByTitle(TOKEN)).toBeInTheDocument();
     expect(screen.getByText("40,000")).toBeInTheDocument();
     expect(screen.getByText("78.4%")).toBeInTheDocument();
     expect(screen.getByText("21.6%")).toBeInTheDocument();

@@ -27,11 +27,6 @@ export function getCallTypeColor(type: string): string {
   return CALL_TYPE_COLORS[type] ?? "#8b949e";
 }
 
-export function truncateAddress(addr: string): string {
-  if (!addr || addr.length < 12) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-}
-
 export function formatGas(val: number): string {
   return val.toLocaleString();
 }
