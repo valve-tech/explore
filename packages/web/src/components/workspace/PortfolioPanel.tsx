@@ -158,6 +158,7 @@ function HoldingsTable({ rows, chainId }: { rows: AggToken[]; chainId: number })
     {
       key: "total",
       header: "Total held",
+      align: "right",
       cell: (t) => (
         <div className="text-right font-mono">
           {formatAmountDisplay(t.total, t.decimals, { maxFractionDigits: 4 })}
@@ -167,6 +168,7 @@ function HoldingsTable({ rows, chainId }: { rows: AggToken[]; chainId: number })
     {
       key: "holders",
       header: "Addresses",
+      align: "right",
       cell: (t) => <div className="text-right theme-text-secondary">{t.holders}</div>,
     },
   ];

@@ -9,6 +9,8 @@ export interface Column<T> {
   primary?: boolean;
   /** Below sm:, omit the field label for this column (e.g. an action button). */
   hideLabelOnCard?: boolean;
+  /** Table-mode horizontal alignment (default "left"). Card mode always right-aligns values. */
+  align?: "left" | "right";
 }
 
 export interface DataTableProps<T> {
@@ -50,7 +52,7 @@ export function DataTable<T>({
               {columns.map((c) => (
                 <th
                   key={c.key}
-                  className="text-left px-3 py-2.5 text-xs font-medium theme-text-secondary"
+                  className={`${c.align === "right" ? "text-right" : "text-left"} px-3 py-2.5 text-xs font-medium theme-text-secondary`}
                 >
                   {c.header}
                 </th>
@@ -64,7 +66,10 @@ export function DataTable<T>({
                 className="bs-t-muted hover:opacity-80"
               >
                 {columns.map((c) => (
-                  <td key={c.key} className="px-3 py-2">
+                  <td
+                    key={c.key}
+                    className={`px-3 py-2${c.align === "right" ? " text-right" : ""}`}
+                  >
                     {c.cell(row)}
                   </td>
                 ))}

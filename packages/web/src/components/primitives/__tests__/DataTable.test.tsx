@@ -122,6 +122,28 @@ describe("DataTable", () => {
     expect(container.querySelector("li")).not.toBeInTheDocument();
   });
 
+  it("right-aligns table-mode header and cells for align: \"right\" columns", () => {
+    mockMobile(false);
+    const alignedColumns: Column<Row>[] = [
+      { key: "hash", header: "Tx Hash", cell: (r) => <span>{r.hash}</span>, primary: true },
+      { key: "block", header: "Block", cell: (r) => <span>{r.block}</span>, align: "right" },
+    ];
+    const { container } = render(
+      <DataTable columns={alignedColumns} rows={rows} rowKey={(r) => r.hash} />,
+    );
+    // No align specified -> defaults to text-left on the <th>.
+    expect(screen.getByText("Tx Hash").className).toContain("text-left");
+    // align: "right" -> text-right on the <th>.
+    expect(screen.getByText("Block").className).toContain("text-right");
+    // The matching <td> in each row also carries text-right (index 1 = the
+    // "block" column, since it's the second of two columns per row).
+    const tds = container.querySelectorAll("td");
+    expect(tds[1]?.className).toContain("text-right");
+    expect(tds[3]?.className).toContain("text-right");
+    // The non-aligned column's <td> does not.
+    expect(tds[0]?.className).not.toContain("text-right");
+  });
+
   it("renders the empty label instead of throwing when columns is empty at phone width", () => {
     mockMobile(true);
     const { container } = render(

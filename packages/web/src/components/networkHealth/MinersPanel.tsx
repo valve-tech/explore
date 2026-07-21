@@ -40,6 +40,7 @@ export function MinersPanel({
     {
       key: "blocks",
       header: "Blocks",
+      align: "right",
       cell: (m) => <div className="text-right theme-text">{m.blocks}</div>,
     },
     {
@@ -50,6 +51,7 @@ export function MinersPanel({
     {
       key: "tips",
       header: "Tips earned",
+      align: "right",
       cell: (m) => (
         <div className="text-right" style={{ color: "var(--color-success)" }}>
           {nativeAmount(m.tips, symbol)}
@@ -59,6 +61,7 @@ export function MinersPanel({
     {
       key: "burned",
       header: "Burned",
+      align: "right",
       cell: (m) => (
         <div className="text-right theme-text-secondary">
           {nativeAmount(m.burned, symbol)}
@@ -68,16 +71,14 @@ export function MinersPanel({
     {
       key: "legacyGas",
       header: "Legacy gas",
+      align: "right",
       cell: (m) => <div className="text-right theme-text">{pct(m.legacyGasShare, 0)}</div>,
     },
     {
       key: "inversion",
       header: "Out of order",
-      cell: (m) => (
-        <div className="text-right">
-          <Inversion rate={m.priorityInversionRate} />
-        </div>
-      ),
+      align: "right",
+      cell: (m) => <Inversion rate={m.priorityInversionRate} />,
     },
   ];
 
