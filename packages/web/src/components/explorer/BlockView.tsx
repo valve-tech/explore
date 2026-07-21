@@ -200,7 +200,7 @@ export default function BlockView({
       <div
         className="rounded-lg bs p-4 theme-card-bg"
       >
-        <div className="flex items-center gap-row mb-3 pb-3 bs-b-muted">
+        <div className="flex flex-wrap items-center gap-row mb-3 pb-3 bs-b-muted">
           <h2
             className="text-sm font-semibold theme-text"
           >
