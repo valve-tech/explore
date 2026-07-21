@@ -3,7 +3,7 @@ import { fetchBlock, type BlockDetails } from "../../api/explorer";
 import { useActiveChainId } from "../../lib/activeChain";
 import { chainSymbol } from "../../lib/chains";
 import TxRowActions from "./TxRowActions";
-import { formatPLS, truncateAddr } from "./format";
+import { formatPLS } from "./format";
 import { formatGwei } from "../../lib/format/tokenAmount";
 import { ExplorerLink } from "./ExplorerLink";
 import { TxGasInfo } from "./TxGasInfo";
@@ -262,9 +262,8 @@ export default function BlockView({
             target={{ type: "address", value: block.miner }}
             onNavigate={onNavigate}
             className="font-mono text-sm hover:underline cursor-pointer theme-accent"
-            title={block.miner}
           >
-            {truncateAddr(block.miner)}
+            <MiddleTruncate value={block.miner} className="font-mono text-sm theme-accent" />
           </ExplorerLink>
         </InfoRow>
         <InfoRow label="Gas Used / Limit">

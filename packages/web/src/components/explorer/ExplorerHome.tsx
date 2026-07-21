@@ -28,7 +28,7 @@ import { GasOracleWidget } from "./GasOracleWidget";
 import { subscriptSmallString, groupDecimalString } from "./format";
 import { useActiveChainId } from "../../lib/activeChain";
 import { chainSymbol } from "../../lib/chains";
-import { shortHash } from "../../lib/format/hash";
+import { MiddleTruncate } from "../primitives/MiddleTruncate";
 
 const REFETCH_MS = 5_000;
 
@@ -276,10 +276,8 @@ function TxsCard({
               className="flex items-center justify-between gap-row flex-1 min-w-0 cursor-pointer"
             >
               <div className="min-w-0 flex-1">
-                <div
-                  className="text-xs font-mono truncate theme-accent"
-                >
-                  {shortHash(t.hash)}
+                <div className="text-xs font-mono theme-accent min-w-0">
+                  <MiddleTruncate value={t.hash} tailChars={6} className="max-w-full" />
                 </div>
                 <div
                   className="text-[11px] mt-0.5 truncate theme-text-muted"

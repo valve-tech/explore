@@ -176,8 +176,9 @@ describe("<ExplorerHome /> — formatter branches", () => {
     expect(screen.getByText(/30m ago/)).toBeInTheDocument();
     // formatPls catch → the raw "not-wei" string shows in the value column.
     expect(screen.getByText(/not-wei/)).toBeInTheDocument();
-    // short hash passthrough (<14 chars stays whole).
-    expect(screen.getByText("0xshort")).toBeInTheDocument();
+    // Short hash passthrough (<14 chars stays whole) — searchable via
+    // MiddleTruncate's `title` attr, which always carries the full value.
+    expect(screen.getByTitle("0xshort")).toBeInTheDocument();
   });
 });
 
