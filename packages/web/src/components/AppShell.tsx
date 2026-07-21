@@ -65,7 +65,7 @@ export default function AppShell({
         )}
         <div
           data-testid="app-content"
-          className="flex-1 overflow-auto min-w-0 p-3 md:p-4"
+          className="flex-1 overflow-auto min-w-0 p-2 md:p-4"
         >
           {children}
         </div>

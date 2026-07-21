@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { ExplorerLink } from "../ExplorerLink";
-import { MiddleTruncate } from "../../primitives/MiddleTruncate";
 
 export type NavTarget = { type: "address" | "block"; value: string };
 export type AddressNavigate = (target: { type: "address"; value: string }) => void;
@@ -19,10 +18,15 @@ export function AddressLink({
     <ExplorerLink
       target={{ type: "address" as const, value: address }}
       onNavigate={onNavigate}
-      className="font-mono text-sm hover:underline cursor-pointer theme-accent"
+      // Stacked InfoRow context: the value owns its own full-width line, so let a
+      // long address WRAP (break-all) rather than middle-clip. It flows onto a
+      // second line instead of forcing width, so it can never create horizontal
+      // scroll, and the full value stays in the DOM (Ctrl+F / copy). Matches how
+      // the Transaction Hash row already renders.
+      className="font-mono text-sm break-all hover:underline cursor-pointer theme-accent"
       title={label ? address : undefined}
     >
-      {label || <MiddleTruncate value={address} className="font-mono text-sm theme-accent" />}
+      {label || address}
     </ExplorerLink>
   );
 }
@@ -67,7 +71,7 @@ export function SectionCard({
     >
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-4 text-left cursor-pointer"
+        className="w-full flex items-center justify-between px-2 py-4 sm:p-4 text-left cursor-pointer"
       >
         <div className="flex items-center gap-inline">
           <h3
@@ -91,7 +95,7 @@ export function SectionCard({
       </button>
       {open && (
         <div
-          className="px-4 pb-4 bs-t-muted"
+          className="px-2 pb-4 sm:px-4 bs-t-muted"
           style={{}}
         >
           {children}
