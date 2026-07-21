@@ -15,6 +15,10 @@ export interface NavEntry {
   step: number;
   /** Manual source-line override (null when the source-map drives the line). */
   overrideLine: number | null;
+  /** Contract+file the override line lives in, when it's NOT the active frame's
+   *  own source — e.g. a proxied call whose function is defined in the
+   *  implementation. null/absent means "display the active frame's source". */
+  overrideRef?: { addr: string; file: string } | null;
 }
 
 export interface NavHistoryState {
@@ -26,7 +30,10 @@ export interface NavHistoryState {
 export const emptyHistory: NavHistoryState = { entries: [], index: -1 };
 
 const sameEntry = (a: NavEntry, b: NavEntry) =>
-  a.step === b.step && a.overrideLine === b.overrideLine;
+  a.step === b.step &&
+  a.overrideLine === b.overrideLine &&
+  (a.overrideRef?.addr ?? null) === (b.overrideRef?.addr ?? null) &&
+  (a.overrideRef?.file ?? null) === (b.overrideRef?.file ?? null);
 
 /** The implicit initial entry — what a freshly-loaded trace shows before any
  *  user navigation. Synthesized by the first push so back can return here. */

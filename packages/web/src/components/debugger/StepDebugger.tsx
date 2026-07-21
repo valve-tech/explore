@@ -21,6 +21,7 @@ import FindingsPanel from "./SlitherFindingsPanel";
 import { walkCallTree } from "./StepDebugger/callTreeHelpers";
 import { mapFramesToSteps } from "./StepDebugger/callTreeModel";
 import { computePcsByContract } from "./StepDebugger/executionScopes";
+import { buildImplByProxy, locateProxyAwareFunction } from "./StepDebugger/proxyImpl";
 import { buildLogsByStep } from "./StepDebugger/logsByStep";
 import { publishNavContext, publishNavState } from "./StepDebugger/navDiagnostics";
 import { useTraceSourceMaps } from "../../hooks/useTraceSourceMaps";
@@ -87,6 +88,9 @@ const DETAIL_CHUNK = 512;
 interface RecentNav {
   step: number;
   overrideLine: number | null;
+  /** Cross-contract source override (proxy → implementation), when the jumped-to
+   *  function lives outside the active frame's own source. */
+  overrideRef?: { addr: string; file: string } | null;
   label: string;
   kind: "function" | "definition";
   timestamp: number;
@@ -167,6 +171,10 @@ export default function StepDebugger({
   const [slitherLoading, setSlitherLoading] = useState(false);
   const [showFindings, setShowFindings] = useState(false);
   const [overrideLine, setOverrideLine] = useState<number | null>(null);
+  // When an override line lives in a DIFFERENT contract than the active frame
+  // (a proxied call resolved to its implementation's source), this names the
+  // contract+file to display. null → show the active frame's own source.
+  const [overrideRef, setOverrideRef] = useState<{ addr: string; file: string } | null>(null);
   // A queued function-name search that couldn't be resolved at click time
   // because the target contract's source hadn't loaded yet. The resolver effect
   // runs the (pure) findFunctionLine helper once sourcesByAddr catches up.
@@ -272,6 +280,11 @@ export default function StepDebugger({
 
   // Frame → entry-step mapping (lifted here so per-contract source maps can be
   // computed once and shared with the call tree).
+  // Proxy → implementation map, derived from the trace's CALL→DELEGATECALL
+  // structure. A call to a proxy (EternalStorageProxy et al.) must resolve its
+  // function source in the implementation, not the proxy's fallback boilerplate.
+  const implByProxy = useMemo(() => buildImplByProxy(callTrace), [callTrace]);
+
   const frameStepMap = useMemo(
     () => (callTrace ? mapFramesToSteps(callTrace, steps) : new Map<CallFrame, number>()),
     [callTrace, steps],
@@ -347,8 +360,8 @@ export default function StepDebugger({
   // source-line override from func-search) on every navigation event.
   const goTo = nav.jumpTo;
 
-  const stepForward = useCallback(() => { setOverrideLine(null); nav.goForward(); }, [nav]);
-  const stepBackward = useCallback(() => { setOverrideLine(null); nav.goBack(); }, [nav]);
+  const stepForward = useCallback(() => { setOverrideLine(null); setOverrideRef(null); nav.goForward(); }, [nav]);
+  const stepBackward = useCallback(() => { setOverrideLine(null); setOverrideRef(null); nav.goBack(); }, [nav]);
 
   // The expanded frame's opcode slice — from its entry until execution returns
   // above its depth (so nested sub-calls are included). Hoisted up here so the
@@ -372,8 +385,11 @@ export default function StepDebugger({
   const recordingNavigate = useCallback(
     (step: number, overrideLine: number | null = null) => {
       setOverrideLine(overrideLine);
+      // Recorded jumps are same-frame (line/opcode clicks, hotkeys) — the source
+      // shown is the active frame's own, so any cross-contract override clears.
+      setOverrideRef(null);
       goTo(step);
-      setNavHistory((h) => pushHistoryEntry(h, { step, overrideLine }));
+      setNavHistory((h) => pushHistoryEntry(h, { step, overrideLine, overrideRef: null }));
     },
     [goTo],
   );
@@ -396,6 +412,7 @@ export default function StepDebugger({
       // Reset any prior nav state so a leftover override / error from an
       // earlier click can't bleed into this one.
       setOverrideLine(null);
+      setOverrideRef(null);
       setNavError(null);
       setPendingSearch(null);
       goTo(step);
@@ -404,31 +421,38 @@ export default function StepDebugger({
 
       // Resolve the target overrideLine eagerly so we can push the right entry.
       let resolvedLine: number | null = null;
+      let resolvedRef: { addr: string; file: string } | null = null;
       if (hint) {
-        const addrKey = hint.contractAddr?.toLowerCase();
-        const files = addrKey ? sourcesByAddr[addrKey] : undefined;
-        const where = hint.contractAddr ? `${hint.contractAddr.slice(0, 8)}…` : "this contract";
-
-        if (files === undefined) {
+        // Prefer the implementation's source when the target is a proxy — the
+        // called function lives in the delegate, not the proxy's fallback.
+        const r = locateProxyAwareFunction(
+          sourcesByAddr,
+          implByProxy,
+          hint.contractAddr,
+          hint.funcName,
+        );
+        if (r.status === "hit") {
+          resolvedLine = r.line;
+          // Display the source of whichever contract actually defines the
+          // function (the implementation for a proxied call), so the resolved
+          // line renders against the right file — not the active frame's.
+          resolvedRef = { addr: r.addr, file: r.file };
+          setOverrideLine(r.line);
+          setOverrideRef(resolvedRef);
+        } else if (r.status === "loading") {
           setPendingSearch(hint); // not loaded yet — resolver effect will pick it up
-        } else if (files.length === 0) {
-          setNavError(`No verified source for ${where} — can't locate \`${hint.funcName}()\`.`);
+        } else if (r.status === "unverified") {
+          setNavError(`No verified source for ${r.where} — can't locate \`${hint.funcName}()\`.`);
         } else {
-          const hit = findFunctionLine(files, hint.funcName);
-          if (hit) {
-            resolvedLine = hit.line;
-            setOverrideLine(hit.line);
-          } else {
-            setNavError(`Couldn't locate \`${hint.funcName}()\` in ${where}'s source.`);
-          }
+          setNavError(`Couldn't locate \`${hint.funcName}()\` in ${r.where}'s source.`);
         }
       }
-      setNavHistory((h) => pushHistoryEntry(h, { step, overrideLine: resolvedLine }));
+      setNavHistory((h) => pushHistoryEntry(h, { step, overrideLine: resolvedLine, overrideRef: resolvedRef }));
       if (hint?.funcName) {
-        pushRecent({ step, overrideLine: resolvedLine, label: hint.funcName, kind: "function" });
+        pushRecent({ step, overrideLine: resolvedLine, overrideRef: resolvedRef, label: hint.funcName, kind: "function" });
       }
     },
-    [goTo, sourcesByAddr, pushRecent],
+    [goTo, sourcesByAddr, implByProxy, pushRecent],
   );
 
   // Jump to the next opcode satisfying `predicate`, but only within the active
@@ -527,13 +551,16 @@ export default function StepDebugger({
 
       setNavError(null);
       setOverrideLine(hit.line);
+      // Definition lives in the active frame's own source — no cross-contract
+      // override.
+      setOverrideRef(null);
       setScrollKey((k) => k + 1);
       if (targetStep !== null) goTo(targetStep);
       const landedStep = targetStep ?? currentStep;
       setNavHistory((h) =>
-        pushHistoryEntry(h, { step: landedStep, overrideLine: hit.line }),
+        pushHistoryEntry(h, { step: landedStep, overrideLine: hit.line, overrideRef: null }),
       );
-      pushRecent({ step: landedStep, overrideLine: hit.line, label: name, kind: "definition" });
+      pushRecent({ step: landedStep, overrideLine: hit.line, overrideRef: null, label: name, kind: "definition" });
     },
     [activeFrameRange, currentStep, sourcesByAddr, traceSourceMaps, steps, goTo, pushRecent],
   );
@@ -542,10 +569,15 @@ export default function StepDebugger({
   // — clear pending state, restore step + line — but does NOT push to history,
   // so back→forward returns you to where you were, not a new branch.
   const applyHistoryEntry = useCallback(
-    (entry: { step: number; overrideLine: number | null }) => {
+    (entry: {
+      step: number;
+      overrideLine: number | null;
+      overrideRef?: { addr: string; file: string } | null;
+    }) => {
       setPendingSearch(null);
       setNavError(null);
       setOverrideLine(entry.overrideLine);
+      setOverrideRef(entry.overrideRef ?? null);
       goTo(entry.step);
       setContentView("debugger");
       setScrollKey((k) => k + 1);
@@ -701,10 +733,19 @@ export default function StepDebugger({
     [activeFrameRange, callTrace, contractAddress],
   );
 
-  const { data: sourceData = null, isLoading: sourceLoading } = useContractSource(activeContractAddress);
+  // The contract whose SOURCE the pane shows. Normally the active frame's own
+  // contract; when a proxied call resolved its function in the implementation,
+  // `overrideRef` points the display at that implementation's source instead so
+  // the resolved line renders against the right file.
+  const displayContractAddress = overrideRef?.addr ?? activeContractAddress;
 
+  const { data: sourceData = null, isLoading: sourceLoading } = useContractSource(displayContractAddress);
+
+  // Source-map (pc → location) is always the ACTIVE frame's — it drives the
+  // current-step highlight. During a cross-contract override we show a static
+  // definition line instead, so this map isn't consulted for the line.
   const { data: sourceMappings = {} } = useSourceMappings(
-    sourceData?.hasSourceMap ? activeContractAddress : null,
+    !overrideRef && sourceData?.hasSourceMap ? activeContractAddress : null,
     uniquePcs,
   );
 
@@ -717,29 +758,55 @@ export default function StepDebugger({
   useEffect(() => {
     if (!pendingSearch) return;
     const addrKey = pendingSearch.contractAddr?.toLowerCase();
-    const files = addrKey ? sourcesByAddr[addrKey] : sourceData?.files;
-    if (files === undefined) return; // still loading — wait for another tick
 
-    const where = pendingSearch.contractAddr ? `${pendingSearch.contractAddr.slice(0, 8)}…` : "this contract";
-    if (files.length === 0) {
-      setNavError(`No verified source for ${where} — can't locate \`${pendingSearch.funcName}()\`.`);
-    } else {
-      const hit = findFunctionLine(files, pendingSearch.funcName);
-      if (hit) {
-        setOverrideLine(hit.line);
-        setScrollKey((k) => k + 1);
+    // No target contract on the hint → resolve against the active contract's
+    // source (the "this contract" fallback the proxy-aware helper can't cover).
+    if (!addrKey) {
+      const files = sourceData?.files;
+      if (files === undefined) return; // still loading — wait for another tick
+      if (files.length === 0) {
+        setNavError(`No verified source for this contract — can't locate \`${pendingSearch.funcName}()\`.`);
       } else {
-        setNavError(`Couldn't locate \`${pendingSearch.funcName}()\` in ${where}'s source.`);
+        const hit = findFunctionLine(files, pendingSearch.funcName);
+        if (hit) {
+          setOverrideLine(hit.line);
+          setOverrideRef(null); // active contract's own source
+          setScrollKey((k) => k + 1);
+        } else {
+          setNavError(`Couldn't locate \`${pendingSearch.funcName}()\` in this contract's source.`);
+        }
       }
+      setPendingSearch(null);
+      return;
+    }
+
+    const r = locateProxyAwareFunction(
+      sourcesByAddr,
+      implByProxy,
+      pendingSearch.contractAddr,
+      pendingSearch.funcName,
+    );
+    if (r.status === "loading") return; // preferred source still loading — wait
+    if (r.status === "hit") {
+      setOverrideLine(r.line);
+      setOverrideRef({ addr: r.addr, file: r.file });
+      setScrollKey((k) => k + 1);
+    } else if (r.status === "unverified") {
+      setNavError(`No verified source for ${r.where} — can't locate \`${pendingSearch.funcName}()\`.`);
+    } else {
+      setNavError(`Couldn't locate \`${pendingSearch.funcName}()\` in ${r.where}'s source.`);
     }
     setPendingSearch(null);
-  }, [pendingSearch, sourcesByAddr, sourceData]);
+  }, [pendingSearch, sourcesByAddr, sourceData, implByProxy]);
 
   const currentSourceLocation = step ? sourceMappings[step.pc] ?? null : null;
   const currentSourceFile = sourceData
-    ? currentSourceLocation
-      ? sourceData.files.find((f) => f.name === currentSourceLocation.file) ?? sourceData.files[0] ?? null
-      : sourceData.files[0] ?? null
+    ? overrideRef
+      ? // Cross-contract override: show the file the resolved definition lives in.
+        sourceData.files.find((f) => f.name === overrideRef.file) ?? sourceData.files[0] ?? null
+      : currentSourceLocation
+        ? sourceData.files.find((f) => f.name === currentSourceLocation.file) ?? sourceData.files[0] ?? null
+        : sourceData.files[0] ?? null
     : null;
 
   // While a navigation is mid-flight (waiting for source to load so the search
@@ -785,11 +852,11 @@ export default function StepDebugger({
     if (!import.meta.env.DEV) return;
     publishNavState({
       currentStep,
-      activeContract: activeContractAddress,
+      activeContract: displayContractAddress,
       file: currentSourceFile?.name ?? null,
       effectiveLine,
     });
-  }, [currentStep, activeContractAddress, currentSourceFile, effectiveLine]);
+  }, [currentStep, displayContractAddress, currentSourceFile, effectiveLine]);
 
   // Reverse link: which source lines have an opcode (so their gutter is a
   // clickable jump target), and the first step (within the CURRENT FRAME)
@@ -980,7 +1047,7 @@ export default function StepDebugger({
                       <button
                         key={`${r.timestamp}-${i}`}
                         onClick={() => {
-                          applyHistoryEntry({ step: r.step, overrideLine: r.overrideLine });
+                          applyHistoryEntry({ step: r.step, overrideLine: r.overrideLine, overrideRef: r.overrideRef });
                           setRecentsOpen(false);
                         }}
                         className={`w-full text-left px-3 py-2 text-xs flex items-center gap-inline transition-colors hover:opacity-90 theme-mono theme-text bs-b-muted${r.step === currentStep ? " theme-accent-bg" : ""}`}
