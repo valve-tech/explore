@@ -102,7 +102,7 @@ export default function MempoolView() {
       />
 
       {/* Header */}
-      <div className="card p-4 flex items-center justify-between">
+      <div className="card p-2 sm:p-4 flex items-center justify-between">
         <div className="flex items-center gap-inline">
           <Icon
             icon="heroicons:queue-list"

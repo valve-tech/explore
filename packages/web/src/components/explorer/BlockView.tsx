@@ -85,7 +85,7 @@ export default function BlockView({
 
   if (error) {
     return (
-      <div className="rounded-lg p-4 theme-card-bg">
+      <div className="rounded-lg p-2 sm:p-4 theme-card-bg">
         <h3 className="text-sm font-semibold mb-1 theme-danger">
           Error
         </h3>
@@ -198,7 +198,7 @@ export default function BlockView({
     <div className="space-y-stack">
       {/* Block Info */}
       <div
-        className="rounded-lg bs p-4 theme-card-bg"
+        className="rounded-lg bs p-2 sm:p-4 theme-card-bg"
       >
         <div className="flex flex-wrap items-center gap-row mb-3 pb-3 bs-b-muted">
           <h2

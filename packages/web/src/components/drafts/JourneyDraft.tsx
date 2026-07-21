@@ -426,7 +426,7 @@ export default function JourneyDraft() {
             return (
               <div
                 key={l.key}
-                className="card p-4 transition-all cursor-pointer"
+                className="card p-2 sm:p-4 transition-all cursor-pointer"
                 onClick={() => setActiveLens(isExpanded ? null : l.key)}
                 style={{ gridColumn: isExpanded ? "1 / -1" : undefined }}
               >

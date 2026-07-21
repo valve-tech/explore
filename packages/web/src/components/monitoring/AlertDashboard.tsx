@@ -167,7 +167,7 @@ export default function AlertDashboard() {
     <div className="space-y-section">
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="card p-4">
+        <div className="card p-2 sm:p-4">
           <p
             className="text-xs font-medium mb-1 theme-text-secondary"
           >
@@ -179,7 +179,7 @@ export default function AlertDashboard() {
             {stats.total}
           </p>
         </div>
-        <div className="card p-4">
+        <div className="card p-2 sm:p-4">
           <p
             className="text-xs font-medium mb-1 theme-text-secondary"
           >
@@ -191,7 +191,7 @@ export default function AlertDashboard() {
             {stats.active}
           </p>
         </div>
-        <div className="card p-4">
+        <div className="card p-2 sm:p-4">
           <p
             className="text-xs font-medium mb-1 theme-text-secondary"
           >
@@ -206,7 +206,7 @@ export default function AlertDashboard() {
       </div>
 
       {/* Header */}
-      <div className="card p-4 flex items-center justify-between">
+      <div className="card p-2 sm:p-4 flex items-center justify-between">
         <div className="flex items-center gap-row">
           <h2
             className="text-lg font-semibold theme-text"
@@ -295,7 +295,7 @@ export default function AlertDashboard() {
           return (
             <div
               key={a.id}
-              className="card p-4"
+              className="card p-2 sm:p-4"
               style={{ opacity: a.enabled ? 1 : 0.6 }}
             >
               <div className="flex items-start justify-between gap-4">

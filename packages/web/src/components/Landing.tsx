@@ -333,7 +333,7 @@ function StatTile({
   return (
     <Link
       to={to}
-      className="card p-4 flex flex-col justify-between transition-opacity hover:opacity-90"
+      className="card p-2 sm:p-4 flex flex-col justify-between transition-opacity hover:opacity-90"
       style={{ textDecoration: "none", minHeight: 72 }}
     >
       <div className="flex items-center gap-tight text-[10px] uppercase tracking-widest theme-text-muted">
@@ -361,7 +361,7 @@ function FeatureCard({ item }: { item: NavItem }) {
   return (
     <Link
       to={item.to}
-      className="group card p-4 flex items-start gap-row transition-all hover:-translate-y-px"
+      className="group card p-2 sm:p-4 flex items-start gap-row transition-all hover:-translate-y-px"
       style={{ textDecoration: "none" }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow =

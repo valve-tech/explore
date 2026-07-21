@@ -78,7 +78,7 @@ export function WatchRuleForm({
         e.preventDefault();
         void submit();
       }}
-      className="card p-4 mb-4 space-y-stack"
+      className="card p-2 sm:p-4 mb-4 space-y-stack"
     >
       <datalist id="ws-address-suggestions">
         {addressItems.map((it) => (

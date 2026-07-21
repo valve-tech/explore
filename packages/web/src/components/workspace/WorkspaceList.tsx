@@ -88,7 +88,7 @@ function CreateRow({
   const [description, setDescription] = useState("");
   return (
     <form
-      className="mb-4 card p-4 space-y-stack"
+      className="mb-4 card p-2 sm:p-4 space-y-stack"
       onSubmit={(e) => {
         e.preventDefault();
         const n = name.trim();

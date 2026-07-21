@@ -121,7 +121,7 @@ function Header({
           await onRename(name.trim(), description.trim() || undefined);
           setEditing(false);
         }}
-        className="card p-4 mb-4 space-y-stack"
+        className="card p-2 sm:p-4 mb-4 space-y-stack"
       >
         <input
           autoFocus
@@ -164,7 +164,7 @@ function Header({
   }
 
   return (
-    <div className="card p-4 mb-4 flex items-start justify-between gap-row">
+    <div className="card p-2 sm:p-4 mb-4 flex items-start justify-between gap-row">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-inline mb-1">
           <Icon icon="heroicons:folder" className="w-4 h-4 theme-accent" />

@@ -67,7 +67,7 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
 
   if (error) {
     return (
-      <div className="rounded-lg p-4 theme-card-bg">
+      <div className="rounded-lg p-2 sm:p-4 theme-card-bg">
         <div className="flex items-start gap-row">
           <Icon
             icon="heroicons:exclamation-circle"

@@ -175,7 +175,7 @@ function GalleryItem({
   children: React.ReactNode;
 }) {
   return (
-    <div className="card p-4">
+    <div className="card p-2 sm:p-4">
       <div className="flex items-center gap-row mb-3">
         <IdChip id={id} />
         <span className="text-sm font-medium theme-text">

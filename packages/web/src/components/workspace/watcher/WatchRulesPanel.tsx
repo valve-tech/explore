@@ -35,7 +35,7 @@ export function WatchRulesPanel({ workspace }: { workspace: Workspace }) {
   const anyEnabled = myRules.some((r) => r.enabled);
 
   return (
-    <div className="card p-4 mb-4">
+    <div className="card p-2 sm:p-4 mb-4">
       <div className="flex items-center justify-between gap-row mb-3">
         <div className="flex items-center gap-inline min-w-0">
           <Icon icon="heroicons:signal" className="w-4 h-4 theme-accent" />

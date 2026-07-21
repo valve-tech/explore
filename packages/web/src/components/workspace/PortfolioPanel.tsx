@@ -70,7 +70,7 @@ export function PortfolioPanel({
   const aggregated = aggregate(loaded);
 
   return (
-    <div className="card p-4 mb-4">
+    <div className="card p-2 sm:p-4 mb-4">
       <div className="flex items-center gap-inline mb-3">
         <Icon icon="heroicons:wallet" className="w-4 h-4 theme-accent" />
         <h2 className="text-sm font-semibold theme-text">Portfolio</h2>

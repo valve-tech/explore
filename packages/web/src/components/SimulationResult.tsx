@@ -68,7 +68,7 @@ function LoadingState() {
 function ErrorState({ message }: { message: string }) {
   return (
     <div
-      className="rounded-lg p-4 theme-card-bg"
+      className="rounded-lg p-2 sm:p-4 theme-card-bg"
       style={{ borderColor: "var(--color-danger)" }}
     >
       <div className="flex items-start gap-row">
@@ -104,7 +104,7 @@ export default function SimulationResultPanel({
     <div className="space-y-stack">
       {/* Status card */}
       <div
-        className="rounded-lg bs p-4 theme-card-bg"
+        className="rounded-lg bs p-2 sm:p-4 theme-card-bg"
       >
         <div className="flex items-center justify-between mb-4">
           <h2
@@ -147,7 +147,7 @@ export default function SimulationResultPanel({
       {/* Decoded function call */}
       {result.decodedCall && (
         <div
-          className="rounded-lg bs p-4 theme-card-bg"
+          className="rounded-lg bs p-2 sm:p-4 theme-card-bg"
         >
           <h3
             className="text-sm font-semibold mb-3 pb-2 bs-b-muted theme-text"
@@ -188,7 +188,7 @@ export default function SimulationResultPanel({
       {/* Decoded return value */}
       {result.decodedReturn && result.decodedReturn.values.length > 0 && (
         <div
-          className="rounded-lg bs p-4 theme-card-bg"
+          className="rounded-lg bs p-2 sm:p-4 theme-card-bg"
         >
           <h3
             className="text-sm font-semibold mb-3 pb-2 bs-b-muted theme-text"
@@ -220,7 +220,7 @@ export default function SimulationResultPanel({
       {/* Event logs */}
       {result.logs && result.logs.length > 0 && (
         <div
-          className="rounded-lg bs p-4 theme-card-bg"
+          className="rounded-lg bs p-2 sm:p-4 theme-card-bg"
         >
           <h3
             className="text-sm font-semibold mb-3 pb-2 bs-b-muted theme-text"

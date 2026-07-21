@@ -81,7 +81,7 @@ export default function SimulationForm({
     <form onSubmit={handleSubmit} className="space-y-stack">
       {/* Main fields card */}
       <div
-        className="rounded-lg bs p-4 space-y-stack theme-card-bg"
+        className="rounded-lg bs p-2 sm:p-4 space-y-stack theme-card-bg"
       >
         <h2
           className="text-sm font-semibold pb-3 bs-b-muted theme-text"

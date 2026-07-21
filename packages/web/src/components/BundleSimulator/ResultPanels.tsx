@@ -17,7 +17,7 @@ export function LoadingPanel({ count }: { count: number }) {
 export function ErrorPanel({ message }: { message: string }) {
   return (
     <div
-      className="rounded-lg p-4 theme-card-bg"
+      className="rounded-lg p-2 sm:p-4 theme-card-bg"
       style={{ borderColor: "var(--color-danger)" }}
     >
       <div className="flex items-start gap-row">

@@ -9,7 +9,7 @@ interface Props {
 export function StatusSummary({ result, onViewContract, onDebug }: Props) {
   return (
     <div
-      className="rounded-lg bs p-4 flex items-center justify-between theme-card-bg"
+      className="rounded-lg bs p-2 sm:p-4 flex items-center justify-between theme-card-bg"
     >
       <div className="flex items-center gap-row">
         <span

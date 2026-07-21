@@ -140,7 +140,7 @@ export default function ActionsDashboard() {
       </div>
 
       {/* Header */}
-      <div className="card p-4 flex items-center justify-between mb-4">
+      <div className="card p-2 sm:p-4 flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold theme-text">
           Actions
         </h2>
@@ -206,7 +206,7 @@ function StatCard({
 }) {
   return (
     <div
-      className="rounded-lg bs p-4 theme-card-bg"
+      className="rounded-lg bs p-2 sm:p-4 theme-card-bg"
     >
       <div
         className="text-xs font-medium mb-1 theme-text-secondary"
@@ -283,7 +283,7 @@ function ActionCard({
 
   return (
     <div
-      className="rounded-lg bs p-4 transition-colors theme-card-bg"
+      className="rounded-lg bs p-2 sm:p-4 transition-colors theme-card-bg"
       style={{
         opacity: action.enabled ? 1 : 0.6,
       }}

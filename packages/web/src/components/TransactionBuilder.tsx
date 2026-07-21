@@ -105,7 +105,7 @@ export default function TransactionBuilder() {
   return (
     <div className="flex flex-col gap-0">
       {/* Contract address input */}
-      <div className="card p-4">
+      <div className="card p-2 sm:p-4">
         <h2
           className="text-sm font-semibold mb-3 theme-text"
         >

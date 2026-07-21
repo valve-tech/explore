@@ -17,7 +17,7 @@ export function AddressHeader({
   const symbol = chainSymbol(useActiveChainId());
   return (
     <div
-      className="rounded-lg bs p-4 theme-card-bg"
+      className="rounded-lg bs p-2 sm:p-4 theme-card-bg"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-row">
         <div>

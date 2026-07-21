@@ -35,7 +35,7 @@ export function BulkPastePanel({
   const counts = useMemo(() => countByKind(fresh), [fresh]);
 
   return (
-    <div className="card p-4 mb-4 space-y-stack">
+    <div className="card p-2 sm:p-4 mb-4 space-y-stack">
       <div className="flex items-center justify-between gap-row">
         <div className="flex items-center gap-inline">
           <Icon icon="heroicons:clipboard-document-list" className="w-4 h-4 theme-accent" />

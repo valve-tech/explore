@@ -108,7 +108,7 @@ export default function VerifyContract() {
         </p>
       </header>
 
-      <div className="card p-4 space-y-stack">
+      <div className="card p-2 sm:p-4 space-y-stack">
         <Field label="Contract address">
           <input
             type="text"
@@ -166,7 +166,7 @@ export default function VerifyContract() {
       </div>
 
       {status.kind === "pass" && (
-        <div className="card p-4 theme-success-bg">
+        <div className="card p-2 sm:p-4 theme-success-bg">
           <h2 className="text-sm font-semibold theme-success">
             Verification succeeded
           </h2>
@@ -175,7 +175,7 @@ export default function VerifyContract() {
       )}
 
       {status.kind === "fail" && (
-        <div className="card p-4 theme-danger-bg">
+        <div className="card p-2 sm:p-4 theme-danger-bg">
           <h2 className="text-sm font-semibold theme-danger">
             Verification failed
           </h2>

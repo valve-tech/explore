@@ -17,7 +17,7 @@ function StatCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="card p-4 space-y-stack">
+    <div className="card p-2 sm:p-4 space-y-stack">
       <div className="flex items-center gap-tight text-xs uppercase tracking-wide theme-text-muted">
         {label}
         {info && <InfoTip label={label}>{info}</InfoTip>}

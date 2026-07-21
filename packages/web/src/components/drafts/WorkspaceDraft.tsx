@@ -321,7 +321,7 @@ export default function WorkspaceDraft() {
         {/* Context rail — "what should I know about this thing?" */}
         <aside className="space-y-stack">
           {CONTEXT_BLOCKS.map((b) => (
-            <div key={b.title} className="card p-4">
+            <div key={b.title} className="card p-2 sm:p-4">
               <div
                 className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest mb-3 theme-text-muted"
               >

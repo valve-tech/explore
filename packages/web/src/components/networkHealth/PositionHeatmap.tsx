@@ -26,7 +26,7 @@ export function PositionHeatmap({
     ...histogram.modern,
   );
   return (
-    <div className="card p-4 space-y-stack">
+    <div className="card p-2 sm:p-4 space-y-stack">
       <div>
         <div className="text-sm theme-text">Position distribution</div>
         <div className="text-xs theme-text-muted">

@@ -43,7 +43,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children;
 
     return (
-      <div className="m-4 rounded-lg bs p-4 theme-card-bg" role="alert">
+      <div className="m-4 rounded-lg bs p-2 sm:p-4 theme-card-bg" role="alert">
         <h2 className="text-sm font-semibold mb-2 theme-danger">
           Something went wrong on this page
         </h2>

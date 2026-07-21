@@ -418,7 +418,7 @@ export default function StateDiffPanel({ stateDiff }: StateDiffPanelProps) {
   if (!hasAnyChanges) {
     return (
       <div
-        className="rounded-lg bs p-4 text-center text-xs theme-card-bg theme-text-muted"
+        className="rounded-lg bs p-2 sm:p-4 text-center text-xs theme-card-bg theme-text-muted"
       >
         No state changes detected.
       </div>

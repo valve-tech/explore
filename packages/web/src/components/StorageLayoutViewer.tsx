@@ -119,7 +119,7 @@ export default function StorageLayoutViewer() {
   return (
     <div className="flex flex-col gap-0">
       {/* Address input */}
-      <div className="card p-4">
+      <div className="card p-2 sm:p-4">
         <h2 className="text-sm font-semibold mb-2 theme-text">
           Storage Layout Viewer
         </h2>

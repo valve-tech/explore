@@ -104,7 +104,7 @@ function Lens({
   accent: string;
 }) {
   return (
-    <div className="card p-4 space-y-stack">
+    <div className="card p-2 sm:p-4 space-y-stack">
       <div>
         <div className="text-sm theme-text">{title}</div>
         <div className="text-xs theme-text-muted">{help}</div>
