@@ -6,7 +6,7 @@ import { formatAmountDisplay } from "../../lib/format/tokenAmount";
 import { chainSymbol } from "../../lib/chains";
 import { useActiveChainId } from "../../lib/activeChain";
 import { pct, shareOf } from "./format";
-import { shortAddress } from "../../lib/format/hash";
+import { MiddleTruncate } from "../primitives/MiddleTruncate";
 
 /**
  * Per-block fee ladder.
@@ -61,9 +61,9 @@ function gasLayout(gas: bigint[], plotW: number): number[] {
   return out;
 }
 
-function short(addr: string | null): string {
-  if (!addr) return "—";
-  return shortAddress(addr);
+function renderAddr(addr: string | null) {
+  if (!addr) return <>—</>;
+  return <MiddleTruncate value={addr} />;
 }
 
 /**
@@ -355,9 +355,9 @@ function TxTooltip({
       className="card p-2 text-xs space-y-tight pointer-events-none absolute z-50"
       style={{ ...tooltipPosition(cursor), maxWidth: 300 }}
     >
-      <div className="theme-mono theme-accent">{short(tx.hash)}</div>
+      <div className="theme-mono theme-accent">{renderAddr(tx.hash)}</div>
       <div className="theme-text-secondary theme-mono">
-        {short(tx.sender)} → {tx.to === null ? "contract creation" : short(tx.to)}
+        {renderAddr(tx.sender)} → {tx.to === null ? "contract creation" : renderAddr(tx.to)}
       </div>
       <div
         className="grid gap-x-inline gap-y-tight"
