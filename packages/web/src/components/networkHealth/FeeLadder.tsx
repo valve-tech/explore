@@ -6,7 +6,7 @@ import { formatAmountDisplay } from "../../lib/format/tokenAmount";
 import { chainSymbol } from "../../lib/chains";
 import { useActiveChainId } from "../../lib/activeChain";
 import { pct, shareOf } from "./format";
-import { MiddleTruncate } from "../primitives/MiddleTruncate";
+import { shortAddress } from "../../lib/format/hash";
 
 /**
  * Per-block fee ladder.
@@ -61,9 +61,9 @@ function gasLayout(gas: bigint[], plotW: number): number[] {
   return out;
 }
 
-function renderAddr(addr: string | null) {
-  if (!addr) return <>—</>;
-  return <MiddleTruncate value={addr} />;
+function renderAddr(addr: string | null): string {
+  if (!addr) return "—";
+  return shortAddress(addr);
 }
 
 /**
