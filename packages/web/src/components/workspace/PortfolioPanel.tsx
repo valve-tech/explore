@@ -3,7 +3,6 @@ import { useQueries } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import type { Workspace } from "../../lib/workspace/types";
 import { fetchHoldings, type HoldingsResult } from "../../api/portfolio";
-import { truncateAddr } from "../explorer/format";
 import { formatAmountDisplay } from "../../lib/format/tokenAmount";
 import { chainById, DEFAULT_CHAIN_ID } from "../../lib/chains";
 import { TokenImage } from "../primitives/TokenImage";
@@ -198,7 +197,7 @@ function NativeList({
         const native = r?.native;
         return (
           <li key={addr} className="flex items-center justify-between text-[11px]">
-            <span className="font-mono theme-text-secondary">{truncateAddr(addr)}</span>
+            <MiddleTruncate value={addr} className="font-mono theme-text-secondary" />
             <span className="font-mono theme-text-muted">
               {native
                 ? formatAmountDisplay(native.balance, NATIVE_DECIMALS, {
