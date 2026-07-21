@@ -5,10 +5,10 @@ import { Icon } from "@iconify/react";
 import { fetchPending, type PendingTx } from "../../api/mempool";
 import { useActiveChainId } from "../../lib/activeChain";
 import { ExplorerLink } from "../explorer/ExplorerLink";
-import { truncateAddr } from "../explorer/format";
 import { Badge } from "../primitives/Badge";
 import { Dropdown } from "../primitives/Dropdown";
 import { EmptyState } from "../primitives/EmptyState";
+import { MiddleTruncate } from "../primitives/MiddleTruncate";
 import { Tooltip } from "../primitives/Tooltip";
 import { TrackedTxPanel } from "./TrackedTxPanel";
 import { useTrackedTxs } from "../../hooks/useTrackedTxs";
@@ -206,9 +206,8 @@ export default function MempoolView() {
                       target={{ type: "tx", value: tx.hash }}
                       onNavigate={onNavigate}
                       className="font-mono text-xs hover:underline cursor-pointer theme-accent"
-                      title={tx.hash}
                     >
-                      {truncateAddr(tx.hash)}
+                      <MiddleTruncate value={tx.hash} className="font-mono text-xs theme-accent" />
                     </ExplorerLink>
                   </td>
                   <td className="px-3 py-2">
@@ -216,9 +215,8 @@ export default function MempoolView() {
                       target={{ type: "address", value: tx.from }}
                       onNavigate={onNavigate}
                       className="font-mono text-xs hover:underline cursor-pointer theme-accent"
-                      title={tx.from}
                     >
-                      {truncateAddr(tx.from)}
+                      <MiddleTruncate value={tx.from} className="font-mono text-xs theme-accent" />
                     </ExplorerLink>
                   </td>
                   <td

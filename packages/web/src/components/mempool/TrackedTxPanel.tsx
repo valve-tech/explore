@@ -11,9 +11,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { fetchTransaction } from "../../api/explorer";
 import { ExplorerLink } from "../explorer/ExplorerLink";
-import { truncateAddr } from "../explorer/format";
 import { Badge } from "../primitives/Badge";
 import { EmptyState } from "../primitives/EmptyState";
+import { MiddleTruncate } from "../primitives/MiddleTruncate";
 import { Tooltip } from "../primitives/Tooltip";
 import { useTrackedTxs } from "../../hooks/useTrackedTxs";
 import {
@@ -157,9 +157,8 @@ function TrackedRow({
         target={{ type: "tx", value: tx.hash }}
         onNavigate={onNavigate}
         className="font-mono text-xs hover:underline cursor-pointer min-w-0 theme-accent"
-        title={tx.hash}
       >
-        {truncateAddr(tx.hash)}
+        <MiddleTruncate value={tx.hash} className="font-mono text-xs theme-accent" />
       </ExplorerLink>
 
       {tx.status === "mined" && tx.blockNumber && (
