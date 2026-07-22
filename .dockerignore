@@ -1,0 +1,43 @@
+# Build-context exclusions.
+#
+# The api image is PUBLISHED PUBLICLY (ghcr.io/valve-tech/explore-api), so the
+# priority here is that no secret can reach a layer. packages/api/Dockerfile
+# copies explicit paths today (never `COPY . .`), which is what keeps the
+# gitignored root `.env` out of the image — this file is the defense-in-depth
+# so that a future broader COPY can't silently leak it.
+#
+# Secondary benefit: a much smaller context upload per build.
+
+# ── Secrets / local env — must never enter the context ──────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+id_rsa*
+
+# ── VCS / CI ────────────────────────────────────────────────────────────────
+.git
+.gitignore
+.github
+
+# ── Dependencies + build output (npm ci / npm run build regenerate these) ───
+node_modules
+**/node_modules
+packages/*/dist
+shared/dist
+
+# ── Test + tooling artifacts (never needed to build the image) ──────────────
+coverage
+**/coverage
+playwright-report
+test-results
+**/.vite
+.claude
+
+# ── Editor / OS noise ───────────────────────────────────────────────────────
+.DS_Store
+.vscode
+.idea
+*.log
