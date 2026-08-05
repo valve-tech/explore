@@ -19,6 +19,7 @@ import {
 } from "../../api/debugger";
 import { fetchTransaction } from "../../api/explorer";
 import { useActiveChainId } from "../../lib/activeChain";
+import { useResolvedChainRedirect } from "../../lib/useResolvedChainRedirect";
 import { lookupWellKnown } from "../../lib/wellKnownSignatures";
 import { recordDebuggerTx } from "../../lib/recentDebuggerTxs";
 import { recordVisit } from "../../lib/recentEntities";
@@ -122,6 +123,13 @@ export default function DebuggerView() {
     [validUrlHash, navigate],
   );
 
+  // A shared/bookmarked /debugger/0xabc carries no ?chainid, so it would resolve
+  // to PulseChain and report "no data" for a tx mined on any other chain. Point
+  // the URL at the chain the hash actually lives on before spending three heavy
+  // per-chain fetches on the wrong one.
+  const chainRedirect = useResolvedChainRedirect(validUrlHash);
+  const chainSettled = chainRedirect !== "resolving";
+
   // Resolve block context first (cheap). A tx hash alone isn't a stable
   // execution identity — a re-org can re-execute the same hash in a different
   // block — so the trace cache is scoped by block hash too. A not-yet-mined tx
@@ -129,7 +137,7 @@ export default function DebuggerView() {
   const txContext = useQuery({
     queryKey: ["tx-context", validUrlHash, chainId],
     queryFn: () => fetchTransaction(validUrlHash!, chainId),
-    enabled: !!validUrlHash,
+    enabled: !!validUrlHash && chainSettled,
     staleTime: Infinity,
     gcTime: Infinity,
   });
@@ -138,7 +146,7 @@ export default function DebuggerView() {
   const pending = !blockHash || /^0x0*$/.test(blockHash);
   // Gate the heavy trace on block context being resolved (success or error) so
   // we always key it correctly.
-  const contextSettled = !validUrlHash || !txContext.isLoading;
+  const contextSettled = !validUrlHash || (chainSettled && !txContext.isLoading);
   const cacheScope = pending ? "pending" : blockHash!;
 
   // The whole trace is one cache entry, keyed by (tx hash, block hash). With
@@ -157,7 +165,9 @@ export default function DebuggerView() {
   // cache hit hydrates synchronously and skips it. Covers the block-context
   // resolve that precedes the trace fetch.
   const loading =
-    !!validUrlHash && !data && (txContext.isLoading || query.isFetching);
+    !!validUrlHash &&
+    !data &&
+    (!chainSettled || txContext.isLoading || query.isFetching);
   const hasResult =
     !!data &&
     (!!data.callTrace || !!data.gasProfile || data.opcodeSteps.length > 0);
