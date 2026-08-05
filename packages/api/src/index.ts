@@ -47,6 +47,7 @@ import { authMiddleware } from "./middleware/auth.js";
 import { chainContext } from "./middleware/chainContext.js";
 import { strictChainId } from "./middleware/strictChainId.js";
 import { corsDelegate } from "./lib/cors.js";
+import { errorHandler } from "./lib/errorHandler.js";
 import { docsHandler, openapiJsonHandler } from "./openapi/handlers.js";
 import { startMonitor } from "./services/monitor.js";
 import { initScheduler } from "./services/actionScheduler.js";
@@ -183,17 +184,7 @@ if (existsSync(webDistPath)) {
 // Global error handler
 // ---------------------------------------------------------------------------
 
-app.use(
-  (
-    err: Error,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction,
-  ) => {
-    console.error("[unhandled]", err);
-    res.status(500).json({ ok: false, error: "Internal server error" });
-  },
-);
+app.use(errorHandler);
 
 // ---------------------------------------------------------------------------
 // Start — run migrations then listen
