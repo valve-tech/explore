@@ -1,17 +1,21 @@
 import type { CallFrame, CallTraceResult } from "./types.js";
-import { getCachedTrace, setCachedTrace } from "./cache.js";
+import { chainScopedTraceKey, getCachedTrace, setCachedTrace } from "./cache.js";
 import { isDebugUnavailable, makeDebugRpc } from "./debugRpc.js";
 import { traceViaAnvilFork } from "./anvilFallback.js";
 import { dedupePromise } from "../../lib/dedupePromise.js";
 
 /**
- * In-flight call-tree traces, keyed by lowercased tx hash. The Postgres
+ * In-flight call-tree traces, keyed by (chain, lowercased tx hash). The Postgres
  * cache write inside `runTrace` is fire-and-forget, so concurrent
  * callers (e.g. /trace and /gas-profile firing in parallel from the
  * debugger view) would each miss the DB cache and issue a redundant
  * `debug_traceTransaction` RPC. Sharing one promise per hash collapses
  * those into a single trace; the entry is released on settle so the
  * next call hits the now-populated Postgres cache.
+ *
+ * The chain belongs in the key: without it, a 369 and a 943 request for the
+ * same hash share one promise and the loser silently receives the winner's
+ * chain's trace. See `chainScopedTraceKey`.
  */
 const inFlight = new Map<string, Promise<CallTraceResult>>();
 
@@ -30,7 +34,9 @@ const inFlight = new Map<string, Promise<CallTraceResult>>();
 export async function traceTransaction(
   hash: string,
 ): Promise<CallTraceResult> {
-  return dedupePromise(inFlight, hash.toLowerCase(), () => runTrace(hash));
+  return dedupePromise(inFlight, chainScopedTraceKey(hash), () =>
+    runTrace(hash),
+  );
 }
 
 async function runTrace(hash: string): Promise<CallTraceResult> {

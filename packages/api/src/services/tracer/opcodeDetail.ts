@@ -5,6 +5,7 @@ import {
   makeDebugRpc,
 } from "./debugRpc.js";
 import { traceViaAnvilFork } from "./anvilFallback.js";
+import { chainScopedTraceKey } from "./cache.js";
 
 interface RawDetailResult {
   structLogs?: Array<{
@@ -18,26 +19,30 @@ const MAX_DETAIL_STEPS = 500_000;
 
 /**
  * In-process LRU of full heavy traces (stack/memory/storage per step),
- * keyed by tx hash. The struct logger can't return a window — it always
+ * keyed by (chain, tx hash). The struct logger can't return a window — it always
  * traces from step 0 — so we trace the whole tx once, hold the detail
  * arrays in memory, and slice the requested window from there. Bounded to
  * a few entries because each full trace is tens of MB (stack-dominated).
+ *
+ * The key is chain-scoped (`chainScopedTraceKey`) for the same reason the
+ * Postgres trace cache is: keyed by hash alone, a trace loaded for one chain
+ * was served verbatim to every other chain.
  */
 const LRU_MAX = 3;
 const lru = new Map<string, StepDetail[]>();
 
-function lruGet(hash: string): StepDetail[] | undefined {
-  const v = lru.get(hash);
+function lruGet(key: string): StepDetail[] | undefined {
+  const v = lru.get(key);
   if (v) {
     // Refresh recency.
-    lru.delete(hash);
-    lru.set(hash, v);
+    lru.delete(key);
+    lru.set(key, v);
   }
   return v;
 }
 
-function lruSet(hash: string, detail: StepDetail[]): void {
-  lru.set(hash, detail);
+function lruSet(key: string, detail: StepDetail[]): void {
+  lru.set(key, detail);
   while (lru.size > LRU_MAX) {
     const oldest = lru.keys().next().value;
     if (oldest === undefined) break;
@@ -89,14 +94,15 @@ export async function getOpcodeDetail(
   from: number,
   to: number,
 ): Promise<StepDetailResult> {
-  let full = lruGet(hash);
+  const key = chainScopedTraceKey(hash);
+  let full = lruGet(key);
   if (!full) {
     const loaded = await loadFullDetail(hash);
     if (!loaded) {
       return { detail: {}, error: UNAVAILABLE_MSG, debugAvailable: false };
     }
     full = loaded;
-    lruSet(hash, full);
+    lruSet(key, full);
   }
 
   const lo = Math.max(0, Math.min(from, full.length));
