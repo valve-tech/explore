@@ -7,16 +7,27 @@ import {
 } from "../lib/chains";
 
 /**
- * Unit tests for the UI-side chain registry. The launch set mirrors the
- * 2026-05-29 multichain spec: chains 1 (Ethereum), 369 (PulseChain), 943
- * (PulseChain Testnet). Tests pin the contract so a regression (wrong
+ * Unit tests for the UI-side chain registry. It must mirror the backend
+ * registry (packages/api/src/services/chains/defaults.ts), which is
+ * authoritative: chains 1 (Ethereum), 369 (PulseChain), 943 (PulseChain
+ * Testnet), 11155111 (Sepolia). Tests pin the contract so a regression (wrong
  * id, missing logo URL, ALL_CHAINS colliding with a real id) is loud.
  */
 
 describe("CHAINS registry", () => {
-  it("includes the three launch-set chains from the spec", () => {
-    const ids = CHAINS.map((c) => c.id).sort();
-    expect(ids).toEqual([1, 369, 943]);
+  it("includes every chain the backend registry serves", () => {
+    // Ascending numeric order — `.sort()` here would compare as strings and put
+    // 11155111 before 369.
+    const ids = CHAINS.map((c) => c.id).sort((a, b) => a - b);
+    expect(ids).toEqual([1, 369, 943, 11155111]);
+  });
+
+  it("registers Sepolia as a testnet with the backend's slug and symbol", () => {
+    const sepolia = chainById(11155111);
+    expect(sepolia?.name).toBe("Sepolia");
+    expect(sepolia?.slug).toBe("sepolia");
+    expect(sepolia?.symbol).toBe("ETH");
+    expect(sepolia?.testnet).toBe(true);
   });
 
   it("every entry has the load-bearing fields populated", () => {

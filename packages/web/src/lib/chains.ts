@@ -1,7 +1,10 @@
 /**
- * UI-side chain registry for Explore. Mirrors the launch set documented
- * in docs/superpowers/specs/2026-05-29-multichain-etherscan-labels-design.md:
- * chains 1 (Ethereum), 369 (PulseChain), 943 (PulseChain Testnet).
+ * UI-side chain registry for Explore. Mirrors the backend registry
+ * (packages/api/src/services/chains/defaults.ts), which is authoritative:
+ * chains 1 (Ethereum), 369 (PulseChain), 943 (PulseChain Testnet), 11155111
+ * (Sepolia). The original launch set is documented in
+ * docs/superpowers/specs/2026-05-29-multichain-etherscan-labels-design.md;
+ * Sepolia joined once rpc.valve.city began serving it.
  *
  * Today this drives presentational pieces (the chain picker, badges,
  * stats labels). When the backend dispatcher lands `?chainid=N` routing,
@@ -41,6 +44,14 @@ export const CHAINS: ChainInfo[] = [
     name: "PulseChain Testnet v4",
     slug: "pulsechain-testnet",
     symbol: "v4PLS",
+    testnet: true,
+    burnsBaseFee: true,
+  },
+  {
+    id: 11155111,
+    name: "Sepolia",
+    slug: "sepolia",
+    symbol: "ETH",
     testnet: true,
     burnsBaseFee: true,
   },

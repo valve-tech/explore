@@ -1,4 +1,4 @@
-import { mainnet, pulsechain, pulsechainV4 } from "viem/chains";
+import { mainnet, pulsechain, pulsechainV4, sepolia } from "viem/chains";
 import { type ChainConfig } from "./types.js";
 
 /**
@@ -22,14 +22,19 @@ export function valveRpcUrl(chainId: number): string {
 }
 
 /**
- * The valve launch set — chains 1 (Ethereum), 369 (PulseChain), 943
- * (PulseChain Testnet v4). Used when no `CHAINS_JSON` / `CHAINS_CONFIG_PATH`
- * is provided, so the hosted explorer's behavior is unchanged.
+ * The valve chain set — chains 1 (Ethereum), 369 (PulseChain), 943 (PulseChain
+ * Testnet v4), 11155111 (Sepolia). Used when no `CHAINS_JSON` /
+ * `CHAINS_CONFIG_PATH` is provided, so the hosted explorer's behavior is
+ * unchanged. Kept in step with the gateway's own `config/chains.json` in the
+ * valve monorepo — that file is what decides which chains rpc.valve.city
+ * actually serves, and a chain registered here but absent there fails at
+ * `getRpcClient` rather than silently returning another chain's data.
  *
  * Per-chain endpoints stay env-overridable (`ETH_RPC_URL`, `PULSECHAIN_RPC_URL`,
- * `PULSECHAIN_V4_RPC_URL`, `DEBUG_RPC_URL`, `BLOCKSCOUT_API_URL`) so even the
- * default set can point at a self-hoster's own nodes without a chains config.
- * Unset sibling chains reuse the `PULSECHAIN_RPC_URL` key via `valveRpcUrl`.
+ * `PULSECHAIN_V4_RPC_URL`, `SEPOLIA_RPC_URL`, `DEBUG_RPC_URL`,
+ * `BLOCKSCOUT_API_URL`) so even the default set can point at a self-hoster's own
+ * nodes without a chains config. Unset sibling chains reuse the
+ * `PULSECHAIN_RPC_URL` key via `valveRpcUrl`.
  *
  * `chifraChain` slugs are verified against `chifra.valve.city/status?chains=true`.
  */
@@ -110,6 +115,35 @@ export const VALVE_DEFAULT_CHAINS: Record<number, ChainConfig> = {
     viemChain: pulsechainV4,
     explorerSlug: "pulsechain-testnet",
     defaultBlockTimeSeconds: 10,
+    testnet: true,
+  },
+  11155111: {
+    chainId: 11155111,
+    name: "Sepolia",
+    shortName: "sep",
+    nativeSymbol: "ETH",
+    nativeDecimals: 18,
+    // TrueBlocks' canonical slug for Sepolia. NOT confirmed against the valve
+    // chifra daemon — `chifra.valve.city/status?chains=true` currently 403s and
+    // its own meta reports `chain: mainnet` — so treat the appearances/transfers
+    // routes as unproven on this chain. They degrade per-request the same way
+    // any chain the daemon doesn't index does; they do not affect the trace,
+    // explorer or debugger paths.
+    chifraChain: "sepolia",
+    rpcUrl: process.env.SEPOLIA_RPC_URL || valveRpcUrl(11155111),
+    // No `rethSnapshotUrl` / `substreamsEndpoint`: neither
+    // evm11155111-snapshot-reth.valve.city nor
+    // evm-11155111-substreams.valve.city resolves in DNS. Naming an endpoint
+    // that doesn't exist buys a timeout instead of a clean "not available".
+    holdingsGraphqlUrl: holdingsGqlUrl(11155111),
+    blockscoutBase:
+      process.env.SEPOLIA_BLOCKSCOUT_URL ||
+      "https://eth-sepolia.blockscout.com/api",
+    sourcifyEnabled: true,
+    burnsBaseFee: true,
+    viemChain: sepolia,
+    explorerSlug: "sepolia",
+    defaultBlockTimeSeconds: 12,
     testnet: true,
   },
 };

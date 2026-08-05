@@ -13,15 +13,15 @@ const UNREGISTERED_CHAIN_ID = 8453;
 
 /**
  * Unit tests for the per-chain ChainConfig registry. Pure data + three
- * lookups — no daemon, no network. Pins the launch set (1/369/943), the
+ * lookups — no daemon, no network. Pins the served set (1/369/943/11155111), the
  * chifra slugs (the load-bearing field for portfolio holdings), and the
  * throw-vs-guard contract on unknown ids.
  */
 
-describe("chain registry — launch set", () => {
-  it("registers exactly chains 1, 369, 943", () => {
+describe("chain registry — served set", () => {
+  it("registers exactly chains 1, 369, 943, 11155111", () => {
     const ids = listChains().map((c) => c.chainId);
-    assert.deepEqual(ids, [1, 369, 943]);
+    assert.deepEqual(ids, [1, 369, 943, 11155111]);
   });
 
   it("defaults to PulseChain (369)", () => {
@@ -33,12 +33,22 @@ describe("chain registry — launch set", () => {
     assert.equal(getChain(1).chifraChain, "mainnet");
     assert.equal(getChain(369).chifraChain, "pulsechain");
     assert.equal(getChain(943).chifraChain, "pulsechain-v4");
+    // Sepolia's is TrueBlocks' canonical slug but is NOT confirmed against the
+    // valve daemon (status?chains=true 403s) — see the note in defaults.ts.
+    assert.equal(getChain(11155111).chifraChain, "sepolia");
+  });
+
+  it("every chain carries a non-empty chifra slug (holdings depends on it)", () => {
+    for (const c of listChains()) {
+      assert.ok(c.chifraChain.length > 0, `missing chifraChain for ${c.chainId}`);
+    }
   });
 
   it("uses the daemon/viem native symbols (943 is v4PLS, not tPLS)", () => {
     assert.equal(getChain(1).nativeSymbol, "ETH");
     assert.equal(getChain(369).nativeSymbol, "PLS");
     assert.equal(getChain(943).nativeSymbol, "v4PLS");
+    assert.equal(getChain(11155111).nativeSymbol, "ETH");
   });
 
   it("binds each entry to the matching viem chain definition", () => {
@@ -47,14 +57,25 @@ describe("chain registry — launch set", () => {
     }
   });
 
-  it("PulseChain chains ship a blockscoutBase; Ethereum omits it", () => {
+  it("PulseChain chains and Sepolia ship a blockscoutBase; Ethereum omits it", () => {
     assert.ok(getChain(369).blockscoutBase, "369 should have a blockscout base");
     assert.ok(getChain(943).blockscoutBase, "943 should have a blockscout base");
+    assert.ok(
+      getChain(11155111).blockscoutBase,
+      "11155111 should have a blockscout base",
+    );
     assert.equal(getChain(1).blockscoutBase, undefined);
   });
 
-  it("carries the substreams endpoint per the evm-{id}-substreams.valve.city pattern", () => {
+  it("names a substreams endpoint only where one exists, in the canonical form", () => {
+    // The field is optional and MUST stay omitted rather than guessed: a chain
+    // without a substreams deployment (Sepolia — evm-11155111-substreams.
+    // valve.city does not resolve) buys a connect timeout instead of a clean
+    // "not indexed here" if we invent the hostname. Where it IS set, it must
+    // follow the evm-{id}-substreams.valve.city pattern.
+    assert.equal(getChain(11155111).substreamsEndpoint, undefined);
     for (const c of listChains()) {
+      if (c.substreamsEndpoint === undefined) continue;
       assert.equal(c.substreamsEndpoint, `evm-${c.chainId}-substreams.valve.city`);
     }
   });

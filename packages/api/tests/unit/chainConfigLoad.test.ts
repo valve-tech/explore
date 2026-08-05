@@ -88,9 +88,12 @@ describe("parseChainsConfig", () => {
 });
 
 describe("loadChains", () => {
-  it("falls back to the valve launch set when no env config", () => {
+  it("falls back to the valve chain set when no env config", () => {
     const { chains, defaultChainId } = loadChains();
-    assert.deepEqual(Object.keys(chains).map(Number).sort((a, b) => a - b), [1, 369, 943]);
+    assert.deepEqual(
+      Object.keys(chains).map(Number).sort((a, b) => a - b),
+      [1, 369, 943, 11155111],
+    );
     assert.equal(defaultChainId, 369);
   });
 

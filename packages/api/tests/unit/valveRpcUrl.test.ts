@@ -4,8 +4,10 @@ import { valveRpcUrl } from "../../src/services/chains/defaults.js";
 
 /**
  * valveRpcUrl reuses the PULSECHAIN_RPC_URL key for sibling valve chains, so one
- * env var covers 1 / 369 / 943 and Ethereum/Testnet don't fall back to the
- * rate-limited vk_demo key (the prod 429 on /network-health?chainid=1).
+ * env var covers 1 / 369 / 943 / 11155111 and Ethereum/Testnet/Sepolia don't
+ * fall back to the rate-limited vk_demo key (the prod 429 on
+ * /network-health?chainid=1). The gateway serves all four — one.valve.city's
+ * manifest reports `chains.evm: [1, 369, 943, 11155111]`.
  */
 describe("valveRpcUrl — sibling-chain key reuse", () => {
   const orig = process.env.PULSECHAIN_RPC_URL;
@@ -25,6 +27,16 @@ describe("valveRpcUrl — sibling-chain key reuse", () => {
       "https://one.valve.city/rpc/SECRET/evm/369";
     assert.equal(valveRpcUrl(1), "https://one.valve.city/rpc/SECRET/evm/1");
     assert.equal(valveRpcUrl(943), "https://one.valve.city/rpc/SECRET/evm/943");
+  });
+
+  it("derives Sepolia, whose 8-digit id is the longest in the set", () => {
+    // 11155111 is the one chain id that isn't 1–3 digits; a substitution that
+    // over- or under-matched the `/evm/369` tail would show up here first.
+    process.env.PULSECHAIN_RPC_URL = "https://rpc.valve.city/v1/SECRET/evm/369";
+    assert.equal(
+      valveRpcUrl(11155111),
+      "https://rpc.valve.city/v1/SECRET/evm/11155111",
+    );
   });
 
   it("swaps the host segment too (evm-369-rpc shape)", () => {
