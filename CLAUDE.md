@@ -13,12 +13,33 @@ Actions — delivered as a TypeScript monorepo. (The browser talks to purpose-bu
 REST endpoints only — there is no open JSON-RPC proxy; raw reads are a BYO-RPC
 opt-in straight to the user's own node.)
 
-**Multichain launch set** (per `docs/superpowers/specs/2026-05-29-multichain-etherscan-labels-design.md`):
-chains 1 (Ethereum), 369 (PulseChain), 943 (PulseChain Testnet). The frontend
-chain registry lives in `packages/web/src/lib/chains.ts`; chain logos render
-via [gib.show](https://gib.show) at `/image/<chainId>` (token art lives at
+**Chains served:** 1 (Ethereum), 369 (PulseChain), 943 (PulseChain Testnet v4),
+11155111 (Sepolia). The original launch set — 1/369/943 — is specified in
+`docs/superpowers/specs/2026-05-29-multichain-etherscan-labels-design.md`;
+Sepolia joined once rpc.valve.city began serving it. **The backend registry
+(`packages/api/src/services/chains/defaults.ts`) is authoritative** and must stay
+in step with the gateway's own `config/chains.json` in the valve monorepo — that
+file decides which chains rpc.valve.city actually serves, and registering a chain
+here that isn't there fails at `getRpcClient`. `packages/web/src/lib/chains.ts`
+mirrors the backend for the UI (picker, badges, labels); a test in each package
+pins the id set, so adding a chain means editing both. Chain logos render via
+[gib.show](https://gib.show) at `/image/<chainId>` (token art lives at
 `/image/<chainId>/<address>`) — full API reference and prod-vs-staging notes
 in [docs/GIB_SHOW.md](docs/GIB_SHOW.md).
+
+**Chain scoping is a correctness property, not a feature.** Every cache keyed by
+a transaction hash or an address MUST include the chain id. Two separate bugs
+came from omitting it: migration 009 chain-scoped the address caches, and
+migration 012 had to do the same for `trace_cache` plus the two in-process tracer
+caches, which were serving one chain's trace to every chain. A tx hash is not a
+cache identity on its own.
+
+**Chain lives in `?chainid=N`, so deep links must resolve it.** A shared
+`/debugger/0xabc` or `/tx/0xabc` carries no chain and would otherwise resolve to
+PulseChain, reporting "no data" for a transaction mined anywhere else. The search
+paths (Landing, ⌘K) route via `GET /api/resolve`; entity routes should use
+`useResolvedChainRedirect` to do the same for the URL itself. `/debugger` does —
+`/tx/:hash`, `/address/:address`, `/block/:id` do NOT yet.
 
 The dispatcher refactor to `?chainid=N` routing is in flight on the API side;
 the frontend ChainSelector + Landing/AppShell rebrand is UI-only for now and
@@ -56,8 +77,10 @@ npm run dev:web                # Frontend only
 |----------|---------|---------|
 | `PORT` | `10100` | API server port |
 | `DATABASE_URL` | `postgres://valvetech:valvetech@localhost:5432/valvetech` | Postgres connection |
-| `PULSECHAIN_RPC_URL` | `https://rpc.pulsechain.com` | PulseChain RPC endpoint |
-| `DEBUG_RPC_URL` | (falls back to `PULSECHAIN_RPC_URL`) | Debug-enabled node for traces |
+| `PULSECHAIN_RPC_URL` | `https://rpc.pulsechain.com` | PulseChain RPC endpoint. Also the **key source for every sibling chain** — `valveRpcUrl` swaps the `/evm/369` tail, so one valve key covers 1/943/11155111. There is deliberately no `vk_demo` fallback: an unconfigured chain fails loudly at `getRpcClient` |
+| `ETH_RPC_URL` / `PULSECHAIN_V4_RPC_URL` / `SEPOLIA_RPC_URL` | (derived from `PULSECHAIN_RPC_URL`) | Per-chain override, when a chain shouldn't reuse the PulseChain key/host |
+| `DEBUG_RPC_URL` | (falls back to `PULSECHAIN_RPC_URL`) | Debug-enabled node for traces. **Chain 369 only** — every other chain uses its plain `rpcUrl` for `debug_*`, so the debugger there is only as capable as that endpoint |
+| `DEBUG_RPC_BEARER` | (none) | `Authorization: Bearer` for a header-gated debug node. Silently 401s into "debug unavailable" if the node needs it and this is unset |
 | `BLOCKSCOUT_API_URL` | `https://api.scan.pulsechain.com/api` | Verified-source fallback only (Sourcify is primary; explorer data is RPC + chifra) |
 
 Local `.env` is auto-loaded by `dotenv/config` in `packages/api/src/index.ts`. `.env` is gitignored — never commit private RPC URLs or tokens.
