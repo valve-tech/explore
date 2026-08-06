@@ -7,6 +7,7 @@ import BlockView from "./BlockView";
 import ContractView from "./ContractView";
 import ExplorerHome from "./ExplorerHome";
 import { recordVisit } from "../../lib/recentEntities";
+import { useResolvedChainRedirect } from "../../lib/useResolvedChainRedirect";
 import { scanPath } from "../../lib/scanRoutes";
 import { truncateAddr } from "./format";
 import { Tooltip } from "../primitives/Tooltip";
@@ -50,6 +51,27 @@ export default function ExplorerPanel() {
     if (p.startsWith("/address/") && params.address) return { type: "address", address: params.address };
     return { type: "none" };
   }, [location.pathname, params.hash, params.id, params.address]);
+
+  // EIP-3091 paths are the shareable surface of this app, and they carry no
+  // chain — so /tx/<a 943 hash> resolved to PulseChain and 404'd on a
+  // transaction that loads fine one chain over. Same defect the debugger had.
+  // Point the URL at the chain the entity lives on before the child view
+  // fetches. A bare block NUMBER stays put by construction: it exists on every
+  // chain past that height, so the resolve matches 369 and no redirect fires.
+  const resolveQuery = useMemo<string | null>(() => {
+    switch (view.type) {
+      case "tx":
+        return view.hash;
+      case "address":
+      case "contract":
+        return view.address;
+      case "block":
+        return view.numberOrHash;
+      case "none":
+        return null;
+    }
+  }, [view]);
+  const resolvingChain = useResolvedChainRedirect(resolveQuery) === "resolving";
 
   // The breadcrumb trail rides in history state, so back/forward restore it.
   const trail = useMemo<ExplorerView[]>(
@@ -124,24 +146,43 @@ export default function ExplorerPanel() {
       {/* Home view — latest summary, recent blocks, recent txs */}
       {view.type === "none" && <ExplorerHome onNavigate={handleNavigate} />}
 
-      {view.type === "tx" && (
+      {/* Hold the entity views until the chain is settled — otherwise each one
+          fires its fetch against the default chain first and renders a
+          "not found" that the redirect then has to undo. */}
+      {resolvingChain && <ResolvingChainPanel />}
+
+      {!resolvingChain && view.type === "tx" && (
         <TxDetail hash={view.hash} onNavigate={handleNavigate} />
       )}
 
-      {view.type === "address" && (
+      {!resolvingChain && view.type === "address" && (
         <AddressView address={view.address} onNavigate={handleNavigate} />
       )}
 
-      {view.type === "block" && (
+      {!resolvingChain && view.type === "block" && (
         <BlockView
           numberOrHash={view.numberOrHash}
           onNavigate={handleNavigate}
         />
       )}
 
-      {view.type === "contract" && (
+      {!resolvingChain && view.type === "contract" && (
         <ContractView address={view.address} onNavigate={handleNavigate} />
       )}
+    </div>
+  );
+}
+
+/**
+ * Shown while `/api/resolve` decides which chain a chain-less deep link points
+ * at. Mirrors TxDetail's own loading panel so the handoff between the two is
+ * seamless rather than a visible swap.
+ */
+function ResolvingChainPanel() {
+  return (
+    <div className="rounded-lg bs p-8 flex flex-col items-center justify-center min-h-[300px] theme-card-bg">
+      <div className="spinner mb-3" />
+      <span className="text-sm theme-text-secondary">Finding chain...</span>
     </div>
   );
 }

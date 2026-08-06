@@ -37,9 +37,15 @@ cache identity on its own.
 **Chain lives in `?chainid=N`, so deep links must resolve it.** A shared
 `/debugger/0xabc` or `/tx/0xabc` carries no chain and would otherwise resolve to
 PulseChain, reporting "no data" for a transaction mined anywhere else. The search
-paths (Landing, ⌘K) route via `GET /api/resolve`; entity routes should use
-`useResolvedChainRedirect` to do the same for the URL itself. `/debugger` does —
-`/tx/:hash`, `/address/:address`, `/block/:id` do NOT yet.
+paths (Landing, ⌘K) route via `GET /api/resolve`; entity routes use
+`useResolvedChainRedirect` to do the same for the URL itself — currently
+`/debugger/:txHash` and every EIP-3091 route (`/tx`, `/address`, `/token`,
+`/block`) via ExplorerPanel. **Any new entity route needs it too.** Two rules the
+hook encodes: it runs only when `chainid` is ABSENT (an explicit one is the
+caller's scope, and writing the param is what prevents a redirect loop), and its
+`"resolving"` state must gate the entity fetch — the redirect lands one render
+after the resolve returns, so acting on "the data arrived" still fetches the
+wrong chain.
 
 The dispatcher refactor to `?chainid=N` routing is in flight on the API side;
 the frontend ChainSelector + Landing/AppShell rebrand is UI-only for now and

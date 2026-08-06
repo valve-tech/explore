@@ -86,6 +86,16 @@ vi.mock("../components/explorer/ExplorerHome", () => ({
 }));
 vi.mock("../lib/recentEntities", () => ({ recordVisit: vi.fn() }));
 
+// Entity views mount only after a chain-less deep link resolves to a chain
+// (useResolvedChainRedirect). Stub the probe to "no match" — the no-redirect
+// path — so these stay about breadcrumbs. Mounting is async as a result, hence
+// findBy* below.
+const resolveEntity = vi.hoisted(() => vi.fn());
+vi.mock("../api/resolve", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/resolve")>();
+  return { ...actual, resolveEntity };
+});
+
 import ExplorerPanel from "../components/explorer/ExplorerPanel";
 
 function renderAt(path: string) {
@@ -108,39 +118,51 @@ function renderAt(path: string) {
 }
 
 describe("<ExplorerPanel /> — breadcrumb navigation arms", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resolveEntity.mockResolvedValue({ kind: "tx", query: "", matches: [] });
+  });
   afterEach(() => vi.restoreAllMocks());
 
-  it("goes back via the Back button (navigate(-1))", () => {
+  it("goes back via the Back button (navigate(-1))", async () => {
     renderAt("/explorer");
     fireEvent.click(screen.getByText("home-go-block"));
+    await screen.findByText(/block-view:/);
     fireEvent.click(screen.getByText("block-go-addr"));
-    expect(screen.getByText("address-view:0xfromblock")).toBeInTheDocument();
+    await screen.findByText(/address-view:/);
+    expect(await screen.findByText("address-view:0xfromblock")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByText("block-view:100")).toBeInTheDocument();
+    expect(await screen.findByText("block-view:100")).toBeInTheDocument();
   });
 
-  it("jumps to an intermediate history crumb (jumpTo index>=0)", () => {
+  it("jumps to an intermediate history crumb (jumpTo index>=0)", async () => {
     renderAt("/explorer");
-    fireEvent.click(screen.getByText("home-go-block")); // trail: [] → block
-    fireEvent.click(screen.getByText("block-go-addr")); // trail: [block] → address
-    expect(screen.getByText("address-view:0xfromblock")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("home-go-block"));
+    await screen.findByText(/block-view:/); // trail: [] → block
+    fireEvent.click(screen.getByText("block-go-addr"));
+    await screen.findByText(/address-view:/); // trail: [block] → address
+    expect(await screen.findByText("address-view:0xfromblock")).toBeInTheDocument();
 
     // The block crumb (history index 0) is a clickable button → jumpTo(0).
     const nav = screen.getByRole("navigation", { name: "Explorer trail" });
     fireEvent.click(within(nav).getByText("#100"));
-    expect(screen.getByText("block-view:100")).toBeInTheDocument();
+    expect(await screen.findByText("block-view:100")).toBeInTheDocument();
   });
 
-  it("collapses a long trail and expands it with the '…' button", () => {
+  it("collapses a long trail and expands it with the '…' button", async () => {
     renderAt("/explorer");
     // Grow the trail past CRUMB_VISIBLE (4): each hop pushes the prior view.
-    fireEvent.click(screen.getByText("home-go-block")); // cur block, trail []
-    fireEvent.click(screen.getByText("block-go-addr")); // cur address, trail [block]
-    fireEvent.click(screen.getByText("addr-go-tx")); // cur tx, trail [block, address]
-    fireEvent.click(screen.getByText("tx-go-addr")); // cur address, trail [block, address, tx]
-    fireEvent.click(screen.getByText("addr-go-tx")); // cur tx, trail [block, address, tx, address]
+    fireEvent.click(screen.getByText("home-go-block"));
+    await screen.findByText(/block-view:/); // cur block, trail []
+    fireEvent.click(screen.getByText("block-go-addr"));
+    await screen.findByText(/address-view:/); // cur address, trail [block]
+    fireEvent.click(screen.getByText("addr-go-tx"));
+    await screen.findByText(/tx-view:/); // cur tx, trail [block, address]
+    fireEvent.click(screen.getByText("tx-go-addr"));
+    await screen.findByText(/address-view:/); // cur address, trail [block, address, tx]
+    fireEvent.click(screen.getByText("addr-go-tx"));
+    await screen.findByText(/tx-view:/); // cur tx, trail [block, address, tx, address]
     // Now nodes = Home + 4 history + current = 6 > CRUMB_VISIBLE+1 → collapses.
 
     const nav = screen.getByRole("navigation", { name: "Explorer trail" });

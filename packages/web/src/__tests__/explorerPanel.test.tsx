@@ -76,6 +76,17 @@ vi.mock("../lib/recentEntities", () => ({
   recordVisit: vi.fn(),
 }));
 
+// Entity views now mount only after the chain-less deep link has been resolved
+// to a chain (see useResolvedChainRedirect). Stub the probe to "no match", which
+// is the no-redirect path, so these tests stay about routing + breadcrumbs.
+// Mounting is asynchronous as a result — the entity assertions below use
+// findBy* rather than getBy*.
+const resolveEntity = vi.hoisted(() => vi.fn());
+vi.mock("../api/resolve", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/resolve")>();
+  return { ...actual, resolveEntity };
+});
+
 import ExplorerPanel from "../components/explorer/ExplorerPanel";
 import { recordVisit } from "../lib/recentEntities";
 
@@ -101,7 +112,11 @@ function renderAt(path: string) {
 }
 
 describe("<ExplorerPanel /> — view routing", () => {
-  beforeEach(() => (recordVisit as ReturnType<typeof vi.fn>).mockReset());
+  beforeEach(() => {
+    (recordVisit as ReturnType<typeof vi.fn>).mockReset();
+    resolveEntity.mockReset();
+    resolveEntity.mockResolvedValue({ kind: "tx", query: "", matches: [] });
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it("renders the home view with no breadcrumb at /explorer", () => {
@@ -112,31 +127,31 @@ describe("<ExplorerPanel /> — view routing", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders the tx view + breadcrumb at /tx/:hash and records a visit", () => {
+  it("renders the tx view + breadcrumb at /tx/:hash and records a visit", async () => {
     const hash = "0x" + "ab".repeat(32);
     renderAt(`/tx/${hash}`);
-    expect(screen.getByText(`tx-view:${hash}`)).toBeInTheDocument();
+    expect(await screen.findByText(`tx-view:${hash}`)).toBeInTheDocument();
     expect(
       screen.getByRole("navigation", { name: "Explorer trail" }),
     ).toBeInTheDocument();
     expect(recordVisit).toHaveBeenCalledWith({ kind: "tx", value: hash });
   });
 
-  it("renders the address view at /address/:address", () => {
+  it("renders the address view at /address/:address", async () => {
     renderAt(`/address/${WPLS}`);
-    expect(screen.getByText(`address-view:${WPLS}`)).toBeInTheDocument();
+    expect(await screen.findByText(`address-view:${WPLS}`)).toBeInTheDocument();
     expect(recordVisit).toHaveBeenCalledWith({ kind: "address", value: WPLS });
   });
 
-  it("renders the contract view at /token/:address", () => {
+  it("renders the contract view at /token/:address", async () => {
     renderAt(`/token/${WPLS}`);
-    expect(screen.getByText(`contract-view:${WPLS}`)).toBeInTheDocument();
+    expect(await screen.findByText(`contract-view:${WPLS}`)).toBeInTheDocument();
     expect(recordVisit).toHaveBeenCalledWith({ kind: "contract", value: WPLS });
   });
 
-  it("renders the block view at /block/:id", () => {
+  it("renders the block view at /block/:id", async () => {
     renderAt("/block/26804492");
-    expect(screen.getByText("block-view:26804492")).toBeInTheDocument();
+    expect(await screen.findByText("block-view:26804492")).toBeInTheDocument();
     expect(recordVisit).toHaveBeenCalledWith({
       kind: "block",
       value: "26804492",
@@ -145,38 +160,42 @@ describe("<ExplorerPanel /> — view routing", () => {
 });
 
 describe("<ExplorerPanel /> — navigation + breadcrumb", () => {
-  beforeEach(() => (recordVisit as ReturnType<typeof vi.fn>).mockReset());
+  beforeEach(() => {
+    (recordVisit as ReturnType<typeof vi.fn>).mockReset();
+    resolveEntity.mockReset();
+    resolveEntity.mockResolvedValue({ kind: "tx", query: "", matches: [] });
+  });
   afterEach(() => vi.restoreAllMocks());
 
-  it("navigates home → block and builds a breadcrumb trail (Home + current)", () => {
+  it("navigates home → block and builds a breadcrumb trail (Home + current)", async () => {
     renderAt("/explorer");
     fireEvent.click(screen.getByText("go-block"));
 
-    expect(screen.getByText("block-view:26804492")).toBeInTheDocument();
+    expect(await screen.findByText("block-view:26804492")).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Explorer trail" });
     // Home crumb is clickable; current crumb is aria-current.
     expect(nav).toHaveTextContent("Home");
     expect(screen.getByText("#26804492")).toBeInTheDocument();
   });
 
-  it("navigates home → address and across to a tx, growing the trail", () => {
+  it("navigates home → address and across to a tx, growing the trail", async () => {
     renderAt("/explorer");
     fireEvent.click(screen.getByText("go-address"));
-    expect(screen.getByText("address-view:0xaddr")).toBeInTheDocument();
+    expect(await screen.findByText("address-view:0xaddr")).toBeInTheDocument();
 
     // From the address view, jump to a tx — trail now has Home + address.
     fireEvent.click(screen.getByText("go-tx"));
-    expect(screen.getByText("tx-view:0xhash")).toBeInTheDocument();
+    expect(await screen.findByText("tx-view:0xhash")).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Explorer trail" });
     expect(nav).toHaveTextContent("Home");
     // Back button appears once there's history behind the current view.
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 
-  it("jumps back to Home from the breadcrumb", () => {
+  it("jumps back to Home from the breadcrumb", async () => {
     renderAt("/explorer");
     fireEvent.click(screen.getByText("go-contract"));
-    expect(screen.getByText("contract-view:0xcontract")).toBeInTheDocument();
+    expect(await screen.findByText("contract-view:0xcontract")).toBeInTheDocument();
 
     // Click the Home crumb button.
     fireEvent.click(screen.getByRole("button", { name: "Home" }));
