@@ -51,12 +51,21 @@ export interface SourceResponse {
   source?: ContractSource;
   error?: string;
   hint?: string;
+  /**
+   * Set by the API on an upstream failure: whether retrying can plausibly
+   * produce a different answer. `false` means the chain's only verified-source
+   * provider is down, so there is no second opinion to wait for and the retry
+   * budget would just be burned. Absent on older responses → treat as true.
+   */
+  retryable?: boolean;
 }
 
 export interface SourceMapResponse {
   ok: boolean;
   mappings?: Record<number, SourceLocation | null>;
   error?: string;
+  /** See `SourceResponse.retryable` — same contract, same producer. */
+  retryable?: boolean;
 }
 
 export interface SlitherElement {
@@ -139,14 +148,24 @@ async function attemptFetchSource(address: string): Promise<SourceFetchOutcome> 
   }
   // 404 is the definitive "not verified" signal from routes/source.ts.
   if (res.status === 404) return { kind: "unverified" };
-  // Any other HTTP error (5xx, 503 "temporarily unavailable") is transient.
-  if (!res.ok) return { kind: "transient", reason: `HTTP ${res.status}` };
+  // Any other HTTP error is transient — UNLESS the API says retrying can't
+  // help. It says so when the chain has a single verified-source provider and
+  // that provider is down (see `upstreamUnavailable` in routes/source.ts):
+  // there is no second opinion coming, so spending the retry budget just turns
+  // one dead contract into four dead requests. Read the body before deciding —
+  // the flag rides in the error envelope, which this branch used to skip.
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as SourceResponse | null;
+    if (body?.retryable === false) return { kind: "unverified" };
+    return { kind: "transient", reason: `HTTP ${res.status}` };
+  }
   const data = (await res.json().catch(() => null)) as SourceResponse | null;
   if (!data) return { kind: "fatal", reason: "malformed JSON" };
   if (!data.ok) {
     // 200 + ok:false with an explicit "temporarily unavailable" hint flowed
     // through `ApiError` details — treat as transient. Any other ok:false is
     // a definitive answer (treated as not verified).
+    if (data.retryable === false) return { kind: "unverified" };
     if (/temporarily unavailable/i.test(data.error ?? "")) {
       return { kind: "transient", reason: data.error! };
     }
@@ -290,10 +309,17 @@ async function attemptFetchSourceMap(
     };
   }
   if (res.status === 404) return { kind: "unmappable" };
-  if (!res.ok) return { kind: "transient", reason: `HTTP ${res.status}` };
+  // See attemptFetchSource: `retryable: false` means the chain's sole
+  // verified-source provider is down, so there is nothing to wait for.
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as SourceMapResponse | null;
+    if (body?.retryable === false) return { kind: "unmappable" };
+    return { kind: "transient", reason: `HTTP ${res.status}` };
+  }
   const data = (await res.json().catch(() => null)) as SourceMapResponse | null;
   if (!data) return { kind: "fatal", reason: "malformed JSON" };
   if (!data.ok) {
+    if (data.retryable === false) return { kind: "unmappable" };
     if (/temporarily unavailable/i.test(data.error ?? "")) {
       return { kind: "transient", reason: data.error! };
     }

@@ -7,7 +7,7 @@ import {
 } from "../services/sourceMap.js";
 import { compileForSourceMap } from "../services/solcCompiler.js";
 import { analyzeContract } from "../services/slither.js";
-import { chainClient } from "../services/chains/context.js";
+import { chainClient, currentChain } from "../services/chains/context.js";
 import {
   decompileWithHeimdall,
   heimdallAvailable,
@@ -18,6 +18,44 @@ import { mapPcsSchema, analyzeSchema } from "./source/schemas.js";
 const router = Router();
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+
+/**
+ * Build the 503 for an `UpstreamError` out of `getVerifiedSource`, telling the
+ * truth about whether retrying can plausibly help.
+ *
+ * A chain with `sourcifyEnabled: false` has exactly ONE verified-source
+ * provider — its Blockscout. When that provider is down there is no second
+ * opinion to wait for, and "the contract may actually be verified — retry
+ * shortly" is simply false: nothing on this chain can say whether it is.
+ *
+ * This is not hypothetical. Chain 943's Blockscout backend
+ * (api.scan.v4.testnet.pulsechain.com) currently 500s on every module/action
+ * and on the v2 REST surface, while Sourcify does not index 943 and — per the
+ * operator, 2026-08-05 — there are no plans for it to. So every contract on a
+ * 943 page hit this path, and the client (which retries anything whose message
+ * matches "temporarily unavailable", three times with backoff) turned ~9
+ * contracts into 63 failed requests per page load.
+ *
+ * `retryable` is the machine-readable half — the client keys its retry decision
+ * on the flag rather than on prose. It stays `true` for a real multi-provider
+ * outage, where waiting genuinely can produce a different answer.
+ */
+export function upstreamUnavailable(upstream: string): ApiError {
+  const chain = currentChain();
+  if (!chain.sourcifyEnabled) {
+    return new ApiError(503, "No verified-source provider available", {
+      hint:
+        `${chain.name} has a single verified-source provider (Blockscout) and it ` +
+        `returned an error; Sourcify does not index this chain. Source is ` +
+        `unavailable here until that provider recovers — decoding falls back to bytecode.`,
+      retryable: false,
+    });
+  }
+  return new ApiError(503, "Verification source temporarily unavailable", {
+    hint: `${upstream} returned an error; the contract may actually be verified — retry shortly`,
+    retryable: true,
+  });
+}
 
 function requireAddress(raw: string | string[] | undefined): string {
   const address = String(raw ?? "");
@@ -37,11 +75,7 @@ router.get(
     try {
       source = await getVerifiedSource(address);
     } catch (err) {
-      if (err instanceof UpstreamError) {
-        throw new ApiError(503, "Verification source temporarily unavailable", {
-          hint: `${err.upstream} returned an error; the contract may actually be verified — retry shortly`,
-        });
-      }
+      if (err instanceof UpstreamError) throw upstreamUnavailable(err.upstream);
       throw err;
     }
     if (!source) {
@@ -105,11 +139,7 @@ router.post(
     try {
       source = await getVerifiedSource(address);
     } catch (err) {
-      if (err instanceof UpstreamError) {
-        throw new ApiError(503, "Verification source temporarily unavailable", {
-          hint: `${err.upstream} returned an error; retry shortly`,
-        });
-      }
+      if (err instanceof UpstreamError) throw upstreamUnavailable(err.upstream);
       throw err;
     }
     if (!source) throw new ApiError(404, "Verified source not found");
