@@ -14,6 +14,7 @@ import {
   type StepDetail,
 } from "../../api/debugger";
 import { analyzeContract, type SlitherFinding } from "../../api/source";
+import { useActiveChainId } from "../../lib/activeChain";
 import { useContractSource, useSourceMappings } from "../../hooks/useContractSource";
 import { useContractMeta } from "../../hooks/useContractMeta";
 import { useSignatures } from "../../hooks/useSignatures";
@@ -128,6 +129,11 @@ export default function StepDebugger({
 }: StepDebuggerProps) {
   const nav = useOpcodeNavigation(steps);
   const { currentIndex: currentStep, totalSteps } = nav;
+  // Per-step state must be fetched from the chain the transaction is on. This
+  // component read no chain at all, so every detail request went to the default
+  // (369) and 503'd for a tx on any other chain — the stack / memory / storage
+  // panels were simply dead outside PulseChain.
+  const chainId = useActiveChainId();
 
   // Lazy per-step state for the chunk containing the cursor. The first fetch
   // for a tx warms a server-side full-trace cache (~seconds); later chunks are
@@ -139,9 +145,11 @@ export default function StepDebugger({
   const chunkStart = Math.floor(currentStep / DETAIL_CHUNK) * DETAIL_CHUNK;
   const fetchFrom = Math.max(0, chunkStart - 1);
   const detailQuery = useQuery({
-    queryKey: ["opcode-detail", txHash, fetchFrom],
+    // chainId belongs in the key as well as the request: without it, the same
+    // hash on two chains would share one cache entry.
+    queryKey: ["opcode-detail", txHash, fetchFrom, chainId],
     queryFn: () =>
-      fetchOpcodeDetail(txHash!, fetchFrom, chunkStart + DETAIL_CHUNK),
+      fetchOpcodeDetail(txHash!, fetchFrom, chunkStart + DETAIL_CHUNK, chainId),
     enabled: !!txHash && steps.length > 0,
     staleTime: Infinity,
     gcTime: Infinity,
