@@ -77,3 +77,25 @@ export function hasPresence(p: ChainPresence): boolean {
   if (p.error) return false;
   return p.isContract || p.nonce > 0 || p.balance !== "0";
 }
+
+export interface BlockAtHeight {
+  chainId: number;
+  reached: boolean;
+  head?: number;
+  hash?: string;
+  txCount?: number;
+  gasUsed?: string;
+  gasLimit?: string;
+  timestamp?: number;
+  error?: true;
+}
+
+export async function fetchBlockAtHeight(
+  height: string,
+  chainIds?: number[],
+): Promise<BlockAtHeight[]> {
+  const result = await get<{ height: string; chains: BlockAtHeight[] }>(
+    `${API_BASE}/block/${height}${chainsParam(chainIds)}`,
+  );
+  return result.chains;
+}

@@ -7,6 +7,7 @@ import BlockView from "./BlockView";
 import ContractView from "./ContractView";
 import ExplorerHome from "./ExplorerHome";
 import MultiChainAddressView from "./MultiChainAddressView";
+import BlockHeightView from "./BlockHeightView";
 import { recordVisit } from "../../lib/recentEntities";
 import { useResolvedChainRedirect } from "../../lib/useResolvedChainRedirect";
 import { scanPath } from "../../lib/scanRoutes";
@@ -97,6 +98,9 @@ export default function ExplorerPanel() {
   // single-chain view below.
   const showAllChains =
     scope.kind === "all" && (view.type === "address" || view.type === "contract");
+  // A bare block NUMBER is not chain-locatable; a block HASH is. Only the
+  // number form gets the all-chain treatment.
+  const isBlockNumber = view.type === "block" && /^\d+$/.test(view.numberOrHash);
   const scopedChainId = scope.kind === "one" ? scope.chainId : undefined;
 
   // The breadcrumb trail rides in history state, so back/forward restore it.
@@ -163,6 +167,10 @@ export default function ExplorerPanel() {
   // both.
   if (showAllChains && (view.type === "address" || view.type === "contract")) {
     return <MultiChainAddressView address={view.address} />;
+  }
+
+  if (scope.kind === "all" && isBlockNumber && view.type === "block") {
+    return <BlockHeightView height={view.numberOrHash} />;
   }
 
   return (

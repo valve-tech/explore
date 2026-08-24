@@ -48,6 +48,13 @@ vi.mock("../components/explorer/BlockView", () => ({
     <div>block-view:{numberOrHash}</div>
   ),
 }));
+// A bare block NUMBER is now the all-chain height page, not BlockView — stub it
+// the same way as MultiChainAddressView so routing tests can tell them apart.
+vi.mock("../components/explorer/BlockHeightView", () => ({
+  default: ({ height }: { height: string }) => (
+    <div>block-height-view:{height}</div>
+  ),
+}));
 vi.mock("../components/explorer/ContractView", () => ({
   default: ({ address }: { address: string }) => (
     <div>contract-view:{address}</div>
@@ -205,13 +212,18 @@ describe("<ExplorerPanel /> — view routing", () => {
     expect(await screen.findByText(`contract-view:${WPLS}`)).toBeInTheDocument();
   });
 
-  it("renders the block view at /block/:id", async () => {
+  it("renders the all-chain block-height view at /block/:id (no chain scope)", async () => {
     renderAt("/block/26804492");
-    expect(await screen.findByText("block-view:26804492")).toBeInTheDocument();
+    expect(await screen.findByText("block-height-view:26804492")).toBeInTheDocument();
     expect(recordVisit).toHaveBeenCalledWith({
       kind: "block",
       value: "26804492",
     });
+  });
+
+  it("renders the single-chain block view under a chain-scoped prefix", async () => {
+    renderAt("/eip155/369/block/26804492");
+    expect(await screen.findByText("block-view:26804492")).toBeInTheDocument();
   });
 });
 
@@ -224,7 +236,10 @@ describe("<ExplorerPanel /> — navigation + breadcrumb", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("navigates home → block and builds a breadcrumb trail (Home + current)", async () => {
-    renderAt("/explorer");
+    // Chain-scoped for the same reason as the address/contract cases below: a
+    // bare block-number link lands on the terminal all-chain height page,
+    // which renders no breadcrumb at all.
+    renderAt("/eip155/369/explorer");
     fireEvent.click(screen.getByText("go-block"));
 
     expect(await screen.findByText("block-view:26804492")).toBeInTheDocument();

@@ -13,6 +13,13 @@ import { Link } from "react-router-dom";
  * `share` fills the row's own background rather than adding a bar column. The
  * ranking then reads before any digit does, and it costs neither a column nor a
  * line. Activity share on the address page; gas used on the block page.
+ *
+ * `ariaLabel` overrides the row's computed accessible name. The default —
+ * `main` + `sub` + `right` concatenated, since `href` wraps the whole row in
+ * one link — reads as noise ("PulseChain0x8f21 · 22.2M / 30M gas142 txs") and
+ * cannot disambiguate two rows sharing a `main` prefix ("PulseChain" vs
+ * "PulseChain Testnet v4"). Pass it whenever a caller needs a clean name, such
+ * as one to link against by chain.
  */
 export interface EntityRowProps {
   art?: ReactNode;
@@ -27,6 +34,7 @@ export interface EntityRowProps {
   tint?: string;
   href?: string;
   tone?: "default" | "warn";
+  ariaLabel?: string;
 }
 
 export default function EntityRow({
@@ -39,6 +47,7 @@ export default function EntityRow({
   tint,
   href,
   tone = "default",
+  ariaLabel,
 }: EntityRowProps) {
   const outline =
     tone === "warn"
@@ -81,10 +90,12 @@ export default function EntityRow({
     (href ? "hover:shadow-[0_0_0_1px_var(--color-accent)]" : "");
 
   return href ? (
-    <Link to={href} className={className}>
+    <Link to={href} className={className} aria-label={ariaLabel}>
       {body}
     </Link>
   ) : (
-    <div className={className}>{body}</div>
+    <div className={className} aria-label={ariaLabel}>
+      {body}
+    </div>
   );
 }

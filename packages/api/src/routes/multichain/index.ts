@@ -3,6 +3,8 @@ import { ApiError, asyncRoute, respond } from "../../lib/respond.js";
 import { getChainPresence } from "../../services/multichain/chainPresence.js";
 import { getMergedActivity } from "../../services/multichain/mergedActivity.js";
 import { parseChainsParam } from "./schemas.js";
+import { chainClient, runWithChain } from "../../services/chains/context.js";
+import { listChains } from "../../services/chains/registry.js";
 
 /**
  * Chain-agnostic address routes.
@@ -55,6 +57,56 @@ router.get(
     const activity = await getMergedActivity(address, presence, limit);
     respond.ok(res, { result: { address, ...activity } });
   }, "multichain/address/activity"),
+);
+
+/**
+ * GET /api/multichain/block/:number
+ *
+ * A block NUMBER is not chain-locatable — every chain past that height has one.
+ * So rather than guessing, this reports the height on each chain: the block if
+ * the chain has reached it, and the chain's own head if it has not. Chain-
+ * agnostic like the address routes.
+ */
+router.get(
+  "/block/:number",
+  asyncRoute(async (req: Request, res: Response) => {
+    const raw = String(req.params.number ?? "");
+    if (!/^\d+$/.test(raw)) throw new ApiError(400, "Block number required");
+    const height = BigInt(raw);
+
+    const chains = parseChainsParam(
+      typeof req.query.chains === "string" ? req.query.chains : undefined,
+    ) ?? listChains().map((c) => c.chainId);
+
+    const result = await Promise.all(
+      chains.map((chainId) =>
+        runWithChain(chainId, async () => {
+          try {
+            const client = chainClient();
+            const head = await client.getBlockNumber();
+            if (head < height) {
+              return { chainId, reached: false, head: Number(head) };
+            }
+            const block = await client.getBlock({ blockNumber: height });
+            return {
+              chainId,
+              reached: true,
+              hash: block.hash,
+              txCount: block.transactions.length,
+              gasUsed: String(block.gasUsed),
+              gasLimit: String(block.gasLimit),
+              timestamp: Number(block.timestamp),
+            };
+          } catch {
+            // Same rule as the address routes: unknown is not absent.
+            return { chainId, reached: false, error: true as const };
+          }
+        }),
+      ),
+    );
+
+    respond.ok(res, { result: { height: raw, chains: result } });
+  }, "multichain/block"),
 );
 
 export default router;

@@ -36,6 +36,13 @@ vi.mock("../components/explorer/BlockView", () => ({
     <div data-testid="block-view">{numberOrHash}</div>
   ),
 }));
+// A bare block NUMBER renders every chain now, not a single one — stub it so
+// these tests stay about the resolve+redirect behaviour of the OTHER routes.
+vi.mock("../components/explorer/BlockHeightView", () => ({
+  default: ({ height }: { height: string }) => (
+    <div data-testid="block-height-view">{height}</div>
+  ),
+}));
 vi.mock("../components/explorer/ContractView", () => ({
   default: ({ address }: { address: string }) => (
     <div data-testid="contract-view">{address}</div>
@@ -203,8 +210,10 @@ describe("the other EIP-3091 routes", () => {
 
     renderAt("/block/25058074");
 
+    // A bare block number is chain-less by design — it renders every chain,
+    // not one BlockView.
     await waitFor(() =>
-      expect(screen.getByTestId("block-view")).toBeInTheDocument(),
+      expect(screen.getByTestId("block-height-view")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("search").textContent).toBe("");
   });
