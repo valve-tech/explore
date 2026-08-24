@@ -44,11 +44,14 @@ import { useChainScope } from "./activeChain";
  *
  * Third deliberate limit, added with the all-chain address view:
  *
- *   - It never fires for an ADDRESS. A tx hash lives on exactly one chain, so
- *     resolving it is answering a real question. An address is valid on every
- *     chain, so "which one?" has no correct answer — `/address/0x…` renders
- *     every chain instead, and redirecting it would replace a complete answer
- *     with an arbitrary one.
+ *   - It never fires when the caller passes `kind: "skip"`. An address is the
+ *     original case: a tx hash lives on exactly one chain, so resolving it is
+ *     answering a real question, but an address is valid on every chain, so
+ *     "which one?" has no correct answer — `/address/0x…` renders every chain
+ *     instead, and redirecting it would replace a complete answer with an
+ *     arbitrary one. A chain-less block NUMBER is the same shape of case: it
+ *     exists on every chain past that height, so there is equally no single
+ *     right chain to resolve to.
  *
  * Callers should hold their own fetches until this reports `"settled"`, so the
  * heavy per-chain requests fire once, against the right chain.
@@ -63,7 +66,7 @@ export type ChainRedirectState =
 
 export function useResolvedChainRedirect(
   query: string | null,
-  kind: "entity" | "address" = "entity",
+  kind: "entity" | "skip" = "entity",
 ): ChainRedirectState {
   const [params, setParams] = useSearchParams();
   // `useChainScope` already reads BOTH forms of a stated chain — the path
@@ -72,7 +75,7 @@ export function useResolvedChainRedirect(
   // exactly the bug this line fixes: a `/eip155/943/…` load looked chain-less
   // to a query-only check and got resolved (and re-labelled) anyway.
   const urlNamesChain = useChainScope().kind === "one";
-  const enabled = !!query && !urlNamesChain && kind !== "address";
+  const enabled = !!query && !urlNamesChain && kind !== "skip";
 
   const resolve = useQuery({
     queryKey: ["resolve-chain", query],

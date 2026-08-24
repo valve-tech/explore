@@ -86,21 +86,26 @@ export default function ExplorerPanel() {
     }
   }, [view]);
   const scope = useChainScope();
-  // An address is valid on every chain, so the hook must never pick one for
-  // it — pass "address" and it skips the resolve+redirect entirely.
+  // A bare block NUMBER is not chain-locatable; a block HASH is. Only the
+  // number form gets the all-chain treatment.
+  const isBlockNumber = view.type === "block" && /^\d+$/.test(view.numberOrHash);
+  // Neither an address/contract nor an all-chain block number has one right
+  // chain to resolve to — an address is valid on every chain, and a bare
+  // block number exists on every chain past that height. Skip the resolve
+  // for both: `BlockHeightView` below already fans the block number out
+  // across every chain itself, so resolving it here first would fan out
+  // twice for the one case the design says should cost one fan-out.
+  const skipResolve =
+    view.type === "address" ||
+    view.type === "contract" ||
+    (scope.kind === "all" && isBlockNumber);
   const resolvingChain =
-    useResolvedChainRedirect(
-      resolveQuery,
-      view.type === "address" || view.type === "contract" ? "address" : "entity",
-    ) === "resolving";
+    useResolvedChainRedirect(resolveQuery, skipResolve ? "skip" : "entity") === "resolving";
   // Every chain, shown at once, only for a chain-less address or contract
   // page. A scoped page (an explicit chain, or a tx/block page) keeps the
   // single-chain view below.
   const showAllChains =
     scope.kind === "all" && (view.type === "address" || view.type === "contract");
-  // A bare block NUMBER is not chain-locatable; a block HASH is. Only the
-  // number form gets the all-chain treatment.
-  const isBlockNumber = view.type === "block" && /^\d+$/.test(view.numberOrHash);
   const scopedChainId = scope.kind === "one" ? scope.chainId : undefined;
 
   // The breadcrumb trail rides in history state, so back/forward restore it.

@@ -216,6 +216,11 @@ describe("the other EIP-3091 routes", () => {
       expect(screen.getByTestId("block-height-view")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("search").textContent).toBe("");
+    // BlockHeightView fans this number out across every chain on its own.
+    // Resolving it here first would fan out twice for one page load — the
+    // resolve must never fire for this case, matching the address/token
+    // cases above.
+    expect(resolveEntity).not.toHaveBeenCalled();
   });
 });
 
