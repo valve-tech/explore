@@ -639,7 +639,7 @@ git commit -m "refactor(web): route activeChain through the chain-scope parser"
 
 **Files:**
 - Modify: `packages/web/src/lib/scanRoutes.ts`
-- Test: `packages/web/src/__tests__/scanRoutes.test.ts` (create)
+- Test: `packages/web/src/__tests__/scanRoutes.test.ts` (**modify — this file already exists; ADD to it, never overwrite it**)
 
 **Interfaces:**
 - Consumes: `chainRoutePrefix` from `lib/chainScope` (Task 3).
