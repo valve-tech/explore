@@ -3578,33 +3578,54 @@ if (scope.kind === "all" && isBlockNumber) {
 
 - [ ] **Step 6: Update `CLAUDE.md`**
 
-The deep-link paragraph states invariants that this work changes. Replace the paragraph beginning "**Chain lives in `?chainid=N`, so deep links must resolve it.**" with:
+The deep-link paragraph states invariants that this work changes. Replace the paragraph beginning "**Chain lives in `?chainid=N`, so deep links must resolve it.**" with the text below.
+
+**This text reflects what actually shipped, including four corrections made during execution.** Do not paraphrase it from the spec — the spec's earlier drafts describe a routing design that was replaced.
 
 ```markdown
 **Chain lives in the path as `/eip155/<id>/…`, and a chain-less URL is not a
-bug.** The canonical scoped form is `/eip155/369/tx/0xabc` — two CAIP-2 segments,
-never the colon form (`docs/GIB_SHOW.md` records `/image/eip155:369` returning
-404 where the dash form returns 200). `packages/web/src/lib/chainScope.ts` is the
-ONLY reader; `useActiveChainId()` delegates to it and keeps its old signature, so
-its ~40 call sites never moved. `?chainid=N` survives as a legacy form that
-`LegacyChainParamRedirect` rewrites once — it fires only when the path has no
-prefix, and writing the prefix is what prevents a loop.
+bug.** The canonical scoped form is `/eip155/369/tx/0xabc` — two CAIP-2 path
+segments, never the colon form (`docs/GIB_SHOW.md` records `/image/eip155:369`
+returning 404 where the dash form returns 200).
+`packages/web/src/lib/chainScope.ts` is the ONLY reader; `useActiveChainId()`
+delegates to it and kept its old signature, so its ~40 call sites never moved.
+
+**The namespace is a LITERAL route segment, and that is load-bearing.**
+`App.tsx` mounts `<Route path="/eip155/:ref/*">`, one route per supported
+namespace. A parameter route (`/:ns/:ref/*`) does NOT work: the outer `<Routes>`
+ranks only its own routes and never sees the static segments inside
+`AppRoutes`, so every two-segment URL — `/tx/0xabc`, `/workspace/abc` — would
+match it with `ns="tx"` and render not-found. Adding a chain family later costs
+one route line. An unregistered *reference* (`/eip155/8453/…`) renders
+"Unsupported chain"; an unknown *namespace* (`/bip122/…`) falls through to
+`AppRoutes`, matches nothing, and renders blank — accepted, because an app-wide
+404 route is separate work.
+
+**Anything that reads the path must strip the prefix first.**
+`stripChainPrefix` exists for this. `ExplorerPanel` selects its view from
+`location.pathname`, and without the strip every `/eip155/1/tx/0x…` rendered
+Explorer Home.
 
 **An unscoped URL means "every chain" on exactly three routes** —
 `/address/:addr`, `/token/:addr`, `/block/:number` — which render every chain and
 never redirect. Every other route collapses "all" to `DEFAULT_CHAIN_ID`.
-`useResolvedChainRedirect` still resolves a chain-less `/tx/0x…` and
-`/debugger/0x…`, because a hash lives on exactly one chain; it deliberately does
-NOT fire for an address, which is valid on all of them. Its three invariants
-still hold and are pinned in `__tests__/routingCharacterization.test.tsx`: it runs
-only when the scope is absent, its `"resolving"` state gates the entity fetch, and
-it does not redirect when the entity is on the default chain.
+
+**`useResolvedChainRedirect` is disabled when the URL names a chain by EITHER
+mechanism** — a path prefix or a well-formed `?chainid=N`. An empty or malformed
+`chainid` is deliberately NOT a scope: the hook resolves it and writes a real
+chain. It still resolves a chain-less `/tx/0x…` and `/debugger/0x…`, because a
+hash lives on exactly one chain, and it deliberately never fires for an address,
+which is valid on all of them. Its invariants are pinned in
+`__tests__/routingCharacterization.test.tsx` — do not weaken them.
 
 **The API transport still uses `?chainid=N`.** Only the browser URL moved.
 `scoped()` and `chainContext` are unchanged. The chain-agnostic endpoints
 (`/api/resolve`, `/api/multichain/*`) ignore `chainid` by design and take an
 optional `chains=1,369` allowlist, which is how the global testnet toggle
-(`lib/settings/testnets.ts`) halves the fan-out.
+(`lib/settings/testnets.ts`) halves the fan-out. That toggle is a COST CONTROL,
+not a preference — production has 429'd on Ethereum before, so the setting lives
+in a module store the fetch layer can read, and the chain set sits in every
+TanStack Query key so flipping it refetches instead of serving a stale answer.
 ```
 
 - [ ] **Step 7: Run the full suite and both typechecks**
