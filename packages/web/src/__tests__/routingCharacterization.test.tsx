@@ -84,15 +84,28 @@ describe("useResolvedChainRedirect — the three invariants", () => {
     expect(resolveMock).not.toHaveBeenCalled();
   });
 
-  it("invariant 2: stays 'resolving' until the redirect is applied", async () => {
+  it("invariant 2: never reports 'settled' while a redirect to a non-default chain is pending", async () => {
     resolveMock.mockResolvedValue({ kind: "tx", query: "0xabc", matches: [{ chainId: 943 }] });
-    const { result } = renderHook(() => useResolvedChainRedirect("0xabc"), {
-      wrapper: wrapper("/tx/0xabc"),
-    });
-    expect(result.current).toBe("resolving");
-    // Never reports "settled" while a redirect to a non-default chain is pending.
-    await waitFor(() => expect(resolveMock).toHaveBeenCalled());
-    expect(result.current).not.toBe("settled");
+    // Sampling `result.current` at one moment cannot catch a regression here:
+    // the redirect effect and the data arrival land in the same flushed
+    // cycle, so an intermediate "settled" render is overwritten by "idle"
+    // before a single read could see it. Record every render instead.
+    const seenStates: string[] = [];
+    const seenChainIds: (string | null)[] = [];
+    function Probe() {
+      const [params] = useSearchParams();
+      const state = useResolvedChainRedirect("0xabc");
+      seenStates.push(state);
+      seenChainIds.push(params.get("chainid"));
+      return state;
+    }
+    const { result } = renderHook(() => Probe(), { wrapper: wrapper("/tx/0xabc") });
+    // Once the redirect writes `chainid=943`, `urlNamesChain` flips and the
+    // hook's own terminal state for this case is "idle" — see the hook's
+    // docblock. Wait for that, then check the full history.
+    await waitFor(() => expect(result.current).toBe("idle"));
+    expect(seenStates).not.toContain("settled");
+    expect(seenChainIds).toContain("943");
   });
 
   it("invariant 3: does not redirect when the entity is on the default chain", async () => {
