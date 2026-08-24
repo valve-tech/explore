@@ -326,7 +326,6 @@ git commit -m "feat(chains): give every chain its CAIP-2 identity"
   - `type ChainScope = { kind: "one"; chainId: number } | { kind: "all" }`
   - `parseChainScope(pathname: string, search: string): ChainScope`
   - `chainRoutePrefix(chainId: number): string` → `"/eip155/369"`
-  - `stripChainPrefix(pathname: string): string`
   - `readLocationScope(): ChainScope` — non-reactive, handles both router shapes
 
 - [ ] **Step 1: Write the failing tests**
@@ -336,7 +335,6 @@ import { describe, it, expect, afterEach } from "vitest";
 import {
   parseChainScope,
   chainRoutePrefix,
-  stripChainPrefix,
   readLocationScope,
 } from "../lib/chainScope";
 
@@ -386,7 +384,7 @@ describe("parseChainScope", () => {
   });
 });
 
-describe("chainRoutePrefix / stripChainPrefix", () => {
+describe("chainRoutePrefix", () => {
   it("builds the two-segment prefix", () => {
     expect(chainRoutePrefix(369)).toBe("/eip155/369");
     expect(chainRoutePrefix(11155111)).toBe("/eip155/11155111");
@@ -394,12 +392,6 @@ describe("chainRoutePrefix / stripChainPrefix", () => {
 
   it("returns an empty prefix for an unregistered chain", () => {
     expect(chainRoutePrefix(8453)).toBe("");
-  });
-
-  it("removes a valid prefix and leaves an unprefixed path alone", () => {
-    expect(stripChainPrefix("/eip155/369/tx/0xabc")).toBe("/tx/0xabc");
-    expect(stripChainPrefix("/tx/0xabc")).toBe("/tx/0xabc");
-    expect(stripChainPrefix("/bip122/000/tx/0xabc")).toBe("/bip122/000/tx/0xabc");
   });
 });
 
@@ -501,13 +493,6 @@ export function chainRoutePrefix(chainId: number): string {
   return pair ? `/${pair.namespace}/${pair.reference}` : "";
 }
 
-/** Remove a valid chain prefix from a path; leave anything else untouched. */
-export function stripChainPrefix(pathname: string): string {
-  if (scopeFromPath(pathname) === undefined) return pathname;
-  const rest = pathname.split("/").slice(3).join("/");
-  return `/${rest}`;
-}
-
 /**
  * Non-reactive scope read for fetch-layer code that runs outside a component.
  * Handles both router shapes: BrowserRouter keeps the path in `pathname` and
@@ -531,7 +516,7 @@ export function readLocationScope(): ChainScope {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npm run test --workspace=packages/web -- chainScope`
-Expected: PASS, all 16 cases.
+Expected: PASS, all 15 cases.
 
 - [ ] **Step 5: Commit**
 
@@ -749,7 +734,7 @@ git commit -m "feat(web): let scanPath build chain-prefixed entity paths"
 - Test: `packages/web/src/__tests__/chainScopedRouting.test.tsx` (create)
 
 **Interfaces:**
-- Consumes: `parseChainScope`, `chainRoutePrefix`, `stripChainPrefix` from `lib/chainScope`.
+- Consumes: `parseChainScope`, `chainRoutePrefix` from `lib/chainScope`.
 - Produces: `<AppRoutes />` (the route table, extracted from `App.tsx`), `<ChainScopedRoutes />`, `<LegacyChainParamRedirect />`.
 
 - [ ] **Step 1: Write the failing tests**
