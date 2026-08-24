@@ -52,6 +52,11 @@ function truncMid(v: string): string {
 }
 
 function recentToResult(e: RecentEntity): Result {
+  // Bare, on purpose — see the matching note on `recentEntityView.hrefFor`.
+  // `RecentEntity` never records which chain it was seen on, and the palette
+  // has no page scope of its own, so there is no chain here that is known to
+  // be right. Guessing the current chain would silently mis-scope any recent
+  // entity from a different chain into a false "not found".
   const to = scanPath(e.kind, e.value);
   // "contract" recents are addresses with verified bytecode — file as
   // kind:"address" in a workspace (workspaces don't distinguish contracts).

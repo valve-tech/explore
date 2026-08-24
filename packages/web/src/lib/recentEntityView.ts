@@ -19,7 +19,16 @@ export function dotColor(e: RecentEntity): string {
   return "var(--color-text-muted)"; // block
 }
 
-/** Hash-router target for an entity (EIP-3091 path scheme). */
+/**
+ * Hash-router target for an entity (EIP-3091 path scheme). Deliberately
+ * bare, not threaded to the caller's active chain: `RecentEntity` (and
+ * `recordVisit`) never store which chain an entry was seen on, and
+ * `BackHistoryControl` / `RecentRail` are global chrome, not scoped to one
+ * page. Filling in the CURRENT page's chain would be a guess, and a wrong
+ * guess is worse than no scope — it turns a correct resolve+redirect into a
+ * false "not found" on whichever chain happened to be active. The bare path
+ * lets `useResolvedChainRedirect` find the entity's real chain instead.
+ */
 export function hrefFor(e: RecentEntity): string {
   return scanPath(e.kind, e.value);
 }

@@ -60,11 +60,14 @@ describe("<TxRowActions />", () => {
     expect(copyToClipboard).toHaveBeenCalledWith(HASH);
   });
 
-  it("opens the menu and navigates to the explorer view", () => {
+  it("opens the menu and navigates to the explorer view, scoped to the active chain", () => {
     renderWithProviders(<TxRowActions hash={HASH} />);
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.click(screen.getByText("View in Explorer"));
-    expect(mockNavigate).toHaveBeenCalledWith(`/tx/${HASH}`);
+    // No chain prefix on the URL → the active chain collapses to the default
+    // (369). The jump carries that chain instead of a bare path, so it never
+    // pays for a needless resolve+redirect back to the chain it started on.
+    expect(mockNavigate).toHaveBeenCalledWith(`/eip155/369/tx/${HASH}`);
   });
 
   it("enables 'View contract storage' only when a contract address is given", () => {
