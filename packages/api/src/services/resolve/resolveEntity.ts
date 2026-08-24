@@ -1,6 +1,7 @@
-import type { Address, Hash, PublicClient } from "viem";
+import type { Hash, PublicClient } from "viem";
 import { getRpcClient } from "../chains/clients.js";
 import { listChains } from "../chains/registry.js";
+import { getChainPresence, hasPresence } from "../multichain/chainPresence.js";
 
 /**
  * Cross-chain entity resolver — "where does this thing live?".
@@ -106,24 +107,27 @@ async function probeTx(
 
 /**
  * An address is valid on every EVM chain, so "existence" alone is useless.
- * Report it only where it has *presence*: deployed bytecode, a non-zero nonce,
- * or a non-zero balance — the chains a user would actually want to open it on.
+ * Report it only where it has presence: deployed bytecode, a non-zero nonce, or
+ * a non-zero balance.
+ *
+ * This delegates to the presence service rather than re-reading, so a search
+ * and the address page it leads to share one probe and one cache instead of
+ * paying twice. The behaviour is unchanged — the same three reads decide
+ * presence — but the second caller is free.
  */
 async function probeAddress(
   deps: ResolveDeps,
   chainId: number,
   addr: string,
 ): Promise<ResolveMatch | null> {
-  const client = deps.getClient(chainId);
-  const address = addr as Address;
-  const [code, balance, nonce] = await Promise.all([
-    client.getCode({ address }).catch(() => undefined),
-    client.getBalance({ address }).catch(() => 0n),
-    client.getTransactionCount({ address }).catch(() => 0),
-  ]);
-  const isContract = code !== undefined && code !== "0x";
-  const present = isContract || balance > 0n || nonce > 0;
-  return present ? { chainId, isContract } : null;
+  const [presence] = await getChainPresence(addr, [chainId], {
+    chainIds: deps.chainIds,
+    getClient: deps.getClient,
+    timeoutMs: deps.timeoutMs,
+    now: () => Date.now(),
+  });
+  if (!presence || !hasPresence(presence)) return null;
+  return { chainId, isContract: presence.isContract };
 }
 
 /** A block number "exists" on a chain once its head has reached that height. */
