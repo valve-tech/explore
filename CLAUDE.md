@@ -90,7 +90,7 @@ either names a real chain or genuinely renders every chain.
 **Structure:**
 - `packages/api/` — Express backend (port 10100), routes + services architecture (most services split into per-responsibility subdirectories)
 - `packages/sdk/` — `@valve-tech/trace-sdk` published npm package (React components, hooks, parsers, risks); ESM-only, 100% coverage gate
-- `packages/web/` — React SPA (router-based, 12 routes), dark theme, TanStack Query persisted to IndexedDB
+- `packages/web/` — React SPA (router-based, 27 routes, mounted both bare and under the `/eip155/:ref/*` chain-scoped prefix), dark theme, TanStack Query persisted to IndexedDB
 - `shared/` — PulseChain network constants (no build step)
 - `docs/` — Product spec, per-feature specs, and [CODEBASE_MAP.md](docs/CODEBASE_MAP.md)
 
