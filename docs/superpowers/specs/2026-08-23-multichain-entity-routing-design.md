@@ -106,9 +106,10 @@ table is mounted twice:
 </Routes>
 ```
 
-`ChainScopedRoutes` validates the namespace and reference against the registry,
-binds them into a `ChainScopeContext`, and renders `<AppRoutes />`. An unknown
-namespace renders not-found. It does not fall through.
+`ChainScopedRoutes` takes its namespace as a prop, validates the reference
+against the registry, and renders `<AppRoutes />`. An unregistered reference
+renders not-found rather than falling through — falling through would render the
+page against the default chain and quietly answer a question nobody asked.
 
 **The namespace is a literal, not a parameter, and that is load-bearing.** A
 `/:ns/:ref/*` route does not work: the outer `<Routes>` ranks only its own two
