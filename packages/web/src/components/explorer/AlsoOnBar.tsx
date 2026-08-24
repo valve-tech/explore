@@ -1,8 +1,9 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { chainById, chainLogoUrl } from "../../lib/chains";
 import { scanPath } from "../../lib/scanRoutes";
-import { visibleChainIds } from "../../lib/settings/testnets";
+import { useShowTestnets, visibleChainIds } from "../../lib/settings/testnets";
 import { fetchChainPresence, hasPresence } from "../../api/multichain";
 
 /**
@@ -19,7 +20,14 @@ interface Props {
 }
 
 export default function AlsoOnBar({ address, activeChainId }: Props) {
-  const chainIds = visibleChainIds();
+  // The visible chain set follows the global testnet toggle. It sits in the
+  // query key so flipping the toggle refetches, rather than serving a stale
+  // four-chain answer cached under the old key.
+  const [showTestnets] = useShowTestnets();
+  // visibleChainIds() reads the same store `showTestnets` subscribes to, so
+  // that dep is the real trigger even though eslint cannot see the link.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const chainIds = useMemo(() => visibleChainIds(), [showTestnets]);
   const { data } = useQuery({
     queryKey: ["multichain-presence", address, chainIds],
     queryFn: () => fetchChainPresence(address, chainIds),
@@ -31,7 +39,10 @@ export default function AlsoOnBar({ address, activeChainId }: Props) {
   if (present.length < 2) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-inline p-2 sm:p-4 theme-card-bg shadow-[0_0_0_1px_var(--color-border-default)]">
+    <nav
+      aria-label="Also on"
+      className="flex flex-wrap items-center gap-inline p-2 sm:p-4 theme-card-bg shadow-[0_0_0_1px_var(--color-border-default)]"
+    >
       <span className="theme-text-muted text-xs uppercase tracking-wide font-semibold">
         Also on
       </span>
@@ -72,6 +83,6 @@ export default function AlsoOnBar({ address, activeChainId }: Props) {
       >
         all →
       </Link>
-    </div>
+    </nav>
   );
 }
