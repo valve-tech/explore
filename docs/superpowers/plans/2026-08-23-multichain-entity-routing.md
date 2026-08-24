@@ -20,6 +20,7 @@
 - **Web styling:** outset box-shadow borders (`ring-1 ring-(--color-…)` or `shadow-[0_0_0_1px_…]`), never `border`. Square corners on anything that can reach a viewport edge. Padding `p-2 sm:p-4`. Numbers carry a mono, tabular face. No native `<select>` or checkbox.
 - **Async event handlers** are called as `void handler()`.
 - **Test commands:** web `npm run test --workspace=packages/web`; api unit `npm run test:unit --workspace=packages/api`.
+- **Typecheck is part of done.** Web work must leave `npx tsc -b packages/web` silent; api work must leave `npm run typecheck --workspace=packages/api` silent. Vitest does not typecheck, so a green suite is not evidence the build passes. `packages/web/tsconfig.json` sets `noUncheckedIndexedAccess`, which makes every un-defaulted array destructure `T | undefined`.
 - **Phase 1 changes no rendering.** If it moves a pixel, it is wrong.
 
 ---
@@ -514,7 +515,8 @@ export function readLocationScope(): ChainScope {
   if (typeof window === "undefined") return ALL;
   const hash = window.location.hash.startsWith("#/") ? window.location.hash.slice(1) : "";
   if (hash) {
-    const [path, query = ""] = hash.split("?");
+    // `noUncheckedIndexedAccess` is on, so BOTH elements need a default.
+    const [path = "", query = ""] = hash.split("?");
     return parseChainScope(path, query ? `?${query}` : "");
   }
   return parseChainScope(window.location.pathname, window.location.search);
