@@ -5,7 +5,7 @@ import { rpcOverrideKey } from "../lib/rpcEndpoint";
 
 /**
  * One chain's BYO-RPC editor. Drives the set / clear / validation branches and
- * the source label ("Explore backend" vs "your node"). Anchored on PulseChain
+ * the source label ("Valve public node" vs "your node"). Anchored on PulseChain
  * (chain 369, https://scan.pulsechain.com).
  */
 const CHAIN_ID = 369;
@@ -14,9 +14,9 @@ const KEY = rpcOverrideKey(CHAIN_ID);
 describe("<RpcChainRow />", () => {
   beforeEach(() => localStorage.clear());
 
-  it("shows 'Explore backend' with no override set, Clear disabled", () => {
+  it("shows 'Valve public node' with no override set, Clear disabled", () => {
     render(<RpcChainRow chainId={CHAIN_ID} name="PulseChain" />);
-    expect(screen.getByText("Explore backend")).toBeInTheDocument();
+    expect(screen.getByText("Valve public node")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
   });
 
@@ -86,7 +86,7 @@ describe("<RpcChainRow />", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(localStorage.getItem(KEY)).toBeNull();
-    expect(screen.getByText("Explore backend")).toBeInTheDocument();
+    expect(screen.getByText("Valve public node")).toBeInTheDocument();
     expect(onChange).toHaveBeenCalledWith(null);
   });
 });

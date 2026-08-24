@@ -1,15 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getRpcOverride,
   setRpcOverride,
   clearRpcOverride,
 } from "../../lib/rpcEndpoint";
+import { VALVE_PUBLIC_RPC } from "../../lib/rpcDefaults";
+import type { RpcChoice } from "../../lib/rpcSuggestions";
+
+/** Host of a URL, for a compact chip label. Falls back to the raw string. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
 
 /**
- * One chain's bring-your-own-RPC override editor: shows the current source
- * ("your node" vs "Explore backend") and lets the user set or clear a per-chain
- * endpoint. Used both in the full Settings panel and in the top-bar RPC chip's
+ * One chain's bring-your-own-RPC override editor: names the endpoint the
+ * browser will actually call, and lets the user set or clear a per-chain
+ * override. Used both in the full Settings panel and in the top-bar RPC chip's
  * quick popover, so the two stay in lockstep.
+ *
+ * The source label reads "your node" or "Valve public node" — not "Explore
+ * backend". The backend serves the app's ENRICHED reads; it is not an RPC
+ * endpoint and never appears in this field. What goes here is where the
+ * browser's own chain calls go, which is Valve's public node by default.
  *
  * `onChange` fires with the newly-stored URL (or null on clear) so a host that
  * mirrors the source label (the chip) can update without re-reading storage.
@@ -28,6 +44,31 @@ export function RpcChainRow({
     getRpcOverride(chainId),
   );
   const [error, setError] = useState<string | null>(null);
+
+  // Derived in render from `stored`, so Set/Clear update the display without
+  // a second source of truth. Never a ref, never an effect.
+  const effective = stored ?? VALVE_PUBLIC_RPC[chainId];
+
+  /*
+   * The suggestion list arrives by DYNAMIC import, and that is load-bearing.
+   * This row renders inside the top bar's RPC chip, so a static import would
+   * put `@valve-tech/rpc-collector`'s ~272 KB chainlist dataset in the core
+   * chunk via TopBar -> RpcSourceChip -> RpcChainRow — paid on every page
+   * load for a list only this row shows. `import()` splits it into its own
+   * chunk, fetched when a row actually mounts.
+   *
+   * An effect is right here: this is asynchronous loading, not derived state.
+   */
+  const [alternatives, setAlternatives] = useState<RpcChoice[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void import("../../lib/rpcSuggestions").then((m) => {
+      if (!cancelled) setAlternatives(m.rpcAlternatives(chainId));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [chainId]);
 
   const apply = () => {
     const trimmed = draft.trim();
@@ -61,7 +102,22 @@ export function RpcChainRow({
           {name}
         </span>
         <code className="text-xs theme-mono theme-text-muted">
-          {stored ? "your node" : "Explore backend"}
+          {stored ? "your node" : "Valve public node"}
+        </code>
+      </div>
+
+      {/*
+       * The effective endpoint, always shown. This field used to sit empty
+       * with a greyed placeholder, which read as unconfigured — so nobody
+       * could tell what the browser would actually call. It is the default
+       * until the user sets their own.
+       */}
+      <div className="flex flex-wrap items-baseline gap-inline text-xs">
+        <span className="theme-text-muted uppercase tracking-wide">
+          Currently
+        </span>
+        <code className="theme-mono theme-text break-all">
+          {effective ?? "no endpoint configured"}
         </code>
       </div>
       <div className="flex items-center gap-row">
@@ -101,6 +157,47 @@ export function RpcChainRow({
         </button>
       </div>
       {error && <div className="text-xs theme-danger">{error}</div>}
+
+      {/*
+       * Endpoints the user can switch to. Every one states it keeps no logs —
+       * that is the provider's own claim from the chainlist dataset, not
+       * something we measured, so the wording says "states".
+       */}
+      {alternatives.length > 0 && (
+        <div className="flex flex-wrap items-center gap-inline text-xs">
+          <span className="theme-text-muted uppercase tracking-wide shrink-0">
+            No-log options
+          </span>
+          {alternatives.map((choice) => {
+            const active = effective === choice.url;
+            return (
+              <button
+                key={choice.url}
+                type="button"
+                onClick={() => {
+                  setDraft(choice.url);
+                  setError(null);
+                }}
+                title={`${choice.url} — provider states it keeps no logs${
+                  choice.isValve ? ". Valve's own node, archive depth." : ""
+                }`}
+                className={`px-1.5 py-0.5 theme-mono shrink-0 shadow-[0_0_0_1px_var(--color-border-default)] ${
+                  active
+                    ? "theme-accent-solid text-white"
+                    : "theme-text-muted hover:theme-text"
+                }`}
+              >
+                {choice.isValve ? "Valve" : hostOf(choice.url)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-xs theme-text-muted">
+        Reload the page for a change to take effect — endpoints are read once
+        when the app loads.
+      </p>
     </div>
   );
 }

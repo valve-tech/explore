@@ -9,6 +9,10 @@ import { test, expect } from "@playwright/test";
  * cannot see that the knob sits outside its own track. Only a real browser
  * can measure this, so the assertion lives here.
  *
+ * Scoped to /settings by aria-label, not to a footer: the switch used to sit
+ * in a footer bar on every page, which was more chrome than a rarely-touched
+ * preference deserves. It lives in Settings only now.
+ *
  * The original defect: the knob is absolutely positioned, and with no
  * explicit `left` the browser resolved its static position to 15px inside a
  * 30px track. `translate-x-[14px]` then put it at 29px, so it escaped the
@@ -18,8 +22,10 @@ import { test, expect } from "@playwright/test";
 /** Reads the switch, its knob, and the label that sits next to them. */
 async function measure(page: import("@playwright/test").Page) {
   return await page.evaluate(() => {
-    const track = document.querySelector<HTMLElement>('footer [role="switch"]');
-    if (!track) throw new Error('no [role="switch"] in the footer');
+    const track = document.querySelector<HTMLElement>(
+      '[role="switch"][aria-label="Show testnets"]',
+    );
+    if (!track) throw new Error("no testnet switch on the page");
     const knob = track.firstElementChild as HTMLElement | null;
     if (!knob) throw new Error("switch has no knob element");
     const label = [...(track.parentElement?.children ?? [])].find(
@@ -41,7 +47,7 @@ async function measure(page: import("@playwright/test").Page) {
 for (const state of ["on", "off"] as const) {
   test(`testnet switch: the knob stays inside its track (${state})`, async ({ page }) => {
     await page.goto("/settings", { waitUntil: "networkidle" });
-    const sw = page.locator('footer [role="switch"]');
+    const sw = page.locator('[role="switch"][aria-label="Show testnets"]');
     await sw.waitFor();
 
     // Drive the switch into the state under test.
@@ -73,7 +79,7 @@ for (const state of ["on", "off"] as const) {
 
 test("testnet switch: the knob never overlaps the Testnets label", async ({ page }) => {
   await page.goto("/settings", { waitUntil: "networkidle" });
-  await page.locator('footer [role="switch"]').waitFor();
+  await page.locator('[role="switch"][aria-label="Show testnets"]').waitFor();
   await page.waitForTimeout(250);
 
   const m = await measure(page);
@@ -86,7 +92,7 @@ test("testnet switch: the knob never overlaps the Testnets label", async ({ page
 
 test("testnet switch: the knob actually moves between states", async ({ page }) => {
   await page.goto("/settings", { waitUntil: "networkidle" });
-  const sw = page.locator('footer [role="switch"]');
+  const sw = page.locator('[role="switch"][aria-label="Show testnets"]');
   await sw.waitFor();
   await page.waitForTimeout(250);
 
