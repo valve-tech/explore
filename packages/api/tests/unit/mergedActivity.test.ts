@@ -1,7 +1,8 @@
-import { describe, it } from "node:test";
+import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import {
   getMergedActivity,
+  defaultDeps,
   type ActivityDeps,
 } from "../../src/services/multichain/mergedActivity.js";
 import type { ChainPresence } from "../../src/services/multichain/chainPresence.js";
@@ -102,5 +103,32 @@ describe("getMergedActivity", () => {
       fetchForChain: async (chainId) => [tx(chainId, 500, chainId === 1 ? "0xa" : "0xb")],
     }));
     assert.deepEqual(out.rows.map((r) => r.hash), ["0xa", "0xb"]);
+  });
+});
+
+describe("getMergedActivity — real fetchForChain wiring (defaultDeps)", () => {
+  const ORIG_FETCH = globalThis.fetch;
+  const OUTAGE_ADDR = "0x2222222222222222222222222222222222222b";
+
+  afterEach(() => {
+    globalThis.fetch = ORIG_FETCH;
+  });
+
+  it("surfaces a chifra outage as an errored chain, not an empty one", async () => {
+    // A chifra outage makes BOTH listAppearances and countAppearances catch
+    // and swallow: getAddressTransactions comes back as
+    // `{ transactions: [], total: 0 }`, identical on the wire to a real empty
+    // address. defaultDeps.fetchForChain must tell the two apart by calling
+    // countAppearances itself and reading its `null` (outage-only) result.
+    globalThis.fetch = (async () => {
+      throw new Error("chifra unreachable in test");
+    }) as typeof fetch;
+
+    const out = await getMergedActivity(OUTAGE_ADDR, [present(369)], 10, defaultDeps);
+    assert.deepEqual(out.rows, []);
+    assert.equal(out.perChain.length, 1);
+    assert.equal(out.perChain[0]!.chainId, 369);
+    assert.equal(out.perChain[0]!.returned, 0);
+    assert.equal(out.perChain[0]!.error, true);
   });
 });
