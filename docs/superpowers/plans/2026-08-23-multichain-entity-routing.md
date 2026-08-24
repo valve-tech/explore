@@ -330,7 +330,7 @@ git commit -m "feat(chains): give every chain its CAIP-2 identity"
 - Test: `packages/web/src/__tests__/chainScope.test.ts` (create)
 
 **Interfaces:**
-- Consumes: `caip2ToChainId`, `DEFAULT_CHAIN_ID` from `lib/chains` (Task 2).
+- Consumes: `caip2ToChainId`, `chainCaip2` from `lib/chains` (Task 2). NOT `DEFAULT_CHAIN_ID` — this module stays a pure description of the URL.
 - Produces:
   - `type ChainScope = { kind: "one"; chainId: number } | { kind: "all" }`
   - `parseChainScope(pathname: string, search: string): ChainScope`
