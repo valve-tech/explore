@@ -31,6 +31,14 @@ import { DEFAULT_CHAIN_ID } from "./chains";
  *     369 (alone or among others) the URL stays clean and param-free, matching
  *     `scoped()`.
  *
+ * Third deliberate limit, added with the all-chain address view:
+ *
+ *   - It never fires for an ADDRESS. A tx hash lives on exactly one chain, so
+ *     resolving it is answering a real question. An address is valid on every
+ *     chain, so "which one?" has no correct answer — `/address/0x…` renders
+ *     every chain instead, and redirecting it would replace a complete answer
+ *     with an arbitrary one.
+ *
  * Callers should hold their own fetches until this reports `"settled"`, so the
  * heavy per-chain requests fire once, against the right chain.
  */
@@ -44,13 +52,14 @@ export type ChainRedirectState =
 
 export function useResolvedChainRedirect(
   query: string | null,
+  kind: "entity" | "address" = "entity",
 ): ChainRedirectState {
   const [params, setParams] = useSearchParams();
   // `has` rather than a truthiness check: `?chainid=` (empty) is still an
   // explicit, if malformed, scope, and `activeChain.ts` already maps it to the
   // default. Treating it as absent would make this hook fight that.
   const urlNamesChain = params.has("chainid");
-  const enabled = !!query && !urlNamesChain;
+  const enabled = !!query && !urlNamesChain && kind !== "address";
 
   const resolve = useQuery({
     queryKey: ["resolve-chain", query],
