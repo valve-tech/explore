@@ -65,6 +65,41 @@ describe("MultiChainAddressView", () => {
     expect(screen.getByText(/33% of recent/)).toBeInTheDocument();
   });
 
+  it("never claims 0% for a chain whose activity fetch failed", async () => {
+    // The regression: an errored entry was folded into the share maths at
+    // `returned: 0`, producing a FINITE share of 0. EntityRow only withholds
+    // its fill for a NON-finite share, so the strip rendered "0% of recent"
+    // for a chain we never reached — while the footer said that same chain
+    // was excluded. An unreachable chain must have no share at all.
+    activityMock.mockResolvedValue({
+      rows: [
+        { chainId: 1, hash: "0xa", timeStamp: "3", methodName: "x" },
+        { chainId: 1, hash: "0xb", timeStamp: "2", methodName: "x" },
+      ],
+      perChain: [
+        { chainId: 1, returned: 2 },
+        { chainId: 369, returned: 0, error: true as const },
+      ],
+    });
+    render(
+      <Wrap entry={`/address/${ADDR}`}>
+        <MultiChainAddressView address={ADDR} />
+      </Wrap>,
+    );
+    // Chain 1 is the only chain with data, so it owns all of it.
+    await waitFor(() =>
+      expect(screen.getByText(/100% of recent/)).toBeInTheDocument(),
+    );
+    // And the errored chain must not be described with a percentage at all.
+    // Assert the exact SET of percentages on screen rather than the absence
+    // of "0%" — /0% of recent/ also matches "100% of recent", so the naive
+    // negative passes for the wrong reason.
+    const shown = screen
+      .getAllByText(/% of recent/)
+      .map((el) => el.textContent?.trim());
+    expect(shown).toEqual(["100% of recent"]);
+  });
+
   it("surfaces an error instead of rendering an empty page", async () => {
     presenceMock.mockRejectedValue(new Error("upstream down"));
     render(

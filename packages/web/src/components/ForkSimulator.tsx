@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { isAddress } from "viem";
 import { parseAmountToBase } from "../lib/format/tokenAmount";
 import type {
@@ -33,7 +33,22 @@ export default function ForkSimulator() {
   const chainId = useActiveChainId();
   const [mode, setMode] = useState<InputMode>("hash");
 
-  const [txHash, setTxHash] = useState("");
+  /*
+   * `?fromTx=<hash>` seeds the hash field. Three call sites have been writing
+   * this param for a long time — EntityActionBar's "Fork from here", the tx
+   * row action menu, and the tx page's next-steps rail — and nothing read it,
+   * so every one of them landed the reader on an empty form with the hash
+   * they had just clicked sitting unused in the URL.
+   *
+   * Seeded once as the initial state rather than synced in an effect: after
+   * the first render this field belongs to whoever is typing in it, and a
+   * later param change must not overwrite their edit.
+   */
+  const [searchParams] = useSearchParams();
+  const [txHash, setTxHash] = useState(() => {
+    const seed = searchParams.get("fromTx") ?? "";
+    return /^0x[0-9a-fA-F]{64}$/.test(seed) ? seed : "";
+  });
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [value, setValue] = useState("");

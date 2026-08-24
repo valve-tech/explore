@@ -212,12 +212,14 @@ function RpcEndpointSection() {
           anything your connected wallet needs.
         </p>
         <p className="text-xs theme-text-muted max-w-md">
-          The default is Valve&apos;s own public node: archive depth, and no
-          request logs or client IP addresses retained. Point a chain at your
-          own node to depend on nobody, or pick one of the listed alternatives.
-          Each states it keeps no logs — that is the provider&apos;s claim, from
-          the chainlist dataset, not something we measured. The endpoint must
-          allow browser requests (CORS).
+          The default is Valve&apos;s own public node, which answers for
+          historical state — we check that by asking each endpoint for state at
+          block 1. Valve states it keeps no request logs and no client IP
+          addresses; so does every alternative listed below. Those are the
+          providers&apos; own claims, from the chainlist dataset, and we have
+          not measured any of them — including ours. Point a chain at your own
+          node to depend on nobody. Any endpoint you set must allow browser
+          requests (CORS).
         </p>
         {CHAINS.map((chain) => (
           <RpcChainRow key={chain.id} chainId={chain.id} name={chain.name} />
@@ -228,8 +230,9 @@ function RpcEndpointSection() {
             className="w-3.5 h-3.5 mt-0.5 shrink-0"
           />
           <span>
-            Reload the page after changing an endpoint — RPC URLs are resolved
-            per read, but in-flight queries keep their old client until refetch.
+            Reload after changing an endpoint. Explorer reads pick up a new
+            URL on the next fetch, but your connected wallet&apos;s transport is
+            built once when the app loads, so only a reload moves that.
           </span>
         </div>
       </div>

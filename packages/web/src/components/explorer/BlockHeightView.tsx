@@ -31,7 +31,13 @@ export default function BlockHeightView({ height }: { height: string }) {
   });
 
   if (!data) {
-    return <p className="p-2 theme-text-muted theme-mono text-xs">Checking every chain…</p>;
+    // Name the height while loading too, or the page says nothing at all
+    // about what it is fetching.
+    return (
+      <p className="p-2 theme-text-muted theme-mono text-xs">
+        Checking every chain for block {Number(height).toLocaleString()}…
+      </p>
+    );
   }
 
   const reached = data.filter((b) => b.reached);
@@ -39,6 +45,22 @@ export default function BlockHeightView({ height }: { height: string }) {
 
   return (
     <div className="flex flex-col gap-px">
+      {/*
+       * Name the height. This view returns before `ExplorerPanel` renders its
+       * breadcrumb, so without this the page never said which block it was
+       * about — and for a height no chain has reached it rendered a single
+       * "not reached" strip and nothing else, which reads as a broken page
+       * rather than an answer.
+       */}
+      <header className="p-2 sm:p-4 shadow-[0_0_0_1px_var(--color-border-default)]">
+        <div className="theme-text-muted text-xs uppercase tracking-wide">
+          Block height · all chains
+        </div>
+        <div className="theme-mono theme-text text-sm num">
+          {Number(height).toLocaleString()}
+        </div>
+      </header>
+
       {reached.map((b) => {
         const chain = chainById(b.chainId);
         const used = Number(b.gasUsed ?? 0);

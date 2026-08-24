@@ -152,8 +152,8 @@ test("no horizontal overflow at 375px: /token/:address (all chains)", async ({
 
 test("no horizontal overflow at 375px: /block/:id (all chains)", async ({ page }) => {
   await stubMultichainBlockEndpoints(page);
-  // BlockHeightView lists one row per chain that has reached the height, so a
-  // chain name is the "rows have rendered" marker. Note it never prints the
-  // height itself — the fixture's chain 1 row is what we wait for.
-  await assertNoOverflow(page, `/block/${BLOCK_NUMBER}`, "Ethereum");
+  // The view now names the height it is describing, so that is the marker.
+  // It did not when this test was written, which is why it used to wait on a
+  // chain name instead.
+  await assertNoOverflow(page, `/block/${BLOCK_NUMBER}`, "Block height");
 });

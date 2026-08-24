@@ -93,21 +93,25 @@ export function nextStepsFor(
         {
           id: "allowance",
           icon: "heroicons:shield-check",
-          label: "Check token allowance on the source address",
-          sub: "A failed transferFrom is usually a missing approval",
+          // Deliberately does NOT say "check the allowance": no view in this
+          // app shows an ERC-20 allowance, so promising one sends the reader
+          // looking for a control that isn't there. The link opens the
+          // sender; the subline says what to suspect.
+          label: "Open the sender's address",
+          sub: "A failed transferFrom usually means a missing approval",
           to: scanPath("address", facts.fromAddress, chainId),
         },
         {
           id: "resimulate",
           icon: "heroicons:arrow-path",
-          label: "Re-simulate with an approval override",
-          sub: "Confirm the fix would work without spending real gas",
+          label: "Re-simulate with a state override",
+          sub: "Opens the simulator — the call is not carried over yet",
           to: toolPath(chainId, "/simulate"),
         },
         {
           id: "alert",
           icon: "heroicons:bell-alert",
-          label: "Pin this contract for a future failure alert",
+          label: "Set up a failure alert for this contract",
           sub: "Catch the next failure before it gets reported",
           to: toolPath(chainId, "/monitoring"),
         },
@@ -120,13 +124,13 @@ export function nextStepsFor(
         id: "resimulate",
         icon: "heroicons:arrow-path",
         label: "Re-simulate with state overrides",
-        sub: "Test a hypothesis without spending gas",
+        sub: "Opens the simulator — the call is not carried over yet",
         to: toolPath(chainId, "/simulate"),
       },
       {
         id: "alert",
         icon: "heroicons:bell-alert",
-        label: "Pin this contract for a future failure alert",
+        label: "Set up a failure alert for this contract",
         sub: "Get notified the next time this reverts",
         to: toolPath(chainId, "/monitoring"),
       },

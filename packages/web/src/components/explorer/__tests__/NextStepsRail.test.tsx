@@ -71,7 +71,7 @@ describe("<NextStepsRail />", () => {
     expect(link).toHaveAttribute("href", `/eip155/369/debugger/${tx().hash}`);
   });
 
-  it("adds a chain-scoped allowance-check link for a failed transferFrom", () => {
+  it("adds a chain-scoped link to the sender for a failed transferFrom", () => {
     const from = "0x" + "33".repeat(20);
     renderRail({
       transaction: tx({
@@ -95,7 +95,7 @@ describe("<NextStepsRail />", () => {
       chainId: 369,
     });
     const link = screen.getByRole("link", {
-      name: /check token allowance on the source address/i,
+      name: /open the sender's address/i,
     });
     expect(link).toHaveAttribute("href", `/eip155/369/address/${from}`);
   });

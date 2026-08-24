@@ -194,10 +194,6 @@ export function RpcChainRow({
         </div>
       )}
 
-      <p className="text-xs theme-text-muted">
-        Reload the page for a change to take effect — endpoints are read once
-        when the app loads.
-      </p>
     </div>
   );
 }

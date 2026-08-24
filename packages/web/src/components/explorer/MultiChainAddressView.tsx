@@ -49,7 +49,18 @@ export default function MultiChainAddressView({ address }: Props) {
    * reports. Derived in render — never stored in a ref or an effect.
    */
   const shares = useMemo<Record<number, number>>(() => {
-    const perChain = activity.data?.perChain ?? [];
+    // Chains whose activity fetch FAILED are dropped from both the total and
+    // the result, so they end up with no entry at all. That matters: a share
+    // of 0 is a finite number, and `EntityRow` only withholds the fill for a
+    // non-finite one — so folding an errored chain in at `returned: 0` made
+    // the strip claim "0% of recent" for a chain we never actually reached,
+    // while the footer below it said that same chain was excluded. Two
+    // contradictory statements about one chain, on one screen.
+    //
+    // Absent is the honest answer here: "we do not know", not "we know it is
+    // zero". This is the same not-here-versus-could-not-check distinction the
+    // presence strip makes; it has to hold on the activity path too.
+    const perChain = (activity.data?.perChain ?? []).filter((p) => !p.error);
     const total = perChain.reduce((sum, p) => sum + p.returned, 0);
     if (total === 0) return {};
     return Object.fromEntries(perChain.map((p) => [p.chainId, p.returned / total]));
@@ -68,6 +79,21 @@ export default function MultiChainAddressView({ address }: Props) {
 
   return (
     <div className="space-y-stack">
+      {/*
+       * Name the subject. This view returns before `ExplorerPanel` renders its
+       * breadcrumb, so without this heading the address appeared NOWHERE on
+       * its own page — every row named a chain, and nothing named what the
+       * page was about. `break-all` because a 42-character address has to
+       * wrap at 375px rather than clip its tail, which is the half that
+       * identifies it.
+       */}
+      <header className="p-2 sm:p-4 shadow-[0_0_0_1px_var(--color-border-default)]">
+        <div className="theme-text-muted text-xs uppercase tracking-wide">
+          Address · all chains
+        </div>
+        <div className="theme-mono theme-text text-sm break-all">{address}</div>
+      </header>
+
       <section>
         <h2 className="theme-text-muted text-xs uppercase tracking-wide font-semibold pb-1">
           Where this address lives

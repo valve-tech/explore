@@ -125,7 +125,7 @@ describe("nextStepsFor", () => {
     expect(steps[2]?.to).toBe("/eip155/369/monitoring");
   });
 
-  it("adds an allowance-check step, scoped to the sender's chain, for a failed transferFrom", () => {
+  it("adds a sender-address step, scoped to the sender's chain, for a failed transferFrom", () => {
     const steps = nextStepsFor(
       baseFacts({ status: "reverted", hasFailedTransferFrom: true }),
       CHAIN_ID,
