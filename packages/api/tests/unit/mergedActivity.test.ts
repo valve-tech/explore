@@ -48,9 +48,18 @@ describe("getMergedActivity", () => {
   });
 
   it("skips errored chains but still reports them", async () => {
-    const out = await getMergedActivity(ADDR, [present(1), errored(11155111)], 10, deps());
+    const seen: number[] = [];
+    const out = await getMergedActivity(ADDR, [present(1), errored(11155111)], 10, deps({
+      fetchForChain: async (chainId) => {
+        seen.push(chainId);
+        return chainId === 1 ? [tx(1, 300, "0xa"), tx(1, 100, "0xc")] : [];
+      },
+    }));
     assert.equal(out.perChain.find((p) => p.chainId === 11155111)!.error, true);
     assert.equal(out.perChain.find((p) => p.chainId === 11155111)!.returned, 0);
+    // The errored chain is already known to be unreachable — fetching it again
+    // would spend RPC budget for an answer we can already predict.
+    assert.deepEqual(seen, [1]);
   });
 
   it("truncates to the limit after merging, not before", async () => {
@@ -84,7 +93,12 @@ describe("getMergedActivity", () => {
   });
 
   it("orders ties by chain id so the merge is reproducible", async () => {
-    const out = await getMergedActivity(ADDR, [present(1), present(369)], 10, deps({
+    // Presence lists chain 369 first, so without an explicit tiebreak the
+    // natural (pre-sort) order would put chain 369's row first — Array.sort
+    // is stable, so a comparator that ignores the tie would leave it there.
+    // Only the chainId tiebreak can put "0xa" (chain 1) ahead of "0xb"
+    // (chain 369) when both rows share a timestamp.
+    const out = await getMergedActivity(ADDR, [present(369), present(1)], 10, deps({
       fetchForChain: async (chainId) => [tx(chainId, 500, chainId === 1 ? "0xa" : "0xb")],
     }));
     assert.deepEqual(out.rows.map((r) => r.hash), ["0xa", "0xb"]);
