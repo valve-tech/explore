@@ -49,6 +49,15 @@ describe("parseChainScope", () => {
     expect(parseChainScope("/tx/0xabc", "?chainid=0")).toEqual({ kind: "all" });
     expect(parseChainScope("/tx/0xabc", "?chainid=-5")).toEqual({ kind: "all" });
   });
+
+  it("passes an unregistered chainid through so the backend can reject it", () => {
+    // NOT a bug. Returning "all" here would collapse to the default chain and
+    // silently serve PulseChain data. Let it reach the backend and fail loudly.
+    expect(parseChainScope("/tx/0xabc", "?chainid=8453")).toEqual({
+      kind: "one",
+      chainId: 8453,
+    });
+  });
 });
 
 describe("chainRoutePrefix", () => {

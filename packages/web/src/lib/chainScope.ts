@@ -33,7 +33,19 @@ function scopeFromPath(pathname: string): number | undefined {
   return caip2ToChainId(namespace, reference);
 }
 
-/** Chain id from `?chainid=N`, or undefined for absent/malformed values. */
+/**
+ * Chain id from the legacy `?chainid=N`, or undefined for absent/malformed
+ * values. It deliberately does NOT check the registry.
+ *
+ * An unregistered id passes through so `scoped()` forwards it and the backend
+ * rejects it loudly. Rejecting it here would return "all", which
+ * `useActiveChainId` collapses to the default chain — so the page would
+ * quietly render PulseChain data for a chain the caller never asked for. A loud
+ * failure beats a silent wrong answer.
+ *
+ * The path form needs no such allowance: ChainScopedRoutes validates the
+ * CAIP-2 pair and renders "Unsupported chain" before any fetch runs.
+ */
 function scopeFromQuery(search: string): number | undefined {
   const raw = new URLSearchParams(search).get("chainid");
   if (!raw) return undefined;
