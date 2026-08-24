@@ -78,10 +78,12 @@ not a preference — production has 429'd on Ethereum before, so the setting liv
 in a module store the fetch layer can read, and the chain set sits in every
 TanStack Query key so flipping it refetches instead of serving a stale answer.
 
-The dispatcher refactor to `?chainid=N` routing is in flight on the API side;
-the frontend ChainSelector + Landing/AppShell rebrand is UI-only for now and
-defaults to "All chains" with PulseChain as the live data source until the
-backend lands chain-aware routing.
+Chain-aware routing has landed end to end. The chain picker, the Landing
+search, and the ⌘K palette all resolve a pasted entity to the chain it lives
+on and route straight there; the chain-agnostic endpoints (`/api/resolve`,
+`/api/multichain/*`) back the three all-chain routes above. There is no
+remaining "PulseChain as the live data source" fallback — every route now
+either names a real chain or genuinely renders every chain.
 
 **Stack:** React 19 + React Router 7 + Vite + Tailwind v4 + TanStack Query 5 (frontend), Express 4 + viem + Postgres (`pg`) (backend), Zod (validation), Anvil/Foundry (forks)
 
