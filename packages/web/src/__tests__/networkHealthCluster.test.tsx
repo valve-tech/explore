@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, fireEvent, within } from "@testing-library/react";
+import { screen, fireEvent, within, render } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { renderWithProviders } from "./_test-utils";
 import type { BlockLadder } from "../api/networkHealth";
 
@@ -215,6 +216,11 @@ describe("<FeeLadder />", () => {
   });
 });
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="loc">{location.pathname + location.search}</div>;
+}
+
 describe("<ChainFlipper />", () => {
   it("renders one pill per registered chain", () => {
     renderWithProviders(<ChainFlipper />);
@@ -222,20 +228,44 @@ describe("<ChainFlipper />", () => {
     expect(screen.getByText("PulseChain")).toBeInTheDocument();
   });
 
-  it("writes ?chainid=N when a non-default chain is picked", () => {
-    renderWithProviders(<ChainFlipper />, { initialEntries: ["/health"] });
+  it("writes the chain into the path prefix when a chain is picked", () => {
+    render(
+      <MemoryRouter initialEntries={["/network-health"]}>
+        <LocationProbe />
+        <ChainFlipper />
+      </MemoryRouter>,
+    );
     fireEvent.click(screen.getByText("Ethereum").closest("button")!);
-    // re-render reflects active state via aria/styles; just assert no throw +
-    // the active chain pill is still present
-    expect(screen.getByText("Ethereum")).toBeInTheDocument();
+    expect(screen.getByTestId("loc")).toHaveTextContent("/eip155/1/network-health");
   });
 
-  it("drops the chainid param when the default chain (369) is picked", () => {
-    renderWithProviders(<ChainFlipper />, {
-      initialEntries: ["/health?chainid=1"],
-    });
+  it("writes the default chain's prefix too, like every other chain writer", () => {
+    render(
+      <MemoryRouter initialEntries={["/eip155/1/network-health"]}>
+        <LocationProbe />
+        <ChainFlipper />
+      </MemoryRouter>,
+    );
     fireEvent.click(screen.getByText("PulseChain").closest("button")!);
-    expect(screen.getByText("PulseChain")).toBeInTheDocument();
+    expect(screen.getByTestId("loc")).toHaveTextContent("/eip155/369/network-health");
+  });
+
+  it("lands on the second chain after flipping twice in a row", () => {
+    render(
+      <MemoryRouter initialEntries={["/network-health"]}>
+        <LocationProbe />
+        <ChainFlipper />
+      </MemoryRouter>,
+    );
+    // First flip: default → Ethereum.
+    fireEvent.click(screen.getByText("Ethereum").closest("button")!);
+    expect(screen.getByTestId("loc")).toHaveTextContent("/eip155/1/network-health");
+
+    // Second flip: Ethereum → Sepolia. If the writer still targets a bare
+    // `?chainid=` query param, the path keeps saying "1" here — the exact
+    // regression this test exists to catch.
+    fireEvent.click(screen.getByText("Sepolia").closest("button")!);
+    expect(screen.getByTestId("loc")).toHaveTextContent("/eip155/11155111/network-health");
   });
 });
 
