@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import MergedActivityFeed from "../components/explorer/MultiChainAddressView/MergedActivityFeed";
 import type { MergedActivity } from "../api/multichain";
@@ -36,8 +36,11 @@ describe("MergedActivityFeed", () => {
 
   it("names the chain on every row", () => {
     renderFeed();
-    expect(screen.getByText(/Ethereum/)).toBeInTheDocument();
-    expect(screen.getByText(/PulseChain/)).toBeInTheDocument();
+    // Scope to the row links themselves: the footer names the same two
+    // chains, so a page-wide text query can't tell a row from a footer link.
+    const links = screen.getAllByRole("link");
+    expect(links[0]).toHaveTextContent(/Ethereum/);
+    expect(links[1]).toHaveTextContent(/PulseChain/);
   });
 
   it("reports an excluded chain instead of dropping it silently", () => {
@@ -49,7 +52,8 @@ describe("MergedActivityFeed", () => {
   it("offers a per-chain jump instead of pretending to page across chains", () => {
     renderFeed();
     expect(screen.getByText(/page deeper on one chain/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Ethereum →/ })).toHaveAttribute(
+    const footer = screen.getByRole("navigation", { name: /page deeper on one chain/i });
+    expect(within(footer).getByRole("link", { name: /Ethereum/ })).toHaveAttribute(
       "href",
       `/eip155/1/address/${ADDR}`,
     );

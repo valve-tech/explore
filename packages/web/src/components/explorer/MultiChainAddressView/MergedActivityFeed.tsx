@@ -15,10 +15,11 @@ import type { MergedActivity } from "../../../api/multichain";
  * silently would read as "no activity there", which is a different claim from
  * "we could not look".
  *
- * A footer jump button carries the chain name in `aria-label`, not in a plain
- * text node. A row's subline also names the chain as plain text. Two plain
- * text nodes with the same chain name would make `getByText` ambiguous, and a
- * sighted user would see the same name twice for no reason.
+ * The footer's reachable-chain links and excluded chips sit inside one `nav`
+ * landmark, labelled to match the footer's own "page deeper" text. A test can
+ * then query within that landmark instead of matching plain text against the
+ * whole page — the row subline and the footer both name the same chain, and a
+ * page-wide text query cannot tell those two apart.
  */
 interface Props {
   address: string;
@@ -60,23 +61,22 @@ export default function MergedActivityFeed({ address, activity }: Props) {
         );
       })}
 
-      <div className="flex flex-wrap items-center justify-between gap-inline p-2 theme-text-muted theme-mono text-xs shadow-[0_0_0_1px_var(--color-border-muted)]">
+      <nav
+        aria-label="Page deeper on one chain"
+        className="flex flex-wrap items-center justify-between gap-inline p-2 theme-text-muted theme-mono text-xs shadow-[0_0_0_1px_var(--color-border-muted)]"
+      >
         <span>Page deeper on one chain</span>
         <span className="flex flex-wrap gap-inline">
-          {reachable.map((p) => {
-            const name = chainById(p.chainId)?.name ?? String(p.chainId);
-            return (
-              <a
-                key={p.chainId}
-                href={scanPath("address", address, p.chainId)}
-                aria-label={`${name} →`}
-                className="theme-accent rounded px-2 py-0.5 shadow-[0_0_0_1px_var(--color-border-default)] inline-flex items-center gap-tight"
-              >
-                <ChainIcon chainId={p.chainId} />
-                <span aria-hidden="true">→</span>
-              </a>
-            );
-          })}
+          {reachable.map((p) => (
+            <a
+              key={p.chainId}
+              href={scanPath("address", address, p.chainId)}
+              className="theme-accent rounded px-2 py-0.5 shadow-[0_0_0_1px_var(--color-border-default)] inline-flex items-center gap-tight"
+            >
+              <ChainIcon chainId={p.chainId} />
+              {chainById(p.chainId)?.name ?? p.chainId} →
+            </a>
+          ))}
           {excluded.map((p) => (
             <span key={p.chainId} className="px-2 py-0.5 theme-warning inline-flex items-center gap-tight">
               <ChainIcon chainId={p.chainId} />
@@ -84,15 +84,15 @@ export default function MergedActivityFeed({ address, activity }: Props) {
             </span>
           ))}
         </span>
-      </div>
+      </nav>
     </div>
   );
 }
 
 /**
- * Small chain badge for the footer's jump buttons. `alt` is empty because the
- * link's `aria-label` (or the excluded span's own text) already names the
- * chain. A screen reader must not read the chain name twice.
+ * Small chain badge next to each footer entry's name. `alt` is empty because
+ * the visible name right beside it already identifies the chain — a screen
+ * reader must not read the name twice.
  */
 function ChainIcon({ chainId }: { chainId: number }) {
   return (
