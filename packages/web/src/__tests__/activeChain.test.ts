@@ -58,3 +58,25 @@ describe("getActiveChainId", () => {
     }
   });
 });
+
+describe("getActiveChainId — path prefix", () => {
+  it("reads the chain from a path prefix", () => {
+    window.history.replaceState({}, "", "/eip155/1/tx/0xabc");
+    expect(getActiveChainId()).toBe(1);
+  });
+
+  it("reads a path prefix inside the hash (HashRouter / IPFS build)", () => {
+    window.history.replaceState({}, "", "/#/eip155/943/tx/0xabc");
+    expect(getActiveChainId()).toBe(943);
+  });
+
+  it("lets the path prefix beat a conflicting chainid parameter", () => {
+    window.history.replaceState({}, "", "/eip155/1/tx/0xabc?chainid=369");
+    expect(getActiveChainId()).toBe(1);
+  });
+
+  it("still defaults to PulseChain for an unscoped URL", () => {
+    window.history.replaceState({}, "", "/address/0xdef");
+    expect(getActiveChainId()).toBe(DEFAULT_CHAIN_ID);
+  });
+});
