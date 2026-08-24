@@ -74,6 +74,27 @@ describe("MultiChainAddressView", () => {
     );
     await waitFor(() => expect(screen.getByText(/upstream down/i)).toBeInTheDocument());
   });
+
+  it("surfaces an activity-fetch failure instead of claiming there is no activity", async () => {
+    // Presence succeeds (there IS a real answer to "where does this address
+    // live"), but the activity fetch fails. Falling through to the empty
+    // MergedActivityFeed state would render "No recent activity on any chain
+    // we could reach" — a false claim indistinguishable from a real empty
+    // result, which is exactly the failure mode this page exists to rule out.
+    activityMock.mockRejectedValue(new Error("archive timed out"));
+    render(
+      <Wrap entry={`/address/${ADDR}`}>
+        <MultiChainAddressView address={ADDR} />
+      </Wrap>,
+    );
+    await waitFor(() => expect(screen.getByText(/archive timed out/i)).toBeInTheDocument());
+    expect(
+      screen.queryByText(/no recent activity on any chain/i),
+    ).not.toBeInTheDocument();
+    // The presence strip must still have rendered normally — one query
+    // failing must not take the other's honest result down with it.
+    expect(screen.getByText("Ethereum")).toBeInTheDocument();
+  });
 });
 
 describe("chain-less address URLs no longer redirect", () => {

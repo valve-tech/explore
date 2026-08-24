@@ -45,10 +45,13 @@ export default function MultiChainAddressView({ address }: Props) {
     return Object.fromEntries(perChain.map((p) => [p.chainId, p.returned / total]));
   }, [activity.data]);
 
+  // Presence failing is fatal to the whole page — without it there is
+  // nothing to scope the activity fetch to, so the page has no honest content
+  // left to show.
   if (presence.isError) {
     return (
       <p className="p-2 sm:p-4 theme-danger theme-mono text-sm shadow-[0_0_0_1px_var(--color-danger)]">
-        {(presence.error as Error).message}
+        Could not check chain presence: {(presence.error as Error).message}
       </p>
     );
   }
@@ -70,7 +73,16 @@ export default function MultiChainAddressView({ address }: Props) {
         <h2 className="theme-text-muted text-xs uppercase tracking-wide font-semibold pb-1">
           Activity · all chains
         </h2>
-        {activity.isLoading ? (
+        {/* A failed activity fetch is NOT "no activity" — the presence strip
+            above already distinguishes "not here" from "could not check", and
+            the activity feed must keep that same distinction. Falling through
+            to an empty result here would render as a false "no history"
+            claim, exactly the failure mode this page exists to avoid. */}
+        {activity.isError ? (
+          <p className="p-2 theme-danger theme-mono text-xs shadow-[0_0_0_1px_var(--color-danger)]">
+            Could not load activity: {(activity.error as Error).message}
+          </p>
+        ) : activity.isLoading ? (
           <p className="p-2 theme-text-muted theme-mono text-xs">Merging recent activity…</p>
         ) : (
           <MergedActivityFeed
