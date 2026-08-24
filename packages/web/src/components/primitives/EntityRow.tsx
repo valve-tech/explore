@@ -20,7 +20,9 @@ export interface EntityRowProps {
   sub: ReactNode;
   right?: ReactNode;
   rightSub?: ReactNode;
-  /** 0..1. Clamped — a caller dividing by a zero total must not emit NaN%. */
+  /** 0..1. A caller computing share via division with total 0 produces NaN — the fill
+   * renders only when share is a finite number. A finite share outside 0..1 is
+   * clamped; undefined share produces no fill. */
   share?: number;
   tint?: string;
   href?: string;
@@ -43,15 +45,19 @@ export default function EntityRow({
       ? "shadow-[0_0_0_1px_var(--color-warning)]"
       : "shadow-[0_0_0_1px_var(--color-border-default)]";
 
+  const ratio = typeof share === "number" && Number.isFinite(share)
+    ? Math.min(1, Math.max(0, share))
+    : null;
+
   const body = (
     <>
-      {share !== undefined && (
+      {ratio !== null && (
         <span
           data-testid="row-fill"
           aria-hidden="true"
           className="absolute inset-y-0 left-0 pointer-events-none opacity-15"
           style={{
-            width: `${Math.round(Math.min(1, Math.max(0, share)) * 100)}%`,
+            width: `${Math.round(ratio * 100)}%`,
             backgroundColor: tint ?? "var(--color-accent)",
           }}
         />
@@ -63,8 +69,8 @@ export default function EntityRow({
       </span>
       {(right !== undefined || rightSub !== undefined) && (
         <span className="relative min-w-0 flex flex-col text-right">
-          <span className="theme-text theme-mono text-xs tabular-nums">{right}</span>
-          <span className="theme-text-muted theme-mono text-xs">{rightSub}</span>
+          <span className="theme-text theme-mono text-xs tabular-nums truncate">{right}</span>
+          <span className="theme-text-muted theme-mono text-xs tabular-nums truncate">{rightSub}</span>
         </span>
       )}
     </>
