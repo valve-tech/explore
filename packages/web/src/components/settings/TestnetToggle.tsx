@@ -21,13 +21,26 @@ export default function TestnetToggle() {
         aria-checked={show}
         aria-label="Show testnets"
         onClick={() => setShow(!show)}
-        className={`relative h-4 w-[30px] rounded-full shadow-[0_0_0_1px_var(--color-border-default)] ${
+        className={`relative h-4 w-[30px] shrink-0 shadow-[0_0_0_1px_var(--color-border-default)] ${
           show ? "bg-(--color-accent-muted)" : "theme-tertiary-bg"
         }`}
       >
+        {/*
+         * `left-0.5` is load-bearing, not decoration. Without an explicit
+         * `left`, an absolutely positioned child resolves to its STATIC
+         * position — which the browser computed as 15px inside this 30px
+         * track, so `translate-x-[14px]` put the knob at 29px and it escaped
+         * the track entirely and overlapped the "Testnets" label next to it.
+         * Anchoring at 2px makes the travel deterministic: 2→14 when off,
+         * 16→28 when on, inside a 30px track with a 2px margin each side.
+         *
+         * No `rounded-full`: `index.css` sets `* { border-radius: 0
+         * !important }` app-wide, so a radius here is dead CSS. The switch is
+         * square on purpose, like every other control in Explore.
+         */}
         <span
-          className={`absolute top-0.5 size-3 rounded-full transition-transform motion-reduce:transition-none ${
-            show ? "translate-x-[14px] bg-(--color-accent)" : "translate-x-0.5 bg-(--color-text-muted)"
+          className={`absolute top-0.5 left-0.5 size-3 transition-transform motion-reduce:transition-none ${
+            show ? "translate-x-[14px] bg-(--color-accent)" : "translate-x-0 bg-(--color-text-muted)"
           }`}
         />
       </button>

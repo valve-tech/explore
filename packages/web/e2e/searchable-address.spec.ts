@@ -16,7 +16,12 @@ test("full tx hash in a MiddleTruncate'd table cell is present in the DOM even t
   // polling open for the lifetime of the page, so the network never goes
   // fully idle — that wait strategy timed out here in practice (see prior
   // version of this spec). Navigate, then wait for the specific element.
-  await page.goto(`/address/${FROM_ADDRESS}`);
+  // Chain-scoped URL. This spec's subject is MiddleTruncate inside TxTable,
+  // and TxTable belongs to the single-chain `AddressView`. An unscoped
+  // `/address/:a` now renders the all-chain `MultiChainAddressView`, which has
+  // no such table — so the scoped URL is the one that still exercises what
+  // this test is about.
+  await page.goto(`/eip155/369/address/${FROM_ADDRESS}`);
 
   // MiddleTruncate sets `title={value}` on its outer span (see
   // packages/web/src/components/primitives/MiddleTruncate.tsx) — this proves

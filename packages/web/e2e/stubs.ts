@@ -348,3 +348,114 @@ export async function stubTokenEndpoints(
       }),
   );
 }
+
+// ---------------------------------------------------------------------------
+// Chain-agnostic multichain endpoints — fired by MultiChainAddressView and
+// BlockHeightView, which is what an UNSCOPED `/address/:a`, `/token/:a`, and
+// `/block/:n` render. A chain-scoped URL (`/eip155/369/address/:a`) renders
+// the single-chain views instead and needs the stubs above, not these.
+//
+// Shapes mirror `packages/web/src/api/multichain.ts`: the client unwraps
+// `{ ok, result }`, presence lives under `result.chains`, and merged activity
+// is `{ rows, perChain }`.
+// ---------------------------------------------------------------------------
+
+/** Two chains present, two absent — the mixed case the strip has to lay out. */
+export async function stubMultichainAddressEndpoints(
+  page: Page,
+  address: string = FROM_ADDRESS,
+): Promise<void> {
+  await page.route(
+    (url) => url.pathname === `/api/multichain/address/${address}`,
+    (route) =>
+      route.fulfill({
+        json: {
+          ok: true,
+          result: {
+            address,
+            chains: [
+              { chainId: 1, balance: "99983185134319660", nonce: 1, isContract: false },
+              { chainId: 369, balance: "1642096148399697982849068301", nonce: 35, isContract: false },
+              { chainId: 943, balance: "0", nonce: 0, isContract: false },
+              { chainId: 11155111, balance: "0", nonce: 0, isContract: false },
+            ],
+          },
+        },
+      }),
+  );
+
+  await page.route(
+    (url) => url.pathname === `/api/multichain/address/${address}/activity`,
+    (route) =>
+      route.fulfill({
+        json: {
+          ok: true,
+          result: {
+            address,
+            // A full-length hash and a real function signature, so the row's
+            // main line and subline are as wide here as in production.
+            rows: [
+              {
+                chainId: 369,
+                hash: FULL_TX_HASH,
+                timeStamp: String(Math.floor(Date.now() / 1000) - 60),
+                blockNumber: BLOCK_NUMBER,
+                from: address,
+                to: TO_ADDRESS,
+                value: "0",
+                functionName: "multicall(uint256,bytes[])",
+              },
+              {
+                chainId: 1,
+                hash: BLOCK_HASH,
+                timeStamp: String(Math.floor(Date.now() / 1000) - 3600),
+                blockNumber: BLOCK_NUMBER,
+                from: TO_ADDRESS,
+                to: address,
+                value: "1000000000000000000",
+                functionName: "",
+              },
+            ],
+            perChain: [
+              { chainId: 1, returned: 1 },
+              { chainId: 369, returned: 1 },
+            ],
+          },
+        },
+      }),
+  );
+}
+
+/** One chain has reached the height, one has not, one errored. */
+export async function stubMultichainBlockEndpoints(
+  page: Page,
+  height: string = BLOCK_NUMBER,
+): Promise<void> {
+  await page.route(
+    (url) => url.pathname === `/api/multichain/block/${height}`,
+    (route) =>
+      route.fulfill({
+        json: {
+          ok: true,
+          result: {
+            height,
+            chains: [
+              {
+                chainId: 1,
+                reached: true,
+                head: 21000000,
+                hash: BLOCK_HASH,
+                txCount: 1,
+                gasUsed: "21000",
+                gasLimit: "30000000",
+                timestamp: Math.floor(Date.now() / 1000) - 120,
+              },
+              { chainId: 369, reached: false, head: 100 },
+              { chainId: 943, reached: true, head: 21000000, hash: BLOCK_HASH, txCount: 0, gasUsed: "0", gasLimit: "30000000", timestamp: Math.floor(Date.now() / 1000) - 300 },
+              { chainId: 11155111, reached: false, error: true },
+            ],
+          },
+        },
+      }),
+  );
+}

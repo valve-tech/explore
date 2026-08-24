@@ -4,6 +4,8 @@ import {
   stubTxEndpoints,
   stubBlockEndpoints,
   stubTokenEndpoints,
+  stubMultichainAddressEndpoints,
+  stubMultichainBlockEndpoints,
   FROM_ADDRESS,
   FULL_TX_HASH,
   TOKEN_ADDRESS,
@@ -87,21 +89,31 @@ test("no horizontal overflow at 375px: /tx/:hash (populated)", async ({ page }) 
   await assertNoOverflow(page, `/tx/${FULL_TX_HASH}`, FULL_TX_HASH);
 });
 
-// --- /address/:address — populated: one tx row (TxTable [DataTable]). ---
+// --- /address/:address — populated: one tx row (TxTable [DataTable]).
+//
+// CHAIN-SCOPED on purpose. An unscoped `/address/:a` now renders the
+// all-chain `MultiChainAddressView` (an address is valid on every chain, so
+// picking one silently was the bug that view exists to fix), and the
+// single-chain `AddressView` this test gates is what a chain-scoped URL
+// renders. The all-chain view gets its own test below — both surfaces need
+// the 375px gate, so this spec covers both rather than swapping one for the
+// other. ---
 test("no horizontal overflow at 375px: /address/:address (populated)", async ({
   page,
 }) => {
   await stubAddressEndpoints(page);
   // The balance card's "Balance" label is present as soon as AddressView's
   // loaded (non-loading, non-error) state renders.
-  await assertNoOverflow(page, `/address/${FROM_ADDRESS}`, "Balance");
+  await assertNoOverflow(page, `/eip155/369/address/${FROM_ADDRESS}`, "Balance");
 });
 
-// --- /block/:id — populated: block info + one tx row (DataTable). ---
+// --- /block/:id — populated: block info + one tx row (DataTable).
+// Chain-scoped for the same reason as /address above: an unscoped block
+// NUMBER now fans out to `BlockHeightView`. ---
 test("no horizontal overflow at 375px: /block/:id (populated)", async ({ page }) => {
   await stubBlockEndpoints(page);
   // `block.hash` renders as plain text in the Block Info card.
-  await assertNoOverflow(page, `/block/${BLOCK_NUMBER}`, BLOCK_HASH);
+  await assertNoOverflow(page, `/eip155/369/block/${BLOCK_NUMBER}`, BLOCK_HASH);
 });
 
 // --- /token/:address — populated: verified contract (ContractHeader,
@@ -113,5 +125,35 @@ test("no horizontal overflow at 375px: /token/:address (populated)", async ({
 }) => {
   await stubTokenEndpoints(page);
   // ContractHeader renders `address` as plain text once `info` loads.
-  await assertNoOverflow(page, `/token/${TOKEN_ADDRESS}`, TOKEN_ADDRESS);
+  // Chain-scoped: `/token/:a` maps to the `contract` view shape, which the
+  // all-chain branch also claims when the URL names no chain.
+  await assertNoOverflow(page, `/eip155/369/token/${TOKEN_ADDRESS}`, TOKEN_ADDRESS);
+});
+
+// --- The all-chain views. These are what an UNSCOPED entity URL renders, and
+// they are the widest new surface this app has: a per-chain presence strip and
+// a merged feed whose rows carry a chain name, a function signature, and a
+// 66-char hash on one line. Nothing gated them at 375px before. ---
+
+test("no horizontal overflow at 375px: /address/:address (all chains)", async ({
+  page,
+}) => {
+  await stubMultichainAddressEndpoints(page);
+  // The strip's section heading renders as soon as presence resolves.
+  await assertNoOverflow(page, `/address/${FROM_ADDRESS}`, "WHERE THIS ADDRESS LIVES");
+});
+
+test("no horizontal overflow at 375px: /token/:address (all chains)", async ({
+  page,
+}) => {
+  await stubMultichainAddressEndpoints(page, TOKEN_ADDRESS);
+  await assertNoOverflow(page, `/token/${TOKEN_ADDRESS}`, "WHERE THIS ADDRESS LIVES");
+});
+
+test("no horizontal overflow at 375px: /block/:id (all chains)", async ({ page }) => {
+  await stubMultichainBlockEndpoints(page);
+  // BlockHeightView lists one row per chain that has reached the height, so a
+  // chain name is the "rows have rendered" marker. Note it never prints the
+  // height itself — the fixture's chain 1 row is what we wait for.
+  await assertNoOverflow(page, `/block/${BLOCK_NUMBER}`, "Ethereum");
 });
