@@ -72,7 +72,7 @@ export function readLocationScope(): ChainScope {
   if (typeof window === "undefined") return ALL;
   const hash = window.location.hash.startsWith("#/") ? window.location.hash.slice(1) : "";
   if (hash) {
-    const [path, query = ""] = hash.split("?");
+    const [path = "", query = ""] = hash.split("?");
     return parseChainScope(path, query ? `?${query}` : "");
   }
   return parseChainScope(window.location.pathname, window.location.search);
