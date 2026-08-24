@@ -26,6 +26,9 @@ export default function MultiChainAddressView({ address }: Props) {
   // query key so flipping the toggle refetches, rather than serving a stale
   // four-chain answer cached under the old key.
   const [showTestnets] = useShowTestnets();
+  // visibleChainIds() reads the same store `showTestnets` subscribes to, so
+  // that dep is the real trigger even though eslint cannot see the link.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const chainIds = useMemo(() => visibleChainIds(), [showTestnets]);
 
   const presence = useQuery({

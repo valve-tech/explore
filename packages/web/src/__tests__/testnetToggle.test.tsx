@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import {
   getShowTestnets,
@@ -31,15 +31,27 @@ describe("testnet setting", () => {
     expect(getShowTestnets()).toBe(false);
   });
 
-  it("falls back to the default when storage throws", () => {
-    const original = Storage.prototype.getItem;
-    Storage.prototype.getItem = () => {
-      throw new Error("blocked");
-    };
+  it("falls back to the default when storage throws", async () => {
+    // The store's `read()` runs once, at module import — `getShowTestnets()`
+    // never touches storage again after that. Mocking `getItem` on the
+    // already-imported module is unreachable: the mock must be in place
+    // BEFORE the module first evaluates, so we reset the module registry and
+    // import fresh under the mock.
+    vi.resetModules();
+    const getItem = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("blocked");
+      });
     try {
-      expect(getShowTestnets()).toBe(true);
+      const mod = await import("../lib/settings/testnets");
+      expect(mod.getShowTestnets()).toBe(true);
     } finally {
-      Storage.prototype.getItem = original;
+      getItem.mockRestore();
+      // A fresh module instance must not leak into later cases — reset again
+      // so the next `import` (via the top-level import in this file, already
+      // cached) keeps working against the original module instance.
+      vi.resetModules();
     }
   });
 });
