@@ -123,7 +123,12 @@ describe("getChainPresence", () => {
     assert.equal(calls, 1);
   });
 
-  it("does not cache an errored probe", async () => {
+  it("does not cache a partial probe (one field failed, not all three)", async () => {
+    // Only getCode fails here — getBalance and getTransactionCount succeed —
+    // so this is the PARTIAL path (`complete: false`), not a fully errored
+    // probe (`error: true`, which needs all three fields to fail). Renamed
+    // from "does not cache an errored probe": that name described a case this
+    // test never exercises, under the current complete/partial split.
     let calls = 0;
     const failing = deps({
       chainIds: () => [1],
