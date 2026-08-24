@@ -68,7 +68,7 @@ describe("<NextStepsRail />", () => {
     const link = screen.getByRole("link", {
       name: /step through the revert in the opcode debugger/i,
     });
-    expect(link).toHaveAttribute("href", `/debugger/${tx().hash}`);
+    expect(link).toHaveAttribute("href", `/eip155/369/debugger/${tx().hash}`);
   });
 
   it("adds a chain-scoped allowance-check link for a failed transferFrom", () => {
@@ -106,8 +106,8 @@ describe("<NextStepsRail />", () => {
       functionName: "swapExactTokensForTokens",
     });
     const fork = screen.getByRole("link", { name: /fork-replay/i });
-    expect(fork).toHaveAttribute("href", `/fork?fromTx=${tx().hash}`);
+    expect(fork).toHaveAttribute("href", `/eip155/369/fork?fromTx=${tx().hash}`);
     const actions = screen.getByRole("link", { name: /wire a web3 action/i });
-    expect(actions).toHaveAttribute("href", "/actions");
+    expect(actions).toHaveAttribute("href", "/eip155/369/actions");
   });
 });

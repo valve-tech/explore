@@ -229,17 +229,41 @@ const FIXTURE_TX_DECODE: TransactionDecode = {
 export async function stubTxEndpoints(
   page: Page,
   hash: string = FULL_TX_HASH,
+  /**
+   * Overrides merged onto the fixture. The next-steps rail branches on
+   * `status` and the decoded function name, so a caller testing it needs to
+   * vary those two without hand-rolling a whole TransactionDetails — an
+   * incomplete one crashes the value formatter long before the rail renders.
+   */
+  overrides: Partial<TransactionDetails> = {},
+  decodedFunctionName?: string,
 ): Promise<void> {
   await page.route(
     (url) => url.pathname === `/api/tx/${hash}`,
     (route) =>
       route.fulfill({
-        json: { ok: true, result: { ...FIXTURE_TX_DETAILS, hash } },
+        json: { ok: true, result: { ...FIXTURE_TX_DETAILS, hash, ...overrides } },
       }),
   );
   await page.route(
     (url) => url.pathname === `/api/tx/${hash}/decode`,
-    (route) => route.fulfill({ json: { ok: true, result: FIXTURE_TX_DECODE } }),
+    (route) =>
+      route.fulfill({
+        json: {
+          ok: true,
+          result: decodedFunctionName
+            ? {
+                ...FIXTURE_TX_DECODE,
+                // The name lives under `decodedInput`, not at the top level —
+                // TxDetail reads `decode.decodedInput?.functionName`.
+                decodedInput: {
+                  ...FIXTURE_TX_DECODE.decodedInput,
+                  functionName: decodedFunctionName,
+                },
+              }
+            : FIXTURE_TX_DECODE,
+        },
+      }),
   );
 }
 

@@ -45,9 +45,12 @@ export function NextStepsRail({ tx, chainId, functionName }: NextStepsRailProps)
               backgroundColor: step.primary
                 ? "var(--color-accent-muted)"
                 : "var(--color-bg-secondary)",
+              // Outset, never inset. An inset ring eats 1px of the content
+              // box; an outset one costs zero layout width, which is why
+              // this codebase draws every outline that way.
               boxShadow: step.primary
-                ? "inset 0 0 0 1px var(--color-accent)"
-                : "inset 0 0 0 1px var(--color-border-muted)",
+                ? "0 0 0 1px var(--color-accent)"
+                : "0 0 0 1px var(--color-border-muted)",
             }}
           >
             <div className="flex items-start gap-inline">

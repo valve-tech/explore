@@ -1,4 +1,19 @@
 import { scanPath } from "../../../lib/scanRoutes";
+import { chainRoutePrefix } from "../../../lib/chainScope";
+
+/**
+ * A tool route, kept on the chain the reader is already looking at.
+ *
+ * `scanPath` only knows the entity routes (tx/block/address/contract), so
+ * the tool pages need the prefix applied directly. Without it these links
+ * drop chain scope: from a page at `/eip155/1/tx/…`, a bare `/simulate`
+ * collapses to the default chain, so the reader silently changes chain by
+ * following a suggestion. An unregistered chain yields an empty prefix and
+ * the bare path, which is the existing convention.
+ */
+function toolPath(chainId: number, path: string): string {
+  return `${chainRoutePrefix(chainId)}${path}`;
+}
 
 /**
  * Adaptive "next steps" rail — domain logic.
@@ -69,7 +84,7 @@ export function nextStepsFor(
       icon: "heroicons:bug-ant",
       label: "Step through the revert in the opcode debugger",
       sub: "Find the exact program counter where execution stopped",
-      to: `/debugger/${facts.hash}`,
+      to: toolPath(chainId, `/debugger/${facts.hash}`),
     };
 
     if (facts.hasFailedTransferFrom) {
@@ -87,14 +102,14 @@ export function nextStepsFor(
           icon: "heroicons:arrow-path",
           label: "Re-simulate with an approval override",
           sub: "Confirm the fix would work without spending real gas",
-          to: "/simulate",
+          to: toolPath(chainId, "/simulate"),
         },
         {
           id: "alert",
           icon: "heroicons:bell-alert",
           label: "Pin this contract for a future failure alert",
           sub: "Catch the next failure before it gets reported",
-          to: "/monitoring",
+          to: toolPath(chainId, "/monitoring"),
         },
       ];
     }
@@ -106,14 +121,14 @@ export function nextStepsFor(
         icon: "heroicons:arrow-path",
         label: "Re-simulate with state overrides",
         sub: "Test a hypothesis without spending gas",
-        to: "/simulate",
+        to: toolPath(chainId, "/simulate"),
       },
       {
         id: "alert",
         icon: "heroicons:bell-alert",
         label: "Pin this contract for a future failure alert",
         sub: "Get notified the next time this reverts",
-        to: "/monitoring",
+        to: toolPath(chainId, "/monitoring"),
       },
     ];
   }
@@ -126,14 +141,14 @@ export function nextStepsFor(
         icon: "heroicons:beaker",
         label: "Fork-replay at this block to test a variant",
         sub: "Spin up a testnet seeded with this tx as the head",
-        to: `/fork?fromTx=${facts.hash}`,
+        to: toolPath(chainId, `/fork?fromTx=${facts.hash}`),
       },
       {
         id: "actions",
         icon: "heroicons:bolt",
         label: "Wire a Web3 Action to react to swaps like this",
         sub: "Trigger alerts or automations off similar activity",
-        to: "/actions",
+        to: toolPath(chainId, "/actions"),
       },
     ];
   }

@@ -101,8 +101,8 @@ describe("nextStepsFor", () => {
     );
     expect(steps.map((s) => s.id)).toEqual(["fork", "actions"]);
     expect(steps[0]?.primary).toBe(true);
-    expect(steps[0]?.to).toBe(`/fork?fromTx=${HASH}`);
-    expect(steps[1]?.to).toBe("/actions");
+    expect(steps[0]?.to).toBe(`/eip155/369/fork?fromTx=${HASH}`);
+    expect(steps[1]?.to).toBe("/eip155/369/actions");
   });
 
   it("matches a swap function name case-insensitively", () => {
@@ -120,9 +120,9 @@ describe("nextStepsFor", () => {
     );
     expect(steps.map((s) => s.id)).toEqual(["debug", "resimulate", "alert"]);
     expect(steps[0]?.primary).toBe(true);
-    expect(steps[0]?.to).toBe(`/debugger/${HASH}`);
-    expect(steps[1]?.to).toBe("/simulate");
-    expect(steps[2]?.to).toBe("/monitoring");
+    expect(steps[0]?.to).toBe(`/eip155/369/debugger/${HASH}`);
+    expect(steps[1]?.to).toBe("/eip155/369/simulate");
+    expect(steps[2]?.to).toBe("/eip155/369/monitoring");
   });
 
   it("adds an allowance-check step, scoped to the sender's chain, for a failed transferFrom", () => {
