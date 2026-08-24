@@ -24,14 +24,20 @@ import { useChainScope } from "./activeChain";
  * Two deliberate limits:
  *
  *   - It runs ONLY when the URL names no chain, by EITHER mechanism: a path
- *     prefix (`/eip155/369/…`) or the legacy `?chainid=369` query param. Either
- *     one is the caller's stated scope; if the tx isn't there, the honest
- *     answer is "not found on PulseChain", not a silent hop to another chain.
- *     This also makes a redirect loop impossible — once either form names a
- *     chain, the hook is disabled. Checking the query param alone used to miss
- *     the path form entirely: a `/eip155/943/tx/0xabc` load fanned a resolve
- *     out across every chain, then wrote `?chainid=943` on top of a path that
- *     already said 943 — the chain named twice in one URL.
+ *     prefix (`/eip155/369/…`) or a well-formed `?chainid=369` query param.
+ *     Either one is the caller's stated scope; if the tx isn't there, the
+ *     honest answer is "not found on PulseChain", not a silent hop to another
+ *     chain. This also makes a redirect loop impossible — once either form
+ *     names a chain, the hook is disabled. Checking the query param alone used
+ *     to miss the path form entirely: a `/eip155/943/tx/0xabc` load fanned a
+ *     resolve out across every chain, then wrote `?chainid=943` on top of a
+ *     path that already said 943 — the chain named twice in one URL.
+ *     An EMPTY or malformed `chainid` (`?chainid=`, `?chainid=abc`) is not a
+ *     stated scope — `parseChainScope` maps it to "all", same as an absent
+ *     param — so the hook resolves it and writes a real chain. That is a
+ *     deliberate choice, not an oversight: a real chain id is more useful than
+ *     silently defaulting to PulseChain, and it still terminates cleanly,
+ *     because writing the chain is what disables the hook on the next render.
  *   - It redirects only when the entity is NOT on the default chain. If it's on
  *     369 (alone or among others) the URL stays clean and param-free, matching
  *     `scoped()`.

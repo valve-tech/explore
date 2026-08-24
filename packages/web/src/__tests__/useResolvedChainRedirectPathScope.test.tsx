@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { MemoryRouter, useSearchParams } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -53,5 +53,35 @@ describe("useResolvedChainRedirect — a path prefix is also a stated scope", ()
     expect(result.current).toBe("idle");
     expect(resolveMock).not.toHaveBeenCalled();
     expect(seenChainIds.every((v) => v === null)).toBe(true);
+  });
+});
+
+describe("useResolvedChainRedirect — an empty chainid is not a stated scope", () => {
+  it("resolves /tx/0xabc?chainid= (empty value) and writes a real chain", async () => {
+    // `?chainid=` carries no value, so `parseChainScope` maps it to "all" —
+    // the same as no param at all. Treating it as a scope would strand the
+    // page on PulseChain with no way to reach the entity's real chain; a real
+    // resolve is strictly more useful, and it still terminates cleanly
+    // because writing the real chain id is what disables the hook.
+    resolveMock.mockResolvedValue({
+      kind: "tx",
+      query: "0xabc",
+      matches: [{ chainId: 943 }],
+    });
+
+    const seenChainIds: (string | null)[] = [];
+    function Probe() {
+      const [params] = useSearchParams();
+      const state = useResolvedChainRedirect("0xabc");
+      seenChainIds.push(params.get("chainid"));
+      return state;
+    }
+    const { result } = renderHook(() => Probe(), {
+      wrapper: wrapper("/tx/0xabc?chainid="),
+    });
+
+    await waitFor(() => expect(resolveMock).toHaveBeenCalledWith("0xabc"));
+    await waitFor(() => expect(seenChainIds).toContain("943"));
+    await waitFor(() => expect(result.current).toBe("idle"));
   });
 });
