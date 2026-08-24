@@ -39,13 +39,14 @@ function Index() {
         <p
           className="text-sm max-w-2xl leading-relaxed theme-text-secondary"
         >
-          Three concrete pivots away from the current 12-tab shell. Each draft
-          renders with mock data so we can react to the shape before wiring
-          anything up. Pick one to view, then we'll iterate on whichever lands.
+          Two concrete pivots away from the current route-per-tool shell. Each
+          draft renders with mock data so we can react to the shape before
+          wiring anything up. Both are now being built for real, so treat these
+          as the argument that was made, not as the current UI.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {DRAFTS.map((d) => (
           <Link
             key={d.slug}

@@ -205,13 +205,19 @@ function RpcEndpointSection() {
     <Section title="Chain RPC endpoints" icon="heroicons:bolt">
       <div className="space-y-stack pt-2">
         <p className="text-xs theme-text-muted max-w-md">
-          Bring your own RPC. By default every read goes through Explore&apos;s
-          backend API — your browser makes no direct node calls. Set a per-chain
-          node or provider URL here and the explorer&apos;s raw reads (a
-          transaction, an address&apos;s balance/code, a block) go straight to
-          your node instead, so you don&apos;t depend on our backend. The
-          endpoint must allow browser requests (CORS). Everything else (charts,
-          debugger traces, source, decompile) always uses the backend.
+          Where this browser sends its own chain calls. Explore&apos;s enriched
+          reads (charts, debugger traces, source, decompile) always go through
+          our backend and never appear here. What this sets is the raw reads —
+          a transaction, an address&apos;s balance and code, a block — plus
+          anything your connected wallet needs.
+        </p>
+        <p className="text-xs theme-text-muted max-w-md">
+          The default is Valve&apos;s own public node: archive depth, and no
+          request logs or client IP addresses retained. Point a chain at your
+          own node to depend on nobody, or pick one of the listed alternatives.
+          Each states it keeps no logs — that is the provider&apos;s claim, from
+          the chainlist dataset, not something we measured. The endpoint must
+          allow browser requests (CORS).
         </p>
         {CHAINS.map((chain) => (
           <RpcChainRow key={chain.id} chainId={chain.id} name={chain.name} />
