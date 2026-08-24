@@ -72,6 +72,26 @@ export function chainRoutePrefix(chainId: number): string {
 }
 
 /**
+ * Remove a valid chain prefix from a path; leave anything else untouched.
+ *
+ * `ExplorerPanel` reads `location.pathname` to pick which entity view to
+ * show (`/tx/…`, `/block/…`, `/address/…`, `/token/…`). Under the
+ * chain-scoped mount that path carries a two-segment prefix
+ * (`/eip155/369/tx/0x…`), so the view-detection checks must see the path
+ * WITHOUT the prefix or they never match. Strip here, once, rather than
+ * teaching every consumer about the prefix.
+ *
+ * An unregistered or unknown namespace is not a valid prefix — `scopeFromPath`
+ * already returns undefined for it, so the path passes through untouched
+ * rather than losing two segments that were never a chain scope.
+ */
+export function stripChainPrefix(pathname: string): string {
+  if (scopeFromPath(pathname) === undefined) return pathname;
+  const rest = pathname.split("/").slice(3).join("/");
+  return `/${rest}`;
+}
+
+/**
  * Non-reactive scope read for fetch-layer code that runs outside a component.
  * Handles both router shapes: BrowserRouter keeps the path in `pathname` and
  * the query in `search`; the IPFS HashRouter build carries BOTH inside the

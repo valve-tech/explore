@@ -105,6 +105,10 @@ function renderAt(path: string) {
           <Route path="/block/:id" element={<ExplorerPanel />} />
           <Route path="/address/:address" element={<ExplorerPanel />} />
           <Route path="/token/:address" element={<ExplorerPanel />} />
+          {/* Mirrors the chain-scoped mount in App.tsx: the same ExplorerPanel
+              reached through a /eip155/<ref>/… prefix. Proves view detection
+              still picks the entity view, not home, once the prefix is present. */}
+          <Route path="/eip155/:ref/tx/:hash" element={<ExplorerPanel />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -135,6 +139,17 @@ describe("<ExplorerPanel /> — view routing", () => {
       screen.getByRole("navigation", { name: "Explorer trail" }),
     ).toBeInTheDocument();
     expect(recordVisit).toHaveBeenCalledWith({ kind: "tx", value: hash });
+  });
+
+  it("renders the tx view, not home, under a chain-scoped prefix", async () => {
+    // Regression test: ExplorerPanel used to pick its view from the FULL
+    // location.pathname ("/tx/…"), which never matches once a chain prefix
+    // is present ("/eip155/369/tx/…") — it silently fell back to the home
+    // view instead of the transaction.
+    const hash = "0x" + "cd".repeat(32);
+    renderAt(`/eip155/369/tx/${hash}`);
+    expect(await screen.findByText(`tx-view:${hash}`)).toBeInTheDocument();
+    expect(screen.queryByText("home-view")).not.toBeInTheDocument();
   });
 
   it("renders the address view at /address/:address", async () => {

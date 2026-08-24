@@ -3,6 +3,7 @@ import {
   parseChainScope,
   chainRoutePrefix,
   readLocationScope,
+  stripChainPrefix,
 } from "../lib/chainScope";
 
 const original = window.location.href;
@@ -68,6 +69,14 @@ describe("chainRoutePrefix", () => {
 
   it("returns an empty prefix for an unregistered chain", () => {
     expect(chainRoutePrefix(8453)).toBe("");
+  });
+});
+
+describe("stripChainPrefix", () => {
+  it("removes a valid prefix and leaves an unprefixed path alone", () => {
+    expect(stripChainPrefix("/eip155/369/tx/0xabc")).toBe("/tx/0xabc");
+    expect(stripChainPrefix("/tx/0xabc")).toBe("/tx/0xabc");
+    expect(stripChainPrefix("/bip122/000/tx/0xabc")).toBe("/bip122/000/tx/0xabc");
   });
 });
 

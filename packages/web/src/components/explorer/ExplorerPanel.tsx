@@ -9,6 +9,7 @@ import ExplorerHome from "./ExplorerHome";
 import { recordVisit } from "../../lib/recentEntities";
 import { useResolvedChainRedirect } from "../../lib/useResolvedChainRedirect";
 import { scanPath } from "../../lib/scanRoutes";
+import { stripChainPrefix } from "../../lib/chainScope";
 import { truncateAddr } from "./format";
 import { Tooltip } from "../primitives/Tooltip";
 
@@ -44,7 +45,10 @@ export default function ExplorerPanel() {
   // /token/<a> (EIP-3091). Driving off the path makes back/forward, reload,
   // and link-sharing all work.
   const view = useMemo<ExplorerView>(() => {
-    const p = location.pathname;
+    // Strip a chain-scoped prefix first. Under /eip155/369/tx/0x… the full
+    // pathname never starts with "/tx/", so the checks below need the path
+    // WITHOUT the prefix to match at all.
+    const p = stripChainPrefix(location.pathname);
     if (p.startsWith("/tx/") && params.hash) return { type: "tx", hash: params.hash };
     if (p.startsWith("/block/") && params.id) return { type: "block", numberOrHash: params.id };
     if (p.startsWith("/token/") && params.address) return { type: "contract", address: params.address };
