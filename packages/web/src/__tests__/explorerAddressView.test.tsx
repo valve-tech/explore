@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
+import { useLocation } from "react-router-dom";
 import { renderWithProviders } from "./_test-utils";
 import type {
   AddressInfo,
   AddressTransaction,
   AddressToken,
+  ContractInfo,
 } from "../api/explorer";
 
 /**
@@ -19,6 +21,7 @@ vi.mock("../api/explorer", () => ({
   fetchAddressInfo: vi.fn(),
   fetchAddressTransactions: vi.fn(),
   fetchAddressTokens: vi.fn(),
+  fetchContractInfo: vi.fn(),
 }));
 // Holdings gateway is the preferred token source; default it to not-indexed so
 // the view falls back to fetchAddressTokens (the RPC/chifra list) unless a test
@@ -30,6 +33,7 @@ import {
   fetchAddressInfo,
   fetchAddressTransactions,
   fetchAddressTokens,
+  fetchContractInfo,
 } from "../api/explorer";
 import { fetchHoldings } from "../api/portfolio";
 
@@ -37,6 +41,18 @@ const mockInfo = fetchAddressInfo as unknown as ReturnType<typeof vi.fn>;
 const mockTxs = fetchAddressTransactions as unknown as ReturnType<typeof vi.fn>;
 const mockTokens = fetchAddressTokens as unknown as ReturnType<typeof vi.fn>;
 const mockHoldings = fetchHoldings as unknown as ReturnType<typeof vi.fn>;
+const mockContractInfo = fetchContractInfo as unknown as ReturnType<typeof vi.fn>;
+
+/** Reads the live router location so a test can assert the URL after an action. */
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <div data-testid="location">
+      {location.pathname}
+      {location.search}
+    </div>
+  );
+}
 
 const ADDR = "0x165c3410fc91ef562c50559f7d2289febed552d9";
 const WPLS = "0xA1077a294dDE1B09bB078844df40758a5D0f9a27";
@@ -84,6 +100,7 @@ describe("<AddressView />", () => {
     mockTxs.mockReset();
     mockTokens.mockReset();
     mockHoldings.mockReset();
+    mockContractInfo.mockReset();
     // Default: gateway not indexed for this chain → fall back to fetchAddressTokens.
     mockHoldings.mockResolvedValue({
       chainId: 369,
@@ -225,5 +242,88 @@ describe("<AddressView />", () => {
     const link = await screen.findByText("View Contract Details");
     fireEvent.click(link);
     expect(onNavigate).toHaveBeenCalledWith({ type: "contract", value: WPLS });
+  });
+});
+
+describe("<AddressView /> — sub-tab lives in the URL", () => {
+  const contractInfo: AddressInfo = { ...eoaInfo, address: WPLS, isContract: true };
+
+  beforeEach(() => {
+    mockTxs.mockResolvedValue({ transactions: [tx], total: 1 });
+    mockTokens.mockResolvedValue([token]);
+  });
+
+  it("carries the selected tab in ?tab= and reads it back on click", async () => {
+    mockInfo.mockResolvedValue(eoaInfo);
+
+    renderWithProviders(
+      <>
+        <LocationProbe />
+        <AddressView address={ADDR} onNavigate={vi.fn()} />
+      </>,
+      { initialEntries: [`/address/${ADDR}`] },
+    );
+    await screen.findByText(ADDR);
+    expect(screen.getByTestId("location")).toHaveTextContent(`/address/${ADDR}`);
+
+    fireEvent.click(screen.getByRole("button", { name: /Token Balances/ }));
+    await screen.findByText("Wrapped Pulse");
+    expect(screen.getByTestId("location").textContent).toContain("tab=tokens");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Transactions/ }));
+    expect(screen.getByTestId("location").textContent).toContain("tab=transactions");
+  });
+
+  it("falls back to Transactions for an unknown ?tab= value", async () => {
+    mockInfo.mockResolvedValue(eoaInfo);
+    renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />, {
+      initialEntries: [`/address/${ADDR}?tab=not-a-real-tab`],
+    });
+    expect(await screen.findByTitle(tx.hash)).toBeInTheDocument();
+  });
+
+  it("falls back to Transactions when a contract-only tab is requested for a plain EOA", async () => {
+    mockInfo.mockResolvedValue(eoaInfo);
+    renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />, {
+      initialEntries: [`/address/${ADDR}?tab=storage`],
+    });
+    expect(await screen.findByTitle(tx.hash)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Storage" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the chain prefix in the path when the tab changes", async () => {
+    mockInfo.mockResolvedValue(eoaInfo);
+    renderWithProviders(
+      <>
+        <LocationProbe />
+        <AddressView address={ADDR} onNavigate={vi.fn()} />
+      </>,
+      { initialEntries: [`/eip155/369/address/${ADDR}?tab=transactions`] },
+    );
+    await screen.findByText(ADDR);
+
+    fireEvent.click(screen.getByRole("button", { name: /Token Balances/ }));
+    await screen.findByText("Wrapped Pulse");
+    expect(screen.getByTestId("location")).toHaveTextContent(`/eip155/369/address/${ADDR}`);
+    expect(screen.getByTestId("location").textContent).toContain("tab=tokens");
+  });
+
+  it("shows the contract-only tabs for a contract and composes the existing SourceTab", async () => {
+    mockInfo.mockResolvedValue(contractInfo);
+    mockContractInfo.mockResolvedValue({
+      sourceCode: "contract Foo {}",
+    } as unknown as ContractInfo);
+
+    renderWithProviders(<AddressView address={WPLS} onNavigate={vi.fn()} />, {
+      initialEntries: [`/address/${WPLS}`],
+    });
+    await screen.findByText(WPLS);
+
+    expect(screen.getByRole("button", { name: "Storage" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Diff" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Re-verify" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Source" }));
+    expect(await screen.findByText("contract Foo {}")).toBeInTheDocument();
   });
 });

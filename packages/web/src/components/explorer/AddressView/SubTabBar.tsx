@@ -1,27 +1,41 @@
-export type AddressSubTab = "transactions" | "tokens";
+export type AddressSubTab =
+  | "transactions"
+  | "tokens"
+  | "source"
+  | "storage"
+  | "diff"
+  | "verify";
+
+/** One of the contract-only tabs appended after Transactions/Tokens. */
+export interface ExtraSubTab {
+  key: AddressSubTab;
+  label: string;
+}
 
 interface Props {
   active: AddressSubTab;
   onSelect: (tab: AddressSubTab) => void;
   txCount: number;
   tokenCount: number;
+  /** Contract-only tabs (Source/Storage/Diff/Re-verify) — empty for a plain EOA. */
+  extraTabs?: ExtraSubTab[];
 }
 
 function TabButton({
   active,
   onClick,
   label,
-  count,
+  count = 0,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
-  count: number;
+  count?: number;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2.5 text-sm font-medium transition-colors ${
+      className={`px-4 py-2.5 text-sm font-medium transition-colors shrink-0 ${
         active ? "theme-text" : "theme-text-secondary"
       }`}
       style={{
@@ -43,9 +57,15 @@ function TabButton({
   );
 }
 
-export function SubTabBar({ active, onSelect, txCount, tokenCount }: Props) {
+export function SubTabBar({
+  active,
+  onSelect,
+  txCount,
+  tokenCount,
+  extraTabs = [],
+}: Props) {
   return (
-    <div className="flex gap-0 bs-b">
+    <div className="flex gap-0 bs-b overflow-x-auto">
       <TabButton
         active={active === "transactions"}
         onClick={() => onSelect("transactions")}
@@ -58,6 +78,14 @@ export function SubTabBar({ active, onSelect, txCount, tokenCount }: Props) {
         label="Token Balances"
         count={tokenCount}
       />
+      {extraTabs.map((t) => (
+        <TabButton
+          key={t.key}
+          active={active === t.key}
+          onClick={() => onSelect(t.key)}
+          label={t.label}
+        />
+      ))}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useActiveChainId } from "../../lib/activeChain";
 import {
   fetchAddressInfo,
@@ -12,17 +13,30 @@ import { fetchHoldings, type Holding } from "../../api/portfolio";
 import { formatAmountDisplay } from "../../lib/format/tokenAmount";
 import AlsoOnBar from "./AlsoOnBar";
 import { AddressHeader } from "./AddressView/AddressHeader";
-import { SubTabBar, type AddressSubTab } from "./AddressView/SubTabBar";
+import { SubTabBar, type AddressSubTab, type ExtraSubTab } from "./AddressView/SubTabBar";
 import {
   TransactionsTab,
   type AddressNavTarget,
 } from "./AddressView/TransactionsTab";
 import { TokensTab } from "./AddressView/TokensTab";
+import { ContractOnlyTabs } from "./AddressView/ContractOnlyTabs";
+import { resolveActiveTab } from "./AddressView/subTabUrl";
 
 interface AddressViewProps {
   address: string;
   onNavigate: (target: AddressNavTarget) => void;
 }
+
+/**
+ * The contract-only tabs, in display order. Only shown when `info.isContract`
+ * — see `resolveActiveTab` for the URL-side half of the same rule.
+ */
+const CONTRACT_ONLY_SUB_TABS: ExtraSubTab[] = [
+  { key: "source", label: "Source" },
+  { key: "storage", label: "Storage" },
+  { key: "diff", label: "Diff" },
+  { key: "verify", label: "Re-verify" },
+];
 
 /**
  * Map a holdings-gateway row (storage-diff truth, raw balance) to the
@@ -66,8 +80,34 @@ export default function AddressView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [subTab, setSubTab] = useState<AddressSubTab>("transactions");
+  const [searchParams, setSearchParams] = useSearchParams();
   const chainId = useActiveChainId();
+
+  // The sub-tab lives in `?tab=` — not a path segment (chain scoping owns the
+  // path) and not component state (a reload or a shared link must land on the
+  // same panel). `isContract` is false while `info` is still loading, which
+  // correctly keeps the initial render off the contract-only tabs until we
+  // know better.
+  const isContract = info?.isContract ?? false;
+  const subTab: AddressSubTab = resolveActiveTab(searchParams.get("tab"), isContract);
+
+  const selectTab = (tab: AddressSubTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", tab);
+    setSearchParams(next);
+  };
+
+  // Storage and Re-verify are composed from top-level views that read their
+  // own `?address=` (the same hook the ⌘K palette already deep-links
+  // through) rather than taking a prop — keep it in sync so landing here
+  // directly, or reloading, prefills them with this page's own address.
+  useEffect(() => {
+    if (subTab !== "storage" && subTab !== "verify") return;
+    if (searchParams.get("address") === address) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("address", address);
+    setSearchParams(next, { replace: true });
+  }, [subTab, address, searchParams, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,9 +199,10 @@ export default function AddressView({
 
       <SubTabBar
         active={subTab}
-        onSelect={setSubTab}
+        onSelect={selectTab}
         txCount={total}
         tokenCount={tokens.length}
+        extraTabs={isContract ? CONTRACT_ONLY_SUB_TABS : []}
       />
 
       {subTab === "transactions" && (
@@ -177,6 +218,13 @@ export default function AddressView({
 
       {subTab === "tokens" && (
         <TokensTab tokens={tokens} indexed={tokensIndexed} onNavigate={onNavigate} />
+      )}
+
+      {(subTab === "source" ||
+        subTab === "storage" ||
+        subTab === "diff" ||
+        subTab === "verify") && (
+        <ContractOnlyTabs subTab={subTab} address={address} chainId={chainId} />
       )}
     </div>
   );
