@@ -95,6 +95,27 @@ describe("MultiChainAddressView", () => {
     // failing must not take the other's honest result down with it.
     expect(screen.getByText("Ethereum")).toBeInTheDocument();
   });
+
+  it("does not claim 'no activity' while presence is still probing", async () => {
+    // The activity query is `enabled: presence.isSuccess`. Never resolve
+    // presence, so activity stays disabled and TanStack Query reports its
+    // isLoading as false (isLoading is isPending && isFetching, and a
+    // disabled query never fetches). A ternary keyed on isLoading falls
+    // through to the empty-result render here — the exact bug this test
+    // guards against.
+    presenceMock.mockImplementation(() => new Promise(() => {}));
+    render(
+      <Wrap entry={`/address/${ADDR}`}>
+        <MultiChainAddressView address={ADDR} />
+      </Wrap>,
+    );
+    await waitFor(() =>
+      expect(screen.getByText(/Probing every chain/)).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(/no recent activity on any chain/i),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("chain-less address URLs no longer redirect", () => {

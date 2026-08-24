@@ -92,7 +92,15 @@ export default function MultiChainAddressView({ address }: Props) {
           <p className="p-2 theme-danger theme-mono text-xs shadow-[0_0_0_1px_var(--color-danger)]">
             Could not load activity: {(activity.error as Error).message}
           </p>
-        ) : activity.isLoading ? (
+        ) : activity.isPending ? (
+          // isPending, not isLoading: this query is `enabled: presence.isSuccess`,
+          // and TanStack Query reports isLoading === false for a disabled query
+          // (isLoading is isPending && isFetching, and a disabled query never
+          // fetches). Checking isLoading let the ternary fall through to the
+          // "no activity" branch while presence was still probing — a definitive
+          // claim rendered under a page still admitting it hasn't looked yet.
+          // isPending stays true until real data (or an error) lands, so it
+          // covers both "waiting on presence" and "activity itself is fetching".
           <p className="p-2 theme-text-muted theme-mono text-xs">Merging recent activity…</p>
         ) : (
           <MergedActivityFeed
