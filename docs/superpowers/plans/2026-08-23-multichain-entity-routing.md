@@ -761,15 +761,39 @@ function Probe() {
   return <div data-testid="url">{location.pathname + location.search}</div>;
 }
 
+/**
+ * Stands in for the real `AppRoutes`. The static segments MUST live in this
+ * inner <Routes>, exactly as they do in App.tsx — a harness that declares them
+ * at the outer level tests a structure the app does not have, and hides the
+ * ranking bug this file exists to catch.
+ */
+function InnerRoutes() {
+  return (
+    <Routes>
+      <Route path="/settings" element={<div data-testid="hit">settings</div>} />
+      <Route path="/workspace/:id" element={<div data-testid="hit">workspace</div>} />
+      <Route path="/tx/:hash" element={<div data-testid="hit">tx</div>} />
+      <Route path="/block/:id" element={<div data-testid="hit">block</div>} />
+      <Route path="/drafts/*" element={<div data-testid="hit">drafts</div>} />
+      <Route path="/*" element={<Probe />} />
+    </Routes>
+  );
+}
+
 function renderAt(entry: string) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <LegacyChainParamRedirect />
       <Routes>
-        <Route path="/settings" element={<div data-testid="hit">settings</div>} />
-        <Route path="/workspace/:id" element={<div data-testid="hit">workspace</div>} />
-        <Route path="/:ns/:ref/*" element={<ChainScopedRoutes><Probe /></ChainScopedRoutes>} />
-        <Route path="/*" element={<Probe />} />
+        <Route
+          path="/eip155/:ref/*"
+          element={
+            <ChainScopedRoutes namespace="eip155">
+              <InnerRoutes />
+            </ChainScopedRoutes>
+          }
+        />
+        <Route path="/*" element={<InnerRoutes />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -856,16 +880,22 @@ import { caip2ToChainId } from "../../lib/chains";
  * same prefix. There is no context to thread, and deliberately so: one parser,
  * one answer.
  */
-export default function ChainScopedRoutes({ children }: { children: ReactNode }) {
-  const { ns = "", ref = "" } = useParams<{ ns: string; ref: string }>();
-  const chainId = caip2ToChainId(ns, ref);
+export default function ChainScopedRoutes({
+  namespace,
+  children,
+}: {
+  namespace: string;
+  children: ReactNode;
+}) {
+  const { ref = "" } = useParams<{ ref: string }>();
+  const chainId = caip2ToChainId(namespace, ref);
 
   if (chainId === undefined) {
     return (
       <div className="p-2 sm:p-4 shadow-[0_0_0_1px_var(--color-border-default)]">
         <p className="theme-text">Unsupported chain</p>
         <p className="theme-text-secondary theme-mono text-sm">
-          {ns}/{ref} is not a chain Explore serves.
+          {namespace}/{ref} is not a chain Explore serves.
         </p>
       </div>
     );
@@ -929,13 +959,17 @@ Move the entire `<Routes>…</Routes>` body from `App.tsx` into a new local comp
   <LegacyChainParamRedirect />
   <Suspense fallback={<RouteFallback />}>
     <Routes>
-      {/* Chain-scoped subtree: /eip155/369/tx/0xabc… Validated, then the same
-          route table renders underneath. React Router ranks static segments
-          above dynamic ones, so /settings and /workspace/:id still win. */}
+      {/* Chain-scoped subtree: /eip155/369/tx/0xabc…
+          The namespace is a LITERAL segment, one route per supported namespace.
+          A param (`/:ns/:ref/*`) does NOT work: this outer <Routes> ranks only
+          its own two routes and never sees the static segments inside
+          <AppRoutes>, so `/tx/0xabc` matches with ns="tx" and renders
+          not-found. A static first segment ranks correctly against `/*`, so a
+          legacy URL never matches here at all. */}
       <Route
-        path="/:ns/:ref/*"
+        path="/eip155/:ref/*"
         element={
-          <ChainScopedRoutes>
+          <ChainScopedRoutes namespace="eip155">
             <AppRoutes />
           </ChainScopedRoutes>
         }
