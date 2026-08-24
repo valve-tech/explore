@@ -31,9 +31,7 @@ router.get(
   "/address/:address",
   asyncRoute(async (req: Request, res: Response) => {
     const address = requireAddress(req.params.address);
-    const chains = parseChainsParam(
-      typeof req.query.chains === "string" ? req.query.chains : undefined,
-    );
+    const chains = parseChainsParam(req.query.chains);
     const presence = await getChainPresence(address, chains);
     respond.ok(res, { result: { address, chains: presence } });
   }, "multichain/address"),
@@ -43,9 +41,7 @@ router.get(
   "/address/:address/activity",
   asyncRoute(async (req: Request, res: Response) => {
     const address = requireAddress(req.params.address);
-    const chains = parseChainsParam(
-      typeof req.query.chains === "string" ? req.query.chains : undefined,
-    );
+    const chains = parseChainsParam(req.query.chains);
     const limit = Math.min(
       Math.max(parseInt(String(req.query.limit ?? "25"), 10) || 25, 1),
       100,
@@ -74,9 +70,8 @@ router.get(
     if (!/^\d+$/.test(raw)) throw new ApiError(400, "Block number required");
     const height = BigInt(raw);
 
-    const chains = parseChainsParam(
-      typeof req.query.chains === "string" ? req.query.chains : undefined,
-    ) ?? listChains().map((c) => c.chainId);
+    const chains =
+      parseChainsParam(req.query.chains) ?? listChains().map((c) => c.chainId);
 
     const result = await Promise.all(
       chains.map((chainId) =>

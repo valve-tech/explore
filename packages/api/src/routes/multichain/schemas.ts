@@ -7,9 +7,23 @@ import { isSupportedChain } from "../../services/chains/registry.js";
  * `undefined` means "every registered chain". An unregistered or non-numeric id
  * is a 400, never a silent drop: quietly narrowing the fan-out would answer a
  * different question from the one asked, and the caller could not tell.
+ *
+ * `raw` is `req.query.chains` verbatim, typed loosely because Express parses a
+ * REPEATED key (`chains=1&chains=369`) into a string array, not the
+ * comma-joined string a single `chains=1,369` gives. A caller that only
+ * checked `typeof raw === "string"` treated the array form as absent and
+ * silently fell back to "every chain" — the one thing this parser promises
+ * never to do. Reject it with a 400 instead of guessing which form the
+ * caller meant.
  */
-export function parseChainsParam(raw: string | undefined): number[] | undefined {
-  if (!raw || raw.trim() === "") return undefined;
+export function parseChainsParam(raw: unknown): number[] | undefined {
+  if (Array.isArray(raw)) {
+    throw new ApiError(
+      400,
+      "chains must be a single comma-separated value, not a repeated parameter",
+    );
+  }
+  if (raw === undefined || typeof raw !== "string" || raw.trim() === "") return undefined;
 
   const ids = raw.split(",").map((part) => {
     const trimmed = part.trim();

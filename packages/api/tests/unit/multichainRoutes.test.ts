@@ -30,4 +30,11 @@ describe("parseChainsParam", () => {
   it("throws on a non-numeric entry", () => {
     assert.throws(() => parseChainsParam("1,abc"), /abc/);
   });
+
+  it("throws on a repeated parameter instead of widening to every chain", () => {
+    // Express parses `?chains=1&chains=369` into a string array, not the
+    // comma-joined form. Falling back to undefined here would silently widen
+    // the fan-out — the one thing this parser must never do.
+    assert.throws(() => parseChainsParam(["1", "369"]), /repeated parameter/);
+  });
 });
