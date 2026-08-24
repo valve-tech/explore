@@ -15,6 +15,18 @@
  * new chain needs only an entry here plus a backend handler.
  */
 
+/**
+ * The two halves of a CAIP-2 chain id, kept as separate fields because the URL
+ * scheme writes them as separate path segments (/eip155/369/…). The colon form
+ * is deliberately unused: docs/GIB_SHOW.md records /image/eip155:369 returning
+ * 404 where the dash form returns 200, so the colon does not survive real
+ * infrastructure.
+ */
+export interface Caip2 {
+  namespace: string;
+  reference: string;
+}
+
 export interface ChainInfo {
   /** EIP-155 numeric chain id. The canonical key everywhere. */
   id: number;
@@ -34,11 +46,29 @@ export interface ChainInfo {
    * `chainBurnsBaseFee`) for any chain that omits it.
    */
   burnsBaseFee?: boolean;
+  /** CAIP-2 identity. Drives the /{namespace}/{reference}/… route prefix. */
+  caip2: Caip2;
 }
 
 export const CHAINS: ChainInfo[] = [
-  { id: 1, name: "Ethereum", slug: "ethereum", symbol: "ETH", testnet: false, burnsBaseFee: true },
-  { id: 369, name: "PulseChain", slug: "pulsechain", symbol: "PLS", testnet: false, burnsBaseFee: true },
+  {
+    id: 1,
+    name: "Ethereum",
+    slug: "ethereum",
+    symbol: "ETH",
+    testnet: false,
+    burnsBaseFee: true,
+    caip2: { namespace: "eip155", reference: "1" },
+  },
+  {
+    id: 369,
+    name: "PulseChain",
+    slug: "pulsechain",
+    symbol: "PLS",
+    testnet: false,
+    burnsBaseFee: true,
+    caip2: { namespace: "eip155", reference: "369" },
+  },
   {
     id: 943,
     name: "PulseChain Testnet v4",
@@ -46,6 +76,7 @@ export const CHAINS: ChainInfo[] = [
     symbol: "v4PLS",
     testnet: true,
     burnsBaseFee: true,
+    caip2: { namespace: "eip155", reference: "943" },
   },
   {
     id: 11155111,
@@ -54,12 +85,29 @@ export const CHAINS: ChainInfo[] = [
     symbol: "ETH",
     testnet: true,
     burnsBaseFee: true,
+    caip2: { namespace: "eip155", reference: "11155111" },
   },
 ];
 
 /** Lookup by numeric chain id, or undefined if not registered. */
 export function chainById(id: number): ChainInfo | undefined {
   return CHAINS.find((c) => c.id === id);
+}
+
+/** The CAIP-2 pair for a registered chain, or undefined if we do not serve it. */
+export function chainCaip2(id: number): Caip2 | undefined {
+  return chainById(id)?.caip2;
+}
+
+/**
+ * The chain id for a CAIP-2 pair, or undefined for a namespace we do not serve
+ * and for any id outside the registry. The namespace match is case-insensitive
+ * because URLs get typed by hand; the reference is compared exactly, so a
+ * colon-form string never matches.
+ */
+export function caip2ToChainId(namespace: string, reference: string): number | undefined {
+  const ns = namespace.toLowerCase();
+  return CHAINS.find((c) => c.caip2.namespace === ns && c.caip2.reference === reference)?.id;
 }
 
 /**

@@ -16,6 +16,7 @@ import { Icon } from "@iconify/react";
 import { Tooltip } from "./primitives/Tooltip";
 import { CopyButton } from "./primitives/CopyButton";
 import { scanPath } from "../lib/scanRoutes";
+import { useActiveChainId } from "../lib/activeChain";
 
 export type EntityKind = "tx" | "address" | "contract";
 
@@ -27,16 +28,23 @@ interface Action {
   primary?: boolean;
 }
 
+/**
+ * `chainId` is the page's own scope. Every mount site (TxDetail, AddressView,
+ * ContractView) already lives inside a chain-scoped page, so threading it
+ * through the "Open in Explorer" jump saves a bare-path resolve+redirect for
+ * a click that already knew its chain.
+ */
 function actionsFor(
   kind: EntityKind,
   value: string,
+  chainId: number,
   contractAddress?: string | null,
 ): Action[] {
   if (kind === "tx") {
     const list: Action[] = [
       { id: "debug", label: "Debug", icon: "heroicons:bug-ant", href: `/debugger/${value}`, primary: true },
       { id: "fork", label: "Fork from here", icon: "heroicons:arrows-right-left", href: `/fork?fromTx=${value}` },
-      { id: "explorer", label: "Open in Explorer", icon: "heroicons:magnifying-glass", href: scanPath("tx", value) },
+      { id: "explorer", label: "Open in Explorer", icon: "heroicons:magnifying-glass", href: scanPath("tx", value, chainId) },
     ];
     if (contractAddress) {
       list.push({
@@ -50,7 +58,7 @@ function actionsFor(
   }
   // address + contract share the address jump set
   return [
-    { id: "explorer", label: "Open in Explorer", icon: "heroicons:magnifying-glass", href: scanPath(kind === "contract" ? "contract" : "address", value), primary: true },
+    { id: "explorer", label: "Open in Explorer", icon: "heroicons:magnifying-glass", href: scanPath(kind === "contract" ? "contract" : "address", value, chainId), primary: true },
     { id: "simulate", label: "Simulate call", icon: "heroicons:play-circle", href: `/simulate?to=${value}` },
     { id: "storage", label: "Storage layout", icon: "heroicons:rectangle-stack", href: `/storage?address=${value}` },
     { id: "debugger", label: "Debugger", icon: "heroicons:bug-ant", href: `/debugger` },
@@ -73,7 +81,8 @@ export function EntityActionBar({
   className?: string;
 }) {
   const navigate = useNavigate();
-  const actions = actionsFor(kind, value, contractAddress).filter(
+  const chainId = useActiveChainId();
+  const actions = actionsFor(kind, value, chainId, contractAddress).filter(
     (a) => !omit.includes(a.id),
   );
   // If the natural primary was omitted, promote the first remaining action.

@@ -15,6 +15,7 @@
 
 import type { ReactNode, CSSProperties } from "react";
 import { scanPath, type ScanKind } from "../../lib/scanRoutes";
+import { useActiveChainId } from "../../lib/activeChain";
 import { Tooltip } from "../primitives/Tooltip";
 
 interface ExplorerTargetLike {
@@ -22,13 +23,18 @@ interface ExplorerTargetLike {
   value: string;
 }
 
-/** Map a nav target to the hash URL (EIP-3091 path scheme). */
-function hrefForTarget(target: ExplorerTargetLike): string {
+/**
+ * Map a nav target to the hash URL (EIP-3091 path scheme). `chainId` is the
+ * page's own scope — every mount site lives inside a chain-scoped page (or
+ * collapses to the default chain on an all-chain one), so the link carries
+ * that scope instead of paying for a bare-path resolve+redirect.
+ */
+function hrefForTarget(target: ExplorerTargetLike, chainId: number): string {
   const kinds = ["tx", "block", "address", "contract"] as const;
   const kind: ScanKind = kinds.includes(target.type as ScanKind)
     ? (target.type as ScanKind)
     : "address";
-  return `#${scanPath(kind, target.value)}`;
+  return `#${scanPath(kind, target.value, chainId)}`;
 }
 
 export function ExplorerLink<T extends ExplorerTargetLike>({
@@ -46,9 +52,10 @@ export function ExplorerLink<T extends ExplorerTargetLike>({
   style?: CSSProperties;
   children: ReactNode;
 }) {
+  const chainId = useActiveChainId();
   const link = (
     <a
-      href={hrefForTarget(target)}
+      href={hrefForTarget(target, chainId)}
       className={className}
       style={style}
       onClick={(e) => {

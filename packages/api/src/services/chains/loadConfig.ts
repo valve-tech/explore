@@ -90,6 +90,7 @@ export function buildChainConfig(input: ChainInput): ChainConfig {
     blockscoutBase: input.blockscoutBase,
     sourcifyEnabled: input.sourcifyEnabled,
     viemChain,
+    caip2: { namespace: "eip155", reference: String(input.chainId) },
     explorerSlug: input.explorerSlug ?? slugify(input.name),
     defaultBlockTimeSeconds: input.defaultBlockTimeSeconds,
     testnet: input.testnet,

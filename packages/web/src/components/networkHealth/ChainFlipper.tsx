@@ -1,23 +1,23 @@
-import { useSearchParams } from "react-router-dom";
-import { CHAINS, DEFAULT_CHAIN_ID } from "../../lib/chains";
+import { useLocation, useNavigate } from "react-router-dom";
+import { CHAINS } from "../../lib/chains";
 import { useActiveChainId } from "../../lib/activeChain";
+import { chainRoutePrefix, stripChainPrefix } from "../../lib/chainScope";
 import { ChainGlyph } from "../ChainSelector";
 import { Tooltip } from "../primitives/Tooltip";
 
 /**
- * Inline chain flipper for the network-health page — one pill per chain, writes
- * `?chainid=N` (the same param every chain-aware view reads). The default chain
- * drops the param so its URL stays canonical.
+ * Inline chain flipper for the network-health page — one pill per chain,
+ * writes the chain into the path prefix, like every other chain writer on
+ * this branch. `chainRoutePrefix` returns "" for a chain we do not serve, so
+ * the prefix drops rather than pointing at a route that resolves to nothing.
  */
 export function ChainFlipper() {
   const active = useActiveChainId();
-  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const pick = (id: number) => {
-    const next = new URLSearchParams(params);
-    if (id === DEFAULT_CHAIN_ID) next.delete("chainid");
-    else next.set("chainid", String(id));
-    setParams(next);
+    navigate(`${chainRoutePrefix(id)}${stripChainPrefix(location.pathname)}${location.search}`);
   };
 
   return (

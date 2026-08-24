@@ -41,6 +41,9 @@ export interface ChainConfig {
 
   viemChain: Chain;
 
+  /** CAIP-2 identity, mirrored by the web registry's ChainInfo.caip2. */
+  caip2: { namespace: string; reference: string };
+
   /**
    * True when the chain burns the EIP-1559 base fee (validator earns only the
    * tip). Drives the "validator revenue per gas" axis in the network-health

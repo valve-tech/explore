@@ -97,19 +97,33 @@ table is mounted twice:
 
 ```tsx
 <Routes>
-  <Route path="/:ns/:ref/*" element={<ChainScopedRoutes />} />
+  {/* One literal route per supported namespace. */}
+  <Route
+    path="/eip155/:ref/*"
+    element={<ChainScopedRoutes namespace="eip155"><AppRoutes /></ChainScopedRoutes>}
+  />
   <Route path="/*" element={<AppRoutes />} />
 </Routes>
 ```
 
-`ChainScopedRoutes` validates the namespace and reference against the registry,
-binds them into a `ChainScopeContext`, and renders `<AppRoutes />`. An unknown
-namespace renders not-found. It does not fall through.
+`ChainScopedRoutes` takes its namespace as a prop, validates the reference
+against the registry, and renders `<AppRoutes />`. An unregistered reference
+renders not-found rather than falling through — falling through would render the
+page against the default chain and quietly answer a question nobody asked.
 
-React Router 7 ranks static segments above dynamic ones, so `/settings`,
-`/workspace/:id`, and `/network-health/block/:number` still win against
-`/:ns/:ref/*`. A test pins that ranking, because it is behaviour we depend on
-rather than behaviour we control.
+**The namespace is a literal, not a parameter, and that is load-bearing.** A
+`/:ns/:ref/*` route does not work: the outer `<Routes>` ranks only its own two
+routes and never sees the static segments inside `AppRoutes`, so every
+two-segment URL — `/tx/0xabc`, `/workspace/abc`, `/block/123` — matches it with
+`ns="tx"` and renders not-found. A static first segment ranks correctly against
+`/*`, so a legacy URL never matches the scoped route at all. Adding a namespace
+later costs one route line. A test pins the ranking against an inner route table
+that mirrors the real one.
+
+An unknown namespace (`/bip122/…`) therefore falls through to `AppRoutes` and
+matches nothing, rather than rendering "Unsupported chain". An unregistered
+*reference* (`/eip155/8453/…`) still renders it, which is the case a user can
+actually produce by editing a URL.
 
 ### Both routers keep working
 

@@ -10,6 +10,7 @@ import {
 } from "../../api/explorer";
 import { fetchHoldings, type Holding } from "../../api/portfolio";
 import { formatAmountDisplay } from "../../lib/format/tokenAmount";
+import AlsoOnBar from "./AlsoOnBar";
 import { AddressHeader } from "./AddressView/AddressHeader";
 import { SubTabBar, type AddressSubTab } from "./AddressView/SubTabBar";
 import {
@@ -153,6 +154,8 @@ export default function AddressView({
           onNavigate({ type: "contract", value: address })
         }
       />
+
+      <AlsoOnBar address={address} activeChainId={chainId} />
 
       <SubTabBar
         active={subTab}

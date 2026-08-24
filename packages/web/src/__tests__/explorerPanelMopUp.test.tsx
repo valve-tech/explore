@@ -111,6 +111,14 @@ function renderAt(path: string) {
           <Route path="/block/:id" element={<ExplorerPanel />} />
           <Route path="/address/:address" element={<ExplorerPanel />} />
           <Route path="/token/:address" element={<ExplorerPanel />} />
+          {/* A bare /address/:address is now the all-chain page, which the
+              mocked AddressView never renders — these breadcrumb tests need a
+              chain-scoped start so an address link stays on AddressView. */}
+          <Route path="/eip155/:ref/explorer" element={<ExplorerPanel />} />
+          <Route path="/eip155/:ref/tx/:hash" element={<ExplorerPanel />} />
+          <Route path="/eip155/:ref/block/:id" element={<ExplorerPanel />} />
+          <Route path="/eip155/:ref/address/:address" element={<ExplorerPanel />} />
+          <Route path="/eip155/:ref/token/:address" element={<ExplorerPanel />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -125,7 +133,7 @@ describe("<ExplorerPanel /> — breadcrumb navigation arms", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("goes back via the Back button (navigate(-1))", async () => {
-    renderAt("/explorer");
+    renderAt("/eip155/369/explorer");
     fireEvent.click(screen.getByText("home-go-block"));
     await screen.findByText(/block-view:/);
     fireEvent.click(screen.getByText("block-go-addr"));
@@ -137,7 +145,7 @@ describe("<ExplorerPanel /> — breadcrumb navigation arms", () => {
   });
 
   it("jumps to an intermediate history crumb (jumpTo index>=0)", async () => {
-    renderAt("/explorer");
+    renderAt("/eip155/369/explorer");
     fireEvent.click(screen.getByText("home-go-block"));
     await screen.findByText(/block-view:/); // trail: [] → block
     fireEvent.click(screen.getByText("block-go-addr"));
@@ -151,7 +159,7 @@ describe("<ExplorerPanel /> — breadcrumb navigation arms", () => {
   });
 
   it("collapses a long trail and expands it with the '…' button", async () => {
-    renderAt("/explorer");
+    renderAt("/eip155/369/explorer");
     // Grow the trail past CRUMB_VISIBLE (4): each hop pushes the prior view.
     fireEvent.click(screen.getByText("home-go-block"));
     await screen.findByText(/block-view:/); // cur block, trail []

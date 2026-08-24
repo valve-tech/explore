@@ -8,6 +8,8 @@ import AppShell from "./components/AppShell";
 import Landing from "./components/Landing";
 import RouteFallback from "./components/RouteFallback";
 import WatchNotifications from "./components/watcher/WatchNotifications";
+import ChainScopedRoutes from "./components/routing/ChainScopedRoutes";
+import LegacyChainParamRedirect from "./components/routing/LegacyChainParamRedirect";
 import { useVersionDriftReload } from "./hooks/useVersionDriftReload";
 
 // Route-level code splitting. Landing stays eager (it's the default route and
@@ -34,6 +36,46 @@ const DraftsIndex = lazy(() => import("./components/drafts/DraftsIndex"));
 const SettingsPanel = lazy(() => import("./components/settings/SettingsPanel"));
 const WorkspaceList = lazy(() => import("./components/workspace/WorkspaceList"));
 const WorkspaceDetail = lazy(() => import("./components/workspace/WorkspaceDetail"));
+
+/**
+ * The full route table. Mounted twice: once under the chain-scoped prefix
+ * (`/eip155/369/…`) and once bare (`/tx/0xabc`), so every route works both
+ * ways without being declared twice.
+ */
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/simulate" element={<SimulationPage />} />
+      <Route path="/fork" element={<ForkSimulator />} />
+      <Route path="/build" element={<TransactionBuilder />} />
+      <Route path="/bundle" element={<BundleSimulator />} />
+      <Route path="/monitoring" element={<AlertDashboard />} />
+      <Route path="/testnets" element={<TestNetDashboard />} />
+      <Route path="/explorer" element={<ExplorerPanel />} />
+      {/* EIP-3091 scan endpoints — shareable, back/forward-friendly. */}
+      <Route path="/tx/:hash" element={<ExplorerPanel />} />
+      <Route path="/block/:id" element={<ExplorerPanel />} />
+      <Route path="/address/:address" element={<ExplorerPanel />} />
+      <Route path="/token/:address" element={<ExplorerPanel />} />
+      <Route path="/mempool" element={<MempoolView />} />
+      <Route path="/network-health" element={<NetworkHealthPage />} />
+      <Route path="/network-health/block/:number" element={<NetworkHealthBlockPage />} />
+      <Route path="/debugger" element={<DebuggerView />} />
+      <Route path="/debugger/:txHash/:tab" element={<DebuggerView />} />
+      <Route path="/debugger/:txHash" element={<DebuggerView />} />
+      <Route path="/actions" element={<ActionsDashboard />} />
+      <Route path="/storage" element={<StorageLayoutViewer />} />
+      <Route path="/verify" element={<VerifyContract />} />
+      <Route path="/diff" element={<ContractDiff />} />
+      <Route path="/settings" element={<SettingsPanel />} />
+      <Route path="/ui" element={<ComponentGallery />} />
+      <Route path="/drafts/*" element={<DraftsIndex />} />
+      <Route path="/workspace" element={<WorkspaceList />} />
+      <Route path="/workspace/:id" element={<WorkspaceDetail />} />
+    </Routes>
+  );
+}
 
 export default function App() {
   const [apiStatus, setApiStatus] = useState<"connected" | "disconnected" | "checking">("checking");
@@ -110,36 +152,25 @@ export default function App() {
 
       <AppShell apiStatus={apiStatus}>
         <ErrorBoundary resetKey={location.pathname}>
+        <LegacyChainParamRedirect />
         <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/simulate" element={<SimulationPage />} />
-          <Route path="/fork" element={<ForkSimulator />} />
-          <Route path="/build" element={<TransactionBuilder />} />
-          <Route path="/bundle" element={<BundleSimulator />} />
-          <Route path="/monitoring" element={<AlertDashboard />} />
-          <Route path="/testnets" element={<TestNetDashboard />} />
-          <Route path="/explorer" element={<ExplorerPanel />} />
-          {/* EIP-3091 scan endpoints — shareable, back/forward-friendly. */}
-          <Route path="/tx/:hash" element={<ExplorerPanel />} />
-          <Route path="/block/:id" element={<ExplorerPanel />} />
-          <Route path="/address/:address" element={<ExplorerPanel />} />
-          <Route path="/token/:address" element={<ExplorerPanel />} />
-          <Route path="/mempool" element={<MempoolView />} />
-          <Route path="/network-health" element={<NetworkHealthPage />} />
-          <Route path="/network-health/block/:number" element={<NetworkHealthBlockPage />} />
-          <Route path="/debugger" element={<DebuggerView />} />
-          <Route path="/debugger/:txHash/:tab" element={<DebuggerView />} />
-          <Route path="/debugger/:txHash" element={<DebuggerView />} />
-          <Route path="/actions" element={<ActionsDashboard />} />
-          <Route path="/storage" element={<StorageLayoutViewer />} />
-          <Route path="/verify" element={<VerifyContract />} />
-          <Route path="/diff" element={<ContractDiff />} />
-          <Route path="/settings" element={<SettingsPanel />} />
-          <Route path="/ui" element={<ComponentGallery />} />
-          <Route path="/drafts/*" element={<DraftsIndex />} />
-          <Route path="/workspace" element={<WorkspaceList />} />
-          <Route path="/workspace/:id" element={<WorkspaceDetail />} />
+          {/* Chain-scoped subtree: /eip155/369/tx/0xabc…
+              The namespace is a LITERAL segment, one route per supported namespace.
+              A param (`/:ns/:ref/*`) does NOT work: this outer <Routes> ranks only
+              its own two routes and never sees the static segments inside
+              <AppRoutes>, so `/tx/0xabc` matches with ns="tx" and renders
+              not-found. A static first segment ranks correctly against `/*`, so a
+              legacy URL never matches here at all. */}
+          <Route
+            path="/eip155/:ref/*"
+            element={
+              <ChainScopedRoutes namespace="eip155">
+                <AppRoutes />
+              </ChainScopedRoutes>
+            }
+          />
+          <Route path="/*" element={<AppRoutes />} />
         </Routes>
         </Suspense>
         </ErrorBoundary>

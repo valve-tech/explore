@@ -1,3 +1,6 @@
+import { formatEther } from "viem";
+import { chainSymbol } from "../../lib/chains";
+
 export function truncateAddr(addr: string): string {
   if (!addr || addr.length < 12) return addr;
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -72,4 +75,14 @@ export function formatPLS(valuePLS: string, symbol: string = "PLS"): string {
   const small = subscriptSmallString(valuePLS);
   if (small !== null) return `${small} ${symbol}`;
   return `${groupDecimalString(valuePLS, 6)} ${symbol}`;
+}
+
+/**
+ * Format a raw native-balance string, in wei, for display. Scales wei to
+ * whole units with viem's `formatEther`, then hands the exact decimal string
+ * to `formatPLS` with the chain's own ticker. Storage stays a raw integer;
+ * this is the one place it gets scaled, at the render edge.
+ */
+export function formatNative(balanceWei: string, chainId: number): string {
+  return formatPLS(formatEther(BigInt(balanceWei)), chainSymbol(chainId));
 }

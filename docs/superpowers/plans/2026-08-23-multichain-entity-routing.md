@@ -20,6 +20,7 @@
 - **Web styling:** outset box-shadow borders (`ring-1 ring-(--color-…)` or `shadow-[0_0_0_1px_…]`), never `border`. Square corners on anything that can reach a viewport edge. Padding `p-2 sm:p-4`. Numbers carry a mono, tabular face. No native `<select>` or checkbox.
 - **Async event handlers** are called as `void handler()`.
 - **Test commands:** web `npm run test --workspace=packages/web`; api unit `npm run test:unit --workspace=packages/api`.
+- **Typecheck is part of done.** Web work must leave `npx tsc -b packages/web` silent; api work must leave `npm run typecheck --workspace=packages/api` silent. Vitest does not typecheck, so a green suite is not evidence the build passes. `packages/web/tsconfig.json` sets `noUncheckedIndexedAccess`, which makes every un-defaulted array destructure `T | undefined`.
 - **Phase 1 changes no rendering.** If it moves a pixel, it is wrong.
 
 ---
@@ -155,6 +156,14 @@ describe("useResolvedChainRedirect — the three invariants", () => {
   });
 });
 ```
+
+> **Correction applied during execution (commit `0c588cd`).** The invariant-2
+> test above cannot fail: for a non-default chain the hook's observable state is
+> `"idle"` by the time the test samples it, so `not.toBe("settled")` holds
+> whether or not the invariant exists. The shipped test records the hook's value
+> on every render and asserts `"settled"` never appears, and separately asserts
+> the redirect writes `chainid=943`. Read the committed file, not the block
+> above, if you need this test.
 
 - [ ] **Step 2: Run the tests to verify they pass against current code**
 
@@ -321,12 +330,11 @@ git commit -m "feat(chains): give every chain its CAIP-2 identity"
 - Test: `packages/web/src/__tests__/chainScope.test.ts` (create)
 
 **Interfaces:**
-- Consumes: `caip2ToChainId`, `DEFAULT_CHAIN_ID` from `lib/chains` (Task 2).
+- Consumes: `caip2ToChainId`, `chainCaip2` from `lib/chains` (Task 2). NOT `DEFAULT_CHAIN_ID` — this module stays a pure description of the URL.
 - Produces:
   - `type ChainScope = { kind: "one"; chainId: number } | { kind: "all" }`
   - `parseChainScope(pathname: string, search: string): ChainScope`
   - `chainRoutePrefix(chainId: number): string` → `"/eip155/369"`
-  - `stripChainPrefix(pathname: string): string`
   - `readLocationScope(): ChainScope` — non-reactive, handles both router shapes
 
 - [ ] **Step 1: Write the failing tests**
@@ -336,7 +344,6 @@ import { describe, it, expect, afterEach } from "vitest";
 import {
   parseChainScope,
   chainRoutePrefix,
-  stripChainPrefix,
   readLocationScope,
 } from "../lib/chainScope";
 
@@ -386,7 +393,7 @@ describe("parseChainScope", () => {
   });
 });
 
-describe("chainRoutePrefix / stripChainPrefix", () => {
+describe("chainRoutePrefix", () => {
   it("builds the two-segment prefix", () => {
     expect(chainRoutePrefix(369)).toBe("/eip155/369");
     expect(chainRoutePrefix(11155111)).toBe("/eip155/11155111");
@@ -394,12 +401,6 @@ describe("chainRoutePrefix / stripChainPrefix", () => {
 
   it("returns an empty prefix for an unregistered chain", () => {
     expect(chainRoutePrefix(8453)).toBe("");
-  });
-
-  it("removes a valid prefix and leaves an unprefixed path alone", () => {
-    expect(stripChainPrefix("/eip155/369/tx/0xabc")).toBe("/tx/0xabc");
-    expect(stripChainPrefix("/tx/0xabc")).toBe("/tx/0xabc");
-    expect(stripChainPrefix("/bip122/000/tx/0xabc")).toBe("/bip122/000/tx/0xabc");
   });
 });
 
@@ -501,13 +502,6 @@ export function chainRoutePrefix(chainId: number): string {
   return pair ? `/${pair.namespace}/${pair.reference}` : "";
 }
 
-/** Remove a valid chain prefix from a path; leave anything else untouched. */
-export function stripChainPrefix(pathname: string): string {
-  if (scopeFromPath(pathname) === undefined) return pathname;
-  const rest = pathname.split("/").slice(3).join("/");
-  return `/${rest}`;
-}
-
 /**
  * Non-reactive scope read for fetch-layer code that runs outside a component.
  * Handles both router shapes: BrowserRouter keeps the path in `pathname` and
@@ -521,7 +515,8 @@ export function readLocationScope(): ChainScope {
   if (typeof window === "undefined") return ALL;
   const hash = window.location.hash.startsWith("#/") ? window.location.hash.slice(1) : "";
   if (hash) {
-    const [path, query = ""] = hash.split("?");
+    // `noUncheckedIndexedAccess` is on, so BOTH elements need a default.
+    const [path = "", query = ""] = hash.split("?");
     return parseChainScope(path, query ? `?${query}` : "");
   }
   return parseChainScope(window.location.pathname, window.location.search);
@@ -531,7 +526,7 @@ export function readLocationScope(): ChainScope {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npm run test --workspace=packages/web -- chainScope`
-Expected: PASS, all 16 cases.
+Expected: PASS, all 15 cases.
 
 - [ ] **Step 5: Commit**
 
@@ -644,7 +639,7 @@ git commit -m "refactor(web): route activeChain through the chain-scope parser"
 
 **Files:**
 - Modify: `packages/web/src/lib/scanRoutes.ts`
-- Test: `packages/web/src/__tests__/scanRoutes.test.ts` (create)
+- Test: `packages/web/src/__tests__/scanRoutes.test.ts` (**modify — this file already exists; ADD to it, never overwrite it**)
 
 **Interfaces:**
 - Consumes: `chainRoutePrefix` from `lib/chainScope` (Task 3).
@@ -749,7 +744,7 @@ git commit -m "feat(web): let scanPath build chain-prefixed entity paths"
 - Test: `packages/web/src/__tests__/chainScopedRouting.test.tsx` (create)
 
 **Interfaces:**
-- Consumes: `parseChainScope`, `chainRoutePrefix`, `stripChainPrefix` from `lib/chainScope`.
+- Consumes: `parseChainScope`, `chainRoutePrefix` from `lib/chainScope`.
 - Produces: `<AppRoutes />` (the route table, extracted from `App.tsx`), `<ChainScopedRoutes />`, `<LegacyChainParamRedirect />`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -766,15 +761,39 @@ function Probe() {
   return <div data-testid="url">{location.pathname + location.search}</div>;
 }
 
+/**
+ * Stands in for the real `AppRoutes`. The static segments MUST live in this
+ * inner <Routes>, exactly as they do in App.tsx — a harness that declares them
+ * at the outer level tests a structure the app does not have, and hides the
+ * ranking bug this file exists to catch.
+ */
+function InnerRoutes() {
+  return (
+    <Routes>
+      <Route path="/settings" element={<div data-testid="hit">settings</div>} />
+      <Route path="/workspace/:id" element={<div data-testid="hit">workspace</div>} />
+      <Route path="/tx/:hash" element={<div data-testid="hit">tx</div>} />
+      <Route path="/block/:id" element={<div data-testid="hit">block</div>} />
+      <Route path="/drafts/*" element={<div data-testid="hit">drafts</div>} />
+      <Route path="/*" element={<Probe />} />
+    </Routes>
+  );
+}
+
 function renderAt(entry: string) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <LegacyChainParamRedirect />
       <Routes>
-        <Route path="/settings" element={<div data-testid="hit">settings</div>} />
-        <Route path="/workspace/:id" element={<div data-testid="hit">workspace</div>} />
-        <Route path="/:ns/:ref/*" element={<ChainScopedRoutes><Probe /></ChainScopedRoutes>} />
-        <Route path="/*" element={<Probe />} />
+        <Route
+          path="/eip155/:ref/*"
+          element={
+            <ChainScopedRoutes namespace="eip155">
+              <InnerRoutes />
+            </ChainScopedRoutes>
+          }
+        />
+        <Route path="/*" element={<InnerRoutes />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -861,16 +880,22 @@ import { caip2ToChainId } from "../../lib/chains";
  * same prefix. There is no context to thread, and deliberately so: one parser,
  * one answer.
  */
-export default function ChainScopedRoutes({ children }: { children: ReactNode }) {
-  const { ns = "", ref = "" } = useParams<{ ns: string; ref: string }>();
-  const chainId = caip2ToChainId(ns, ref);
+export default function ChainScopedRoutes({
+  namespace,
+  children,
+}: {
+  namespace: string;
+  children: ReactNode;
+}) {
+  const { ref = "" } = useParams<{ ref: string }>();
+  const chainId = caip2ToChainId(namespace, ref);
 
   if (chainId === undefined) {
     return (
       <div className="p-2 sm:p-4 shadow-[0_0_0_1px_var(--color-border-default)]">
         <p className="theme-text">Unsupported chain</p>
         <p className="theme-text-secondary theme-mono text-sm">
-          {ns}/{ref} is not a chain Explore serves.
+          {namespace}/{ref} is not a chain Explore serves.
         </p>
       </div>
     );
@@ -934,13 +959,17 @@ Move the entire `<Routes>…</Routes>` body from `App.tsx` into a new local comp
   <LegacyChainParamRedirect />
   <Suspense fallback={<RouteFallback />}>
     <Routes>
-      {/* Chain-scoped subtree: /eip155/369/tx/0xabc… Validated, then the same
-          route table renders underneath. React Router ranks static segments
-          above dynamic ones, so /settings and /workspace/:id still win. */}
+      {/* Chain-scoped subtree: /eip155/369/tx/0xabc…
+          The namespace is a LITERAL segment, one route per supported namespace.
+          A param (`/:ns/:ref/*`) does NOT work: this outer <Routes> ranks only
+          its own two routes and never sees the static segments inside
+          <AppRoutes>, so `/tx/0xabc` matches with ns="tx" and renders
+          not-found. A static first segment ranks correctly against `/*`, so a
+          legacy URL never matches here at all. */}
       <Route
-        path="/:ns/:ref/*"
+        path="/eip155/:ref/*"
         element={
-          <ChainScopedRoutes>
+          <ChainScopedRoutes namespace="eip155">
             <AppRoutes />
           </ChainScopedRoutes>
         }
@@ -1918,8 +1947,12 @@ describe("EntityRow", () => {
   it("uses an outset shadow outline and never a CSS border", () => {
     const { container } = renderRow({ main: "a", sub: "b" });
     const row = container.firstElementChild as HTMLElement;
-    expect(row.className).not.toMatch(/\bborder(-|\b)/);
-    expect(row.className).toMatch(/shadow-\[/);
+    // Inspect class TOKENS, not the raw string. An arbitrary-value utility like
+    // shadow-[0_0_0_1px_var(--color-border-default)] carries the word "border"
+    // inside a custom-property name, and that must not count as a border class.
+    const tokens = row.className.split(/\s+/).filter(Boolean);
+    expect(tokens.some((t) => /^border(-|$)/.test(t))).toBe(false);
+    expect(tokens.some((t) => t.startsWith("shadow-["))).toBe(true);
   });
 });
 ```
@@ -3545,33 +3578,54 @@ if (scope.kind === "all" && isBlockNumber) {
 
 - [ ] **Step 6: Update `CLAUDE.md`**
 
-The deep-link paragraph states invariants that this work changes. Replace the paragraph beginning "**Chain lives in `?chainid=N`, so deep links must resolve it.**" with:
+The deep-link paragraph states invariants that this work changes. Replace the paragraph beginning "**Chain lives in `?chainid=N`, so deep links must resolve it.**" with the text below.
+
+**This text reflects what actually shipped, including four corrections made during execution.** Do not paraphrase it from the spec — the spec's earlier drafts describe a routing design that was replaced.
 
 ```markdown
 **Chain lives in the path as `/eip155/<id>/…`, and a chain-less URL is not a
-bug.** The canonical scoped form is `/eip155/369/tx/0xabc` — two CAIP-2 segments,
-never the colon form (`docs/GIB_SHOW.md` records `/image/eip155:369` returning
-404 where the dash form returns 200). `packages/web/src/lib/chainScope.ts` is the
-ONLY reader; `useActiveChainId()` delegates to it and keeps its old signature, so
-its ~40 call sites never moved. `?chainid=N` survives as a legacy form that
-`LegacyChainParamRedirect` rewrites once — it fires only when the path has no
-prefix, and writing the prefix is what prevents a loop.
+bug.** The canonical scoped form is `/eip155/369/tx/0xabc` — two CAIP-2 path
+segments, never the colon form (`docs/GIB_SHOW.md` records `/image/eip155:369`
+returning 404 where the dash form returns 200).
+`packages/web/src/lib/chainScope.ts` is the ONLY reader; `useActiveChainId()`
+delegates to it and kept its old signature, so its ~40 call sites never moved.
+
+**The namespace is a LITERAL route segment, and that is load-bearing.**
+`App.tsx` mounts `<Route path="/eip155/:ref/*">`, one route per supported
+namespace. A parameter route (`/:ns/:ref/*`) does NOT work: the outer `<Routes>`
+ranks only its own routes and never sees the static segments inside
+`AppRoutes`, so every two-segment URL — `/tx/0xabc`, `/workspace/abc` — would
+match it with `ns="tx"` and render not-found. Adding a chain family later costs
+one route line. An unregistered *reference* (`/eip155/8453/…`) renders
+"Unsupported chain"; an unknown *namespace* (`/bip122/…`) falls through to
+`AppRoutes`, matches nothing, and renders blank — accepted, because an app-wide
+404 route is separate work.
+
+**Anything that reads the path must strip the prefix first.**
+`stripChainPrefix` exists for this. `ExplorerPanel` selects its view from
+`location.pathname`, and without the strip every `/eip155/1/tx/0x…` rendered
+Explorer Home.
 
 **An unscoped URL means "every chain" on exactly three routes** —
 `/address/:addr`, `/token/:addr`, `/block/:number` — which render every chain and
 never redirect. Every other route collapses "all" to `DEFAULT_CHAIN_ID`.
-`useResolvedChainRedirect` still resolves a chain-less `/tx/0x…` and
-`/debugger/0x…`, because a hash lives on exactly one chain; it deliberately does
-NOT fire for an address, which is valid on all of them. Its three invariants
-still hold and are pinned in `__tests__/routingCharacterization.test.tsx`: it runs
-only when the scope is absent, its `"resolving"` state gates the entity fetch, and
-it does not redirect when the entity is on the default chain.
+
+**`useResolvedChainRedirect` is disabled when the URL names a chain by EITHER
+mechanism** — a path prefix or a well-formed `?chainid=N`. An empty or malformed
+`chainid` is deliberately NOT a scope: the hook resolves it and writes a real
+chain. It still resolves a chain-less `/tx/0x…` and `/debugger/0x…`, because a
+hash lives on exactly one chain, and it deliberately never fires for an address,
+which is valid on all of them. Its invariants are pinned in
+`__tests__/routingCharacterization.test.tsx` — do not weaken them.
 
 **The API transport still uses `?chainid=N`.** Only the browser URL moved.
 `scoped()` and `chainContext` are unchanged. The chain-agnostic endpoints
 (`/api/resolve`, `/api/multichain/*`) ignore `chainid` by design and take an
 optional `chains=1,369` allowlist, which is how the global testnet toggle
-(`lib/settings/testnets.ts`) halves the fan-out.
+(`lib/settings/testnets.ts`) halves the fan-out. That toggle is a COST CONTROL,
+not a preference — production has 429'd on Ethereum before, so the setting lives
+in a module store the fetch layer can read, and the chain set sits in every
+TanStack Query key so flipping it refetches instead of serving a stale answer.
 ```
 
 - [ ] **Step 7: Run the full suite and both typechecks**

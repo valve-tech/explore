@@ -34,30 +34,63 @@ migration 012 had to do the same for `trace_cache` plus the two in-process trace
 caches, which were serving one chain's trace to every chain. A tx hash is not a
 cache identity on its own.
 
-**Chain lives in `?chainid=N`, so deep links must resolve it.** A shared
-`/debugger/0xabc` or `/tx/0xabc` carries no chain and would otherwise resolve to
-PulseChain, reporting "no data" for a transaction mined anywhere else. The search
-paths (Landing, ⌘K) route via `GET /api/resolve`; entity routes use
-`useResolvedChainRedirect` to do the same for the URL itself — currently
-`/debugger/:txHash` and every EIP-3091 route (`/tx`, `/address`, `/token`,
-`/block`) via ExplorerPanel. **Any new entity route needs it too.** Two rules the
-hook encodes: it runs only when `chainid` is ABSENT (an explicit one is the
-caller's scope, and writing the param is what prevents a redirect loop), and its
-`"resolving"` state must gate the entity fetch — the redirect lands one render
-after the resolve returns, so acting on "the data arrived" still fetches the
-wrong chain.
+**Chain lives in the path as `/eip155/<id>/…`, and a chain-less URL is not a
+bug.** The canonical scoped form is `/eip155/369/tx/0xabc` — two CAIP-2 path
+segments, never the colon form (`docs/GIB_SHOW.md` records `/image/eip155:369`
+returning 404 where the dash form returns 200).
+`packages/web/src/lib/chainScope.ts` is the ONLY reader; `useActiveChainId()`
+delegates to it and kept its old signature, so its ~40 call sites never moved.
 
-The dispatcher refactor to `?chainid=N` routing is in flight on the API side;
-the frontend ChainSelector + Landing/AppShell rebrand is UI-only for now and
-defaults to "All chains" with PulseChain as the live data source until the
-backend lands chain-aware routing.
+**The namespace is a LITERAL route segment, and that is load-bearing.**
+`App.tsx` mounts `<Route path="/eip155/:ref/*">`, one route per supported
+namespace. A parameter route (`/:ns/:ref/*`) does NOT work: the outer `<Routes>`
+ranks only its own routes and never sees the static segments inside
+`AppRoutes`, so every two-segment URL — `/tx/0xabc`, `/workspace/abc` — would
+match it with `ns="tx"` and render not-found. Adding a chain family later costs
+one route line. An unregistered *reference* (`/eip155/8453/…`) renders
+"Unsupported chain"; an unknown *namespace* (`/bip122/…`) falls through to
+`AppRoutes`, matches nothing, and renders blank — accepted, because an app-wide
+404 route is separate work.
+
+**Anything that reads the path must strip the prefix first.**
+`stripChainPrefix` exists for this. `ExplorerPanel` selects its view from
+`location.pathname`, and without the strip every `/eip155/1/tx/0x…` rendered
+Explorer Home.
+
+**An unscoped URL means "every chain" on exactly three routes** —
+`/address/:addr`, `/token/:addr`, `/block/:number` — which render every chain and
+never redirect. Every other route collapses "all" to `DEFAULT_CHAIN_ID`.
+
+**`useResolvedChainRedirect` is disabled when the URL names a chain by EITHER
+mechanism** — a path prefix or a well-formed `?chainid=N`. An empty or malformed
+`chainid` is deliberately NOT a scope: the hook resolves it and writes a real
+chain. It still resolves a chain-less `/tx/0x…` and `/debugger/0x…`, because a
+hash lives on exactly one chain, and it deliberately never fires for an address,
+which is valid on all of them. Its invariants are pinned in
+`__tests__/routingCharacterization.test.tsx` — do not weaken them.
+
+**The API transport still uses `?chainid=N`.** Only the browser URL moved.
+`scoped()` and `chainContext` are unchanged. The chain-agnostic endpoints
+(`/api/resolve`, `/api/multichain/*`) ignore `chainid` by design and take an
+optional `chains=1,369` allowlist, which is how the global testnet toggle
+(`lib/settings/testnets.ts`) halves the fan-out. That toggle is a COST CONTROL,
+not a preference — production has 429'd on Ethereum before, so the setting lives
+in a module store the fetch layer can read, and the chain set sits in every
+TanStack Query key so flipping it refetches instead of serving a stale answer.
+
+Chain-aware routing has landed end to end. The chain picker, the Landing
+search, and the ⌘K palette all resolve a pasted entity to the chain it lives
+on and route straight there; the chain-agnostic endpoints (`/api/resolve`,
+`/api/multichain/*`) back the three all-chain routes above. There is no
+remaining "PulseChain as the live data source" fallback — every route now
+either names a real chain or genuinely renders every chain.
 
 **Stack:** React 19 + React Router 7 + Vite + Tailwind v4 + TanStack Query 5 (frontend), Express 4 + viem + Postgres (`pg`) (backend), Zod (validation), Anvil/Foundry (forks)
 
 **Structure:**
 - `packages/api/` — Express backend (port 10100), routes + services architecture (most services split into per-responsibility subdirectories)
 - `packages/sdk/` — `@valve-tech/trace-sdk` published npm package (React components, hooks, parsers, risks); ESM-only, 100% coverage gate
-- `packages/web/` — React SPA (router-based, 12 routes), dark theme, TanStack Query persisted to IndexedDB
+- `packages/web/` — React SPA (router-based, 27 routes, mounted both bare and under the `/eip155/:ref/*` chain-scoped prefix), dark theme, TanStack Query persisted to IndexedDB
 - `shared/` — PulseChain network constants (no build step)
 - `docs/` — Product spec, per-feature specs, and [CODEBASE_MAP.md](docs/CODEBASE_MAP.md)
 

@@ -38,13 +38,16 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default function MempoolView() {
   const navigate = useNavigate();
+  const chainId = useActiveChainId();
+  // The mempool view is always scoped to one chain (see the query below), so
+  // this jump carries that chain instead of a bare path that would cost a
+  // needless resolve+redirect back to the chain the user is already on.
   const onNavigate = (t: { type: string; value: string }) => {
     const kinds = ["tx", "block", "address", "contract"] as const;
     const kind: ScanKind = kinds.includes(t.type as ScanKind) ? (t.type as ScanKind) : "address";
-    navigate(scanPath(kind, t.value));
+    navigate(scanPath(kind, t.value, chainId));
   };
 
-  const chainId = useActiveChainId();
   const { data, status, error } = useQuery({
     queryKey: ["mempool-pending", chainId],
     queryFn: () => fetchPending(chainId),

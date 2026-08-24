@@ -36,6 +36,13 @@ vi.mock("../components/explorer/BlockView", () => ({
     <div data-testid="block-view">{numberOrHash}</div>
   ),
 }));
+// A bare block NUMBER renders every chain now, not a single one — stub it so
+// these tests stay about the resolve+redirect behaviour of the OTHER routes.
+vi.mock("../components/explorer/BlockHeightView", () => ({
+  default: ({ height }: { height: string }) => (
+    <div data-testid="block-height-view">{height}</div>
+  ),
+}));
 vi.mock("../components/explorer/ContractView", () => ({
   default: ({ address }: { address: string }) => (
     <div data-testid="contract-view">{address}</div>
@@ -43,6 +50,14 @@ vi.mock("../components/explorer/ContractView", () => ({
 }));
 vi.mock("../components/explorer/ExplorerHome", () => ({
   default: () => <div data-testid="explorer-home" />,
+}));
+// A bare address/contract page renders every chain now, not a single one —
+// stub it so these tests stay about the resolve+redirect behaviour of the
+// OTHER routes, without pulling in real presence/activity fetches.
+vi.mock("../components/explorer/MultiChainAddressView", () => ({
+  default: ({ address }: { address: string }) => (
+    <div data-testid="multi-chain-address-view">{address}</div>
+  ),
 }));
 vi.mock("../lib/recentEntities", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/recentEntities")>();
@@ -161,36 +176,26 @@ describe("/tx/:hash deep link", () => {
 });
 
 describe("the other EIP-3091 routes", () => {
-  it("/address/:address redirects to the chain the address has presence on", async () => {
-    resolveEntity.mockResolvedValue({
-      kind: "address",
-      query: ADDR,
-      matches: [{ chainId: PULSECHAIN_TESTNET, isContract: true }],
-    });
-
+  it("/address/:address no longer resolves or redirects — it renders every chain", async () => {
+    // An address is valid on every chain, so "which one?" has no correct
+    // answer. The old behaviour (redirect to the first chain with presence)
+    // is gone; the all-chain view answers the real question instead.
     renderAt(`/address/${ADDR}`);
 
     await waitFor(() =>
-      expect(screen.getByTestId("search").textContent).toBe("?chainid=943"),
+      expect(screen.getByTestId("multi-chain-address-view")).toBeInTheDocument(),
     );
-    await waitFor(() =>
-      expect(screen.getByTestId("address-view")).toBeInTheDocument(),
-    );
+    expect(resolveEntity).not.toHaveBeenCalled();
+    expect(screen.getByTestId("search").textContent).toBe("");
   });
 
-  it("/token/:address resolves on the address too", async () => {
-    resolveEntity.mockResolvedValue({
-      kind: "address",
-      query: ADDR,
-      matches: [{ chainId: PULSECHAIN_TESTNET, isContract: true }],
-    });
-
+  it("/token/:address renders every chain too, with no resolve", async () => {
     renderAt(`/token/${ADDR}`);
 
-    await waitFor(() => expect(resolveEntity).toHaveBeenCalledWith(ADDR));
     await waitFor(() =>
-      expect(screen.getByTestId("contract-view")).toBeInTheDocument(),
+      expect(screen.getByTestId("multi-chain-address-view")).toBeInTheDocument(),
     );
+    expect(resolveEntity).not.toHaveBeenCalled();
   });
 
   it("/block/<number> stays on the default chain — a height is not chain-specific", async () => {
@@ -205,10 +210,17 @@ describe("the other EIP-3091 routes", () => {
 
     renderAt("/block/25058074");
 
+    // A bare block number is chain-less by design — it renders every chain,
+    // not one BlockView.
     await waitFor(() =>
-      expect(screen.getByTestId("block-view")).toBeInTheDocument(),
+      expect(screen.getByTestId("block-height-view")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("search").textContent).toBe("");
+    // BlockHeightView fans this number out across every chain on its own.
+    // Resolving it here first would fan out twice for one page load — the
+    // resolve must never fire for this case, matching the address/token
+    // cases above.
+    expect(resolveEntity).not.toHaveBeenCalled();
   });
 });
 

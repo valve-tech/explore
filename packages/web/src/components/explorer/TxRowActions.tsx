@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { copyToClipboard } from "../../lib/clipboard";
 import { scanPath } from "../../lib/scanRoutes";
+import { useActiveChainId } from "../../lib/activeChain";
 import { Tooltip } from "../primitives/Tooltip";
 
 interface Props {
@@ -132,6 +133,7 @@ function ActionMenu({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const chainId = useActiveChainId();
   const goto = (href: string): void => {
     if (href.startsWith("/")) {
       navigate(href);
@@ -176,7 +178,7 @@ function ActionMenu({
       icon: "heroicons:magnifying-glass",
       enabled: true,
       onClick: () => {
-        goto(scanPath("tx", hash));
+        goto(scanPath("tx", hash, chainId));
         onClose();
       },
     },

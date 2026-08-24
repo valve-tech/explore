@@ -6,6 +6,7 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import { TopBar } from "./AppShell/TopBar";
 import { Sidebar } from "./AppShell/Sidebar";
 import { CommandPalette } from "./AppShell/CommandPalette";
+import TestnetToggle from "./settings/TestnetToggle";
 import type { ApiStatus } from "./AppShell/types";
 
 export default function AppShell({
@@ -70,6 +71,10 @@ export default function AppShell({
           {children}
         </div>
       </div>
+
+      <footer className="p-2 sm:p-4 shadow-[0_-1px_0_0_var(--color-border-default)]">
+        <TestnetToggle />
+      </footer>
 
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
     </div>

@@ -68,10 +68,11 @@ describe("<MempoolView /> mop-up", () => {
   it("routes through onNavigate when a tx-hash link is clicked", async () => {
     mockFetch.mockResolvedValue(snapshot([tx({ hash: "0x" + "1".repeat(64) })]));
     const { container } = renderWithProviders(<MempoolView />);
-    // The tx-hash cell is an ExplorerLink (an <a href="#/tx/…">); a plain click
-    // preventDefaults and calls onNavigate, which maps type→ScanKind + navigate()s.
+    // The tx-hash cell is an ExplorerLink (an <a href="#/eip155/369/tx/…">,
+    // chain-scoped to the active chain); a plain click preventDefaults and
+    // calls onNavigate, which maps type→ScanKind + navigate()s.
     const link = await waitFor(() => {
-      const a = container.querySelector<HTMLAnchorElement>('a[href^="#/tx/"]');
+      const a = container.querySelector<HTMLAnchorElement>('a[href^="#/eip155/369/tx/"]');
       if (!a) throw new Error("tx link not yet rendered");
       return a;
     });
