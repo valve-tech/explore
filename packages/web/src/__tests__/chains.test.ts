@@ -4,6 +4,8 @@ import {
   CHAINS,
   chainById,
   chainLogoUrl,
+  chainCaip2,
+  caip2ToChainId,
 } from "../lib/chains";
 
 /**
@@ -91,5 +93,31 @@ describe("ALL_CHAINS sentinel", () => {
 
   it("does not equal any registered chain id", () => {
     expect(CHAINS.find((c) => c.id === ALL_CHAINS)).toBeUndefined();
+  });
+});
+
+describe("CAIP-2 mapping", () => {
+  it("gives every chain an eip155 namespace and its id as the reference", () => {
+    for (const c of CHAINS) {
+      expect(chainCaip2(c.id)).toEqual({ namespace: "eip155", reference: String(c.id) });
+    }
+  });
+
+  it("round-trips a chain id through the CAIP-2 pair", () => {
+    for (const c of CHAINS) {
+      const caip2 = chainCaip2(c.id)!;
+      expect(caip2ToChainId(caip2.namespace, caip2.reference)).toBe(c.id);
+    }
+  });
+
+  it("rejects an unregistered chain and a foreign namespace", () => {
+    expect(chainCaip2(8453)).toBeUndefined();
+    expect(caip2ToChainId("eip155", "8453")).toBeUndefined();
+    expect(caip2ToChainId("bip122", "369")).toBeUndefined();
+  });
+
+  it("matches the namespace case-insensitively but never the colon form", () => {
+    expect(caip2ToChainId("EIP155", "369")).toBe(369);
+    expect(caip2ToChainId("eip155:369", "")).toBeUndefined();
   });
 });

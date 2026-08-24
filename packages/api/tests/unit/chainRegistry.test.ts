@@ -100,3 +100,11 @@ describe("chain registry — lookup contract", () => {
     );
   });
 });
+
+describe("chain registry — CAIP-2", () => {
+  it("gives every chain an eip155 namespace and its id as the reference", () => {
+    for (const c of listChains()) {
+      assert.deepEqual(c.caip2, { namespace: "eip155", reference: String(c.chainId) });
+    }
+  });
+});
