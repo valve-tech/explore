@@ -1947,8 +1947,12 @@ describe("EntityRow", () => {
   it("uses an outset shadow outline and never a CSS border", () => {
     const { container } = renderRow({ main: "a", sub: "b" });
     const row = container.firstElementChild as HTMLElement;
-    expect(row.className).not.toMatch(/\bborder(-|\b)/);
-    expect(row.className).toMatch(/shadow-\[/);
+    // Inspect class TOKENS, not the raw string. An arbitrary-value utility like
+    // shadow-[0_0_0_1px_var(--color-border-default)] carries the word "border"
+    // inside a custom-property name, and that must not count as a border class.
+    const tokens = row.className.split(/\s+/).filter(Boolean);
+    expect(tokens.some((t) => /^border(-|$)/.test(t))).toBe(false);
+    expect(tokens.some((t) => t.startsWith("shadow-["))).toBe(true);
   });
 });
 ```
