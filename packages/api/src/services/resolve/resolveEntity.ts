@@ -112,8 +112,9 @@ async function probeTx(
  *
  * This delegates to the presence service rather than re-reading, so a search
  * and the address page it leads to share one probe and one cache instead of
- * paying twice. The behaviour is unchanged — the same three reads decide
- * presence — but the second caller is free.
+ * paying twice. The same three signals still decide presence, but a partial
+ * RPC failure (one field down, e.g. a rate limit) now degrades per field
+ * instead of failing the whole chain — see chainPresence.ts's `read`.
  */
 async function probeAddress(
   deps: ResolveDeps,

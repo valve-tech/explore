@@ -91,40 +91,62 @@ async function probeOne(
   // truth for time, or one caller's fresh entry looks expired to the other.
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
-  const value = await withTimeout(read(address, chainId, deps), deps.timeoutMs).catch(
-    (): ChainPresence => ({
-      chainId,
-      balance: "0",
-      nonce: 0,
-      isContract: false,
-      error: true,
-    }),
+  // read() only rejects when every one of the three fields failed (a
+  // genuinely unreachable chain) or the timeout below fires. Either way,
+  // that is "unknown", not "absent" — record error: true and stop.
+  const outcome = await withTimeout(read(address, chainId, deps), deps.timeoutMs).catch(
+    () => null,
   );
-
-  // Never pin a failure. An unreachable RPC recovers; a cached "error" would
-  // outlive the outage and read as a fact.
-  if (!value.error) {
-    cache.set(key, { value, expiresAt: Date.now() + TTL_MS });
+  if (outcome === null) {
+    return { chainId, balance: "0", nonce: 0, isContract: false, error: true };
   }
-  return value;
+
+  // A partial read (one or two fields failed, but not all three) is a
+  // best-effort guess, not a fact: a failed getBalance reads as "0", which
+  // looks exactly like an empty wallet. Never cache it — the same rule as
+  // never caching a full failure, for the same reason: a 60s TTL would pin a
+  // guess long past the moment a retry would have succeeded.
+  if (outcome.complete) {
+    cache.set(key, { value: outcome.presence, expiresAt: Date.now() + TTL_MS });
+  }
+  return outcome.presence;
 }
+
+/** Marks a field read that failed, so it is never confused with a real zero/empty value. */
+const FAILED = Symbol("chainPresence field read failed");
 
 async function read(
   address: string,
   chainId: number,
   deps: PresenceDeps,
-): Promise<ChainPresence> {
+): Promise<{ presence: ChainPresence; complete: boolean }> {
   const client = deps.getClient(chainId);
   const [code, balance, nonce] = await Promise.all([
-    client.getCode({ address: address as Address }),
-    client.getBalance({ address: address as Address }),
-    client.getTransactionCount({ address: address as Address }),
+    client.getCode({ address: address as Address }).catch(() => FAILED),
+    client.getBalance({ address: address as Address }).catch(() => FAILED),
+    client.getTransactionCount({ address: address as Address }).catch(() => FAILED),
   ]);
+
+  if (code === FAILED && balance === FAILED && nonce === FAILED) {
+    // Every field failed — this chain is unreachable, not merely
+    // incompletely read. Let probeOne's outer catch record error: true.
+    throw new Error(`chain ${chainId} presence: every field failed`);
+  }
+
+  // A failed field defaults to "not present" — false, 0, "0" — but that
+  // default is a placeholder, not a fact. A failed getCode in particular
+  // must not read as proof of "not a contract"; it reads as "we don't know",
+  // which is exactly why `complete` below gates the cache write.
+  const isContract = code !== FAILED && code !== undefined && code !== "0x";
+
   return {
-    chainId,
-    balance: String(balance ?? 0n),
-    nonce: Number(nonce ?? 0),
-    isContract: !!code && code !== "0x",
+    presence: {
+      chainId,
+      balance: balance === FAILED ? "0" : String(balance ?? 0n),
+      nonce: nonce === FAILED ? 0 : Number(nonce ?? 0),
+      isContract,
+    },
+    complete: code !== FAILED && balance !== FAILED && nonce !== FAILED,
   };
 }
 

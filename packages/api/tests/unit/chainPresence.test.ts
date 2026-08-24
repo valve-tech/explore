@@ -140,6 +140,70 @@ describe("getChainPresence", () => {
   });
 });
 
+describe("getChainPresence — partial field failures", () => {
+  beforeEach(() => clearPresenceCache());
+
+  it("reports presence from the fields that succeeded when one field fails", async () => {
+    const rows = await getChainPresence(ADDR, [1], deps({
+      chainIds: () => [1],
+      getClient: () =>
+        ({
+          getCode: async () => { throw new Error("rate limited"); },
+          getBalance: async () => 7n,
+          getTransactionCount: async () => 0,
+        }) as never,
+    }));
+    const row = rows[0]!;
+    assert.equal(hasPresence(row), true); // balance still proves presence
+    assert.equal(row.error, undefined);
+  });
+
+  it("does not cache a partial result", async () => {
+    let calls = 0;
+    const counting = deps({
+      chainIds: () => [1],
+      getClient: () =>
+        ({
+          getCode: async () => { calls++; throw new Error("rate limited"); },
+          getBalance: async () => 7n,
+          getTransactionCount: async () => 0,
+        }) as never,
+    });
+    await getChainPresence(ADDR, [1], counting);
+    assert.equal(calls, 1);
+    await getChainPresence(ADDR, [1], counting); // must re-fetch, not read a cached guess
+    assert.equal(calls, 2);
+  });
+
+  it("marks the chain errored, not absent, when every field fails", async () => {
+    const rows = await getChainPresence(ADDR, [1], deps({
+      chainIds: () => [1],
+      getClient: () =>
+        ({
+          getCode: async () => { throw new Error("down"); },
+          getBalance: async () => { throw new Error("down"); },
+          getTransactionCount: async () => { throw new Error("down"); },
+        }) as never,
+    }));
+    const row = rows[0]!;
+    assert.equal(row.error, true);
+    assert.equal(hasPresence(row), false);
+    // Distinguishable from a real "no presence" chain: a reachable chain
+    // with nothing on it reports hasPresence false too, but carries no error.
+    const reachable = (await getChainPresence(ADDR, [1], deps({
+      chainIds: () => [1],
+      getClient: () =>
+        ({
+          getCode: async () => undefined,
+          getBalance: async () => 0n,
+          getTransactionCount: async () => 0,
+        }) as never,
+    })))[0]!;
+    assert.equal(hasPresence(reachable), false);
+    assert.equal(reachable.error, undefined);
+  });
+});
+
 describe("resolve shares the presence cache", () => {
   it("does not re-probe a chain the presence service already answered for", async () => {
     clearPresenceCache();
