@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import EntityRow from "../../primitives/EntityRow";
 import { chainById, chainLogoUrl } from "../../../lib/chains";
 import { scanPath } from "../../../lib/scanRoutes";
@@ -68,14 +69,14 @@ export default function MergedActivityFeed({ address, activity }: Props) {
         <span>Page deeper on one chain</span>
         <span className="flex flex-wrap gap-inline">
           {reachable.map((p) => (
-            <a
+            <Link
               key={p.chainId}
-              href={scanPath("address", address, p.chainId)}
+              to={scanPath("address", address, p.chainId)}
               className="theme-accent rounded px-2 py-0.5 shadow-[0_0_0_1px_var(--color-border-default)] inline-flex items-center gap-tight"
             >
               <ChainIcon chainId={p.chainId} />
               {chainById(p.chainId)?.name ?? p.chainId} →
-            </a>
+            </Link>
           ))}
           {excluded.map((p) => (
             <span key={p.chainId} className="px-2 py-0.5 theme-warning inline-flex items-center gap-tight">

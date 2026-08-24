@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { render, screen, within, fireEvent } from "@testing-library/react";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import MergedActivityFeed from "../components/explorer/MultiChainAddressView/MergedActivityFeed";
 import type { MergedActivity } from "../api/multichain";
 
@@ -22,6 +22,35 @@ function renderFeed(input = activity) {
   return render(
     <MemoryRouter>
       <MergedActivityFeed address={ADDR} activity={input} />
+    </MemoryRouter>,
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
+
+/**
+ * Renders the feed on a real route, with a second route standing in for the
+ * page a footer jump lands on. A router `Link` updates the app's location
+ * in place; a plain `<a href>` would instead trigger a full page navigation,
+ * which jsdom cannot perform and the in-app location would never change.
+ */
+function renderFeedRouted(input = activity) {
+  return render(
+    <MemoryRouter initialEntries={["/eip155/369/address/" + ADDR]}>
+      <LocationProbe />
+      <Routes>
+        <Route
+          path="/eip155/:chainId/address/:address"
+          element={<MergedActivityFeed address={ADDR} activity={input} />}
+        />
+        <Route
+          path="/eip155/:chainId/tx/:hash"
+          element={<div data-testid="dest">tx page</div>}
+        />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -62,5 +91,16 @@ describe("MergedActivityFeed", () => {
   it("renders an empty state rather than a bare footer", () => {
     renderFeed({ rows: [], perChain: [] });
     expect(screen.getByText(/no recent activity/i)).toBeInTheDocument();
+  });
+
+  it("navigates the footer's reachable-chain jumps via the router, not a full page load", () => {
+    renderFeedRouted();
+    const footer = screen.getByRole("navigation", { name: /page deeper on one chain/i });
+    const link = within(footer).getByRole("link", { name: /Ethereum/ });
+    fireEvent.click(link);
+    // A router `Link` updates the in-app location in place. A plain `<a href>`
+    // would instead hand the click to jsdom's unimplemented full navigation,
+    // and this location would never move off the page the test started on.
+    expect(screen.getByTestId("location")).toHaveTextContent(`/eip155/1/address/${ADDR}`);
   });
 });
