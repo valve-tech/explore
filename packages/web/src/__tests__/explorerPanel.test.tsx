@@ -12,7 +12,20 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
  */
 
 vi.mock("../components/explorer/TxDetail", () => ({
-  default: ({ hash }: { hash: string }) => <div>tx-view:{hash}</div>,
+  default: ({
+    hash,
+    onNavigate,
+  }: {
+    hash: string;
+    onNavigate: (t: { type: string; value: string }) => void;
+  }) => (
+    <div>
+      tx-view:{hash}
+      <button onClick={() => onNavigate({ type: "address", value: "0xAddrFromTx" })}>
+        tx-go-addr
+      </button>
+    </div>
+  ),
 }));
 vi.mock("../components/explorer/AddressView", () => ({
   default: ({
@@ -76,6 +89,15 @@ vi.mock("../lib/recentEntities", () => ({
   recordVisit: vi.fn(),
 }));
 
+// A bare address/contract page is now the all-chain page, not AddressView or
+// ContractView — stub it so routing tests can tell the two apart without
+// pulling in the real presence + activity fetches.
+vi.mock("../components/explorer/MultiChainAddressView", () => ({
+  default: ({ address }: { address: string }) => (
+    <div>multi-chain-view:{address}</div>
+  ),
+}));
+
 // Entity views now mount only after the chain-less deep link has been resolved
 // to a chain (see useResolvedChainRedirect). Stub the probe to "no match", which
 // is the no-redirect path, so these tests stay about routing + breadcrumbs.
@@ -107,8 +129,14 @@ function renderAt(path: string) {
           <Route path="/token/:address" element={<ExplorerPanel />} />
           {/* Mirrors the chain-scoped mount in App.tsx: the same ExplorerPanel
               reached through a /eip155/<ref>/… prefix. Proves view detection
-              still picks the entity view, not home, once the prefix is present. */}
+              still picks the entity view, not home, once the prefix is present,
+              and that a scoped address/contract page keeps its single-chain
+              view instead of the all-chain one. */}
+          <Route path="/eip155/:ref/explorer" element={<ExplorerPanel />} />
           <Route path="/eip155/:ref/tx/:hash" element={<ExplorerPanel />} />
+          <Route path="/eip155/:ref/block/:id" element={<ExplorerPanel />} />
+          <Route path="/eip155/:ref/address/:address" element={<ExplorerPanel />} />
+          <Route path="/eip155/:ref/token/:address" element={<ExplorerPanel />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -152,16 +180,29 @@ describe("<ExplorerPanel /> — view routing", () => {
     expect(screen.queryByText("home-view")).not.toBeInTheDocument();
   });
 
-  it("renders the address view at /address/:address", async () => {
+  it("renders the all-chain address view at /address/:address (no chain scope)", async () => {
     renderAt(`/address/${WPLS}`);
-    expect(await screen.findByText(`address-view:${WPLS}`)).toBeInTheDocument();
+    expect(await screen.findByText(`multi-chain-view:${WPLS}`)).toBeInTheDocument();
     expect(recordVisit).toHaveBeenCalledWith({ kind: "address", value: WPLS });
+    // An address is valid on every chain — no probe is needed to pick one.
+    expect(resolveEntity).not.toHaveBeenCalled();
   });
 
-  it("renders the contract view at /token/:address", async () => {
+  it("renders the single-chain address view under a chain-scoped prefix", async () => {
+    renderAt(`/eip155/369/address/${WPLS}`);
+    expect(await screen.findByText(`address-view:${WPLS}`)).toBeInTheDocument();
+  });
+
+  it("renders the all-chain address view at /token/:address (no chain scope)", async () => {
     renderAt(`/token/${WPLS}`);
-    expect(await screen.findByText(`contract-view:${WPLS}`)).toBeInTheDocument();
+    expect(await screen.findByText(`multi-chain-view:${WPLS}`)).toBeInTheDocument();
     expect(recordVisit).toHaveBeenCalledWith({ kind: "contract", value: WPLS });
+    expect(resolveEntity).not.toHaveBeenCalled();
+  });
+
+  it("renders the single-chain contract view under a chain-scoped prefix", async () => {
+    renderAt(`/eip155/369/token/${WPLS}`);
+    expect(await screen.findByText(`contract-view:${WPLS}`)).toBeInTheDocument();
   });
 
   it("renders the block view at /block/:id", async () => {
@@ -194,7 +235,9 @@ describe("<ExplorerPanel /> — navigation + breadcrumb", () => {
   });
 
   it("navigates home → address and across to a tx, growing the trail", async () => {
-    renderAt("/explorer");
+    // Started chain-scoped: from a bare, all-chain page an address link would
+    // land on the terminal all-chain view instead, which has no "go-tx" arm.
+    renderAt("/eip155/369/explorer");
     fireEvent.click(screen.getByText("go-address"));
     expect(await screen.findByText("address-view:0xaddr")).toBeInTheDocument();
 
@@ -208,12 +251,40 @@ describe("<ExplorerPanel /> — navigation + breadcrumb", () => {
   });
 
   it("jumps back to Home from the breadcrumb", async () => {
-    renderAt("/explorer");
+    // Chain-scoped for the same reason as above: a bare contract link lands
+    // on the all-chain page, which the mocked ContractView never renders.
+    renderAt("/eip155/369/explorer");
     fireEvent.click(screen.getByText("go-contract"));
     expect(await screen.findByText("contract-view:0xcontract")).toBeInTheDocument();
 
     // Click the Home crumb button.
     fireEvent.click(screen.getByRole("button", { name: "Home" }));
     expect(screen.getByText("home-view")).toBeInTheDocument();
+  });
+});
+
+describe("<ExplorerPanel /> — pathForView keeps the active chain", () => {
+  beforeEach(() => {
+    (recordVisit as ReturnType<typeof vi.fn>).mockReset();
+    resolveEntity.mockReset();
+    resolveEntity.mockResolvedValue({ kind: "tx", query: "", matches: [] });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("keeps the chain scope when navigating from a scoped page", async () => {
+    // A click from /eip155/369/tx/<hash> must build /eip155/369/address/<addr>,
+    // not the bare /address/<addr> — a bare path lands on the all-chain page
+    // instead of AddressView, and costs a needless four-chain resolve fan-out.
+    const hash = "0x" + "ef".repeat(32);
+    renderAt(`/eip155/369/tx/${hash}`);
+    fireEvent.click(await screen.findByText("tx-go-addr"));
+    expect(await screen.findByText("address-view:0xAddrFromTx")).toBeInTheDocument();
+  });
+
+  it("stays bare when navigating from an all-chain page", async () => {
+    renderAt("/explorer");
+    fireEvent.click(screen.getByText("go-address"));
+    // Bare page → bare address link → the all-chain view, not AddressView.
+    expect(await screen.findByText("multi-chain-view:0xaddr")).toBeInTheDocument();
   });
 });

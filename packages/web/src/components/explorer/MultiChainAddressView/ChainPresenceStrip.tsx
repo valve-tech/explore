@@ -66,7 +66,6 @@ export default function ChainPresenceStrip({ address, rows, shares }: Props) {
           main={chainById(p.chainId)?.name ?? `Chain ${p.chainId}`}
           sub="probe failed — unknown, not absent"
           right="unavailable"
-          rightSub="retry"
         />
       ))}
 

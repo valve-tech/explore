@@ -6,10 +6,12 @@ import AddressView from "./AddressView";
 import BlockView from "./BlockView";
 import ContractView from "./ContractView";
 import ExplorerHome from "./ExplorerHome";
+import MultiChainAddressView from "./MultiChainAddressView";
 import { recordVisit } from "../../lib/recentEntities";
 import { useResolvedChainRedirect } from "../../lib/useResolvedChainRedirect";
 import { scanPath } from "../../lib/scanRoutes";
 import { stripChainPrefix } from "../../lib/chainScope";
+import { useChainScope } from "../../lib/activeChain";
 import { truncateAddr } from "./format";
 import { Tooltip } from "../primitives/Tooltip";
 
@@ -20,17 +22,24 @@ type ExplorerView =
   | { type: "block"; numberOrHash: string }
   | { type: "contract"; address: string };
 
-/** EIP-3091 path for a view; "none" is the explorer home. */
-function pathForView(v: ExplorerView): string {
+/**
+ * EIP-3091 path for a view; "none" is the explorer home.
+ *
+ * `chainId` is the page's own scope, or `undefined` on an all-chain page. A
+ * link built from a scoped page keeps that scope, so an internal click never
+ * pays for a needless four-chain resolve fan-out. A link built from an
+ * all-chain page stays bare — the user has not picked a chain yet.
+ */
+function pathForView(v: ExplorerView, chainId: number | undefined): string {
   switch (v.type) {
     case "tx":
-      return scanPath("tx", v.hash);
+      return scanPath("tx", v.hash, chainId);
     case "address":
-      return scanPath("address", v.address);
+      return scanPath("address", v.address, chainId);
     case "contract":
-      return scanPath("contract", v.address);
+      return scanPath("contract", v.address, chainId);
     case "block":
-      return scanPath("block", v.numberOrHash);
+      return scanPath("block", v.numberOrHash, chainId);
     case "none":
       return "/explorer";
   }
@@ -75,7 +84,20 @@ export default function ExplorerPanel() {
         return null;
     }
   }, [view]);
-  const resolvingChain = useResolvedChainRedirect(resolveQuery) === "resolving";
+  const scope = useChainScope();
+  // An address is valid on every chain, so the hook must never pick one for
+  // it — pass "address" and it skips the resolve+redirect entirely.
+  const resolvingChain =
+    useResolvedChainRedirect(
+      resolveQuery,
+      view.type === "address" || view.type === "contract" ? "address" : "entity",
+    ) === "resolving";
+  // Every chain, shown at once, only for a chain-less address or contract
+  // page. A scoped page (an explicit chain, or a tx/block page) keeps the
+  // single-chain view below.
+  const showAllChains =
+    scope.kind === "all" && (view.type === "address" || view.type === "contract");
+  const scopedChainId = scope.kind === "one" ? scope.chainId : undefined;
 
   // The breadcrumb trail rides in history state, so back/forward restore it.
   const trail = useMemo<ExplorerView[]>(
@@ -92,11 +114,11 @@ export default function ExplorerPanel() {
 
   const navigateTo = useCallback(
     (newView: ExplorerView) => {
-      navigate(pathForView(newView), {
+      navigate(pathForView(newView, scopedChainId), {
         state: { trail: view.type !== "none" ? [...trail, view] : trail },
       });
     },
-    [navigate, view, trail],
+    [navigate, view, trail, scopedChainId],
   );
 
   const goBack = useCallback(() => navigate(-1), [navigate]);
@@ -110,9 +132,9 @@ export default function ExplorerPanel() {
       }
       const target = trail[index];
       if (!target) return;
-      navigate(pathForView(target), { state: { trail: trail.slice(0, index) } });
+      navigate(pathForView(target, scopedChainId), { state: { trail: trail.slice(0, index) } });
     },
-    [navigate, trail],
+    [navigate, trail, scopedChainId],
   );
 
   const handleNavigate = (target: {
@@ -134,6 +156,14 @@ export default function ExplorerPanel() {
         break;
     }
   };
+
+  // Terminal: an all-chain address/contract page renders every chain and
+  // never resolves to one, so it skips the breadcrumb + single-chain views
+  // below entirely. Both view shapes carry `.address`, so one branch serves
+  // both.
+  if (showAllChains && (view.type === "address" || view.type === "contract")) {
+    return <MultiChainAddressView address={view.address} />;
+  }
 
   return (
     <div className="space-y-stack">
