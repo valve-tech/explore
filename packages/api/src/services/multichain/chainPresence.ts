@@ -33,21 +33,12 @@ export interface PresenceDeps {
   chainIds: () => number[];
   getClient: (chainId: number) => PublicClient;
   timeoutMs: number;
-  /**
-   * Present for interface completeness; the cache does not consult it. The
-   * cache is a module-level singleton shared by every caller, so its TTL
-   * bookkeeping always uses the real wall clock (see probeOne) — a per-call
-   * injected clock cannot be the source of truth for state another caller
-   * both reads and writes.
-   */
-  now: () => number;
 }
 
 const defaultDeps: PresenceDeps = {
   chainIds: () => listChains().map((c) => c.chainId),
   getClient: getRpcClient,
   timeoutMs: 7_000,
-  now: () => Date.now(),
 };
 
 /** Presence changes slowly; a short TTL collapses repeat page loads. */
@@ -94,11 +85,10 @@ async function probeOne(
   const key = `${chainId}|${address}`;
   const hit = cache.get(key);
   // The cache is a module-level singleton, so two independent callers (a
-  // direct getChainPresence() call and resolveEntity's probeAddress) can read
-  // and write the same key with two different injected `deps.now`. Cache
-  // bookkeeping uses the real wall clock (Date.now()) for that reason — a
-  // caller's own clock decides nothing here, so one caller's fresh entry
-  // never looks expired to a different caller.
+  // direct getChainPresence() call and resolveEntity's probeAddress) read and
+  // write the same key. TTL bookkeeping always uses the real wall clock
+  // (Date.now()), never an injected one: shared state needs one source of
+  // truth for time, or one caller's fresh entry looks expired to the other.
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
   const value = await withTimeout(read(address, chainId, deps), deps.timeoutMs).catch(

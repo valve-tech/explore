@@ -124,7 +124,6 @@ async function probeAddress(
     chainIds: deps.chainIds,
     getClient: deps.getClient,
     timeoutMs: deps.timeoutMs,
-    now: () => Date.now(),
   });
   if (!presence || !hasPresence(presence)) return null;
   return { chainId, isContract: presence.isContract };

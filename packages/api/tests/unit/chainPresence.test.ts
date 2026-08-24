@@ -18,7 +18,6 @@ const OTHER = "0x00000000219ab540356cbb839cbe05303d7705fa";
  */
 
 function deps(overrides: Partial<PresenceDeps> = {}): PresenceDeps {
-  let clock = 1_000;
   return {
     chainIds: () => [1, 369, 943, 11155111],
     getClient: (chainId: number) =>
@@ -28,7 +27,6 @@ function deps(overrides: Partial<PresenceDeps> = {}): PresenceDeps {
         getTransactionCount: async () => (chainId === 369 ? 94 : 0),
       }) as never,
     timeoutMs: 50,
-    now: () => clock++,
     ...overrides,
   };
 }
