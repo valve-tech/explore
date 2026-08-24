@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import type { PublicClient } from "viem";
 
@@ -7,6 +7,12 @@ import {
   resolveEntity,
   type ResolveDeps,
 } from "../../src/services/resolve/resolveEntity.js";
+import { clearPresenceCache } from "../../src/services/multichain/chainPresence.js";
+
+// resolveEntity's address probe now shares chainPresence's module-level cache.
+// Clear it before each case so one test's presence answer never leaks into
+// the next test's assertions for the same address.
+beforeEach(() => clearPresenceCache());
 
 /**
  * Service-level tests for the cross-chain resolver with injected deps (no live
