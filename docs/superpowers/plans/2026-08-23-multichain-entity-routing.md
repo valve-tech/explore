@@ -156,6 +156,14 @@ describe("useResolvedChainRedirect — the three invariants", () => {
 });
 ```
 
+> **Correction applied during execution (commit `0c588cd`).** The invariant-2
+> test above cannot fail: for a non-default chain the hook's observable state is
+> `"idle"` by the time the test samples it, so `not.toBe("settled")` holds
+> whether or not the invariant exists. The shipped test records the hook's value
+> on every render and asserts `"settled"` never appears, and separately asserts
+> the redirect writes `chainid=943`. Read the committed file, not the block
+> above, if you need this test.
+
 - [ ] **Step 2: Run the tests to verify they pass against current code**
 
 Run: `npm run test --workspace=packages/web -- routingCharacterization`
