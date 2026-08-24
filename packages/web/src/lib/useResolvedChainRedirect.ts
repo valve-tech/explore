@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { resolveEntity } from "../api/resolve";
 import { DEFAULT_CHAIN_ID } from "./chains";
+import { useChainScope } from "./activeChain";
 
 /**
  * Point a chain-less entity deep link at the chain the entity actually lives on.
@@ -22,11 +23,15 @@ import { DEFAULT_CHAIN_ID } from "./chains";
  *
  * Two deliberate limits:
  *
- *   - It runs ONLY when `chainid` is absent from the URL. An explicit
- *     `?chainid=369` is the caller's stated scope; if the tx isn't there, the
- *     honest answer is "not found on PulseChain", not a silent hop to another
- *     chain. This also makes a redirect loop impossible — writing the param is
- *     what disables the hook.
+ *   - It runs ONLY when the URL names no chain, by EITHER mechanism: a path
+ *     prefix (`/eip155/369/…`) or the legacy `?chainid=369` query param. Either
+ *     one is the caller's stated scope; if the tx isn't there, the honest
+ *     answer is "not found on PulseChain", not a silent hop to another chain.
+ *     This also makes a redirect loop impossible — once either form names a
+ *     chain, the hook is disabled. Checking the query param alone used to miss
+ *     the path form entirely: a `/eip155/943/tx/0xabc` load fanned a resolve
+ *     out across every chain, then wrote `?chainid=943` on top of a path that
+ *     already said 943 — the chain named twice in one URL.
  *   - It redirects only when the entity is NOT on the default chain. If it's on
  *     369 (alone or among others) the URL stays clean and param-free, matching
  *     `scoped()`.
@@ -55,10 +60,12 @@ export function useResolvedChainRedirect(
   kind: "entity" | "address" = "entity",
 ): ChainRedirectState {
   const [params, setParams] = useSearchParams();
-  // `has` rather than a truthiness check: `?chainid=` (empty) is still an
-  // explicit, if malformed, scope, and `activeChain.ts` already maps it to the
-  // default. Treating it as absent would make this hook fight that.
-  const urlNamesChain = params.has("chainid");
+  // `useChainScope` already reads BOTH forms of a stated chain — the path
+  // prefix and the legacy query param — and returns "one" for either. Reading
+  // only `params.has("chainid")` here would miss the path form, which is
+  // exactly the bug this line fixes: a `/eip155/943/…` load looked chain-less
+  // to a query-only check and got resolved (and re-labelled) anyway.
+  const urlNamesChain = useChainScope().kind === "one";
   const enabled = !!query && !urlNamesChain && kind !== "address";
 
   const resolve = useQuery({
