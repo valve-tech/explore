@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import ChainPresenceStrip from "./MultiChainAddressView/ChainPresenceStrip";
 import MergedActivityFeed from "./MultiChainAddressView/MergedActivityFeed";
 import { fetchChainPresence, fetchMergedActivity } from "../../api/multichain";
+import { useShowTestnets, visibleChainIds } from "../../lib/settings/testnets";
 
 /**
  * The chain-less address page — `/address/0x…` with no chain named.
@@ -21,15 +22,21 @@ interface Props {
 }
 
 export default function MultiChainAddressView({ address }: Props) {
+  // The visible chain set follows the global testnet toggle. It sits in the
+  // query key so flipping the toggle refetches, rather than serving a stale
+  // four-chain answer cached under the old key.
+  const [showTestnets] = useShowTestnets();
+  const chainIds = useMemo(() => visibleChainIds(), [showTestnets]);
+
   const presence = useQuery({
-    queryKey: ["multichain-presence", address],
-    queryFn: () => fetchChainPresence(address),
+    queryKey: ["multichain-presence", address, chainIds],
+    queryFn: () => fetchChainPresence(address, chainIds),
     staleTime: 60_000,
   });
 
   const activity = useQuery({
-    queryKey: ["multichain-activity", address],
-    queryFn: () => fetchMergedActivity(address),
+    queryKey: ["multichain-activity", address, chainIds],
+    queryFn: () => fetchMergedActivity(address, chainIds),
     enabled: presence.isSuccess,
     staleTime: 60_000,
   });

@@ -17,6 +17,7 @@ import {
 } from "../../lib/watcher/desktopNotify";
 import { CHAINS } from "../../lib/chains";
 import { BUILD_INFO } from "../../lib/buildInfo";
+import TestnetToggle from "./TestnetToggle";
 
 function Toggle({
   checked,
@@ -66,6 +67,8 @@ export default function SettingsPanel() {
       <BackendApiSection />
 
       <RpcEndpointSection />
+
+      <TestnetsSection />
 
       <NotificationsSection />
 
@@ -224,6 +227,23 @@ function RpcEndpointSection() {
           </span>
         </div>
       </div>
+    </Section>
+  );
+}
+
+/**
+ * Show/hide testnets across every chain-less page. This is a cost control,
+ * not just a display setting — with testnets off, a chain-less page probes
+ * two chains instead of four. See `lib/settings/testnets.ts`.
+ */
+function TestnetsSection() {
+  return (
+    <Section title="Testnets" icon="heroicons:beaker">
+      <Row
+        label="Show testnets"
+        hint="Include PulseChain Testnet v4 and Sepolia in chain-less pages, such as the multichain address view. Hiding them halves the number of chains those pages probe."
+        control={<TestnetToggle />}
+      />
     </Section>
   );
 }
