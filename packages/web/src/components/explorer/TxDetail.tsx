@@ -12,6 +12,7 @@ import { TokenTransfersSection } from "./TxDetail/TokenTransfersSection";
 import { RawDataSection } from "./TxDetail/RawDataSection";
 import { EntityActionBar } from "../EntityActionBar";
 import { AddToWorkspaceButton } from "../workspace/AddToWorkspaceButton";
+import { NextStepsRail } from "./TxDetail/NextStepsRail";
 
 interface TxDetailProps {
   hash: string;
@@ -89,6 +90,10 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
   if (!tx) return null;
 
   const isPending = tx.status === "pending";
+  // Prefer freshly-fetched decode, fall back to whatever the core payload
+  // carried (populated only in BYO mode). Shared with the "next steps" rail
+  // below so it never triggers a second fetch for the same fact.
+  const decodedInput = decode.decodedInput ?? tx.decodedInput;
 
   return (
     <div className="space-y-stack">
@@ -119,10 +124,12 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
         </div>
       )}
       <OverviewSection tx={tx} onNavigate={onNavigate} />
+      <NextStepsRail
+        tx={tx}
+        chainId={chainId}
+        functionName={decodedInput?.functionName ?? null}
+      />
       {(() => {
-        // Overlay: prefer freshly-fetched decode, fall back to whatever the
-        // core payload carried (populated only in BYO mode).
-        const decodedInput = decode.decodedInput ?? tx.decodedInput;
         const decodedLogs =
           decode.decodedLogs.length > 0 ? decode.decodedLogs : tx.decodedLogs;
         return (

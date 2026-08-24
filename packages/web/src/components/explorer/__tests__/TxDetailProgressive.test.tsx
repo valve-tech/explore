@@ -48,9 +48,12 @@ describe("TxDetail progressive decode", () => {
     await waitFor(() => expect(screen.getByText(/50000|50,000/)).toBeInTheDocument());
     expect(api.fetchTransaction).toHaveBeenCalledWith("0xabc", expect.any(Number), { decode: false });
 
-    // Decode swaps in.
+    // Decode swaps in. Matched on "swap(" (the rendered function signature)
+    // rather than bare "swap" — the next-steps rail's own swap suggestion
+    // also renders the word "swap" once decode resolves, in copy like "Wire
+    // a Web3 Action to react to swaps like this".
     resolveDecode({ decodedInput: { functionName: "swap", args: [] }, decodedLogs: [] });
-    await waitFor(() => expect(screen.getByText(/swap/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/swap\(/)).toBeInTheDocument());
   });
 
   it("keeps the page usable when decode is unavailable", async () => {
