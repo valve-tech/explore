@@ -14,9 +14,16 @@ function parseDecimals(decimalStr: string): number | null {
 
 export function TokenTransfersSection({
   tokenTransfers,
+  available = true,
   onNavigate,
 }: {
   tokenTransfers: TransactionDetails["tokenTransfers"];
+  /**
+   * False when the node did not answer the receipt read. The empty list then
+   * means "we do not know", so the section withholds its count and says so
+   * instead of printing "No token transfers".
+   */
+  available?: boolean;
   onNavigate: AddressNavigate;
 }) {
   const columns: Column<TokenTransfer>[] = [
@@ -59,8 +66,8 @@ export function TokenTransfersSection({
   return (
     <SectionCard
       title="Token Transfers"
-      count={tokenTransfers.length}
-      defaultOpen={false}
+      count={available ? tokenTransfers.length : undefined}
+      defaultOpen={!available}
     >
       <div className="pt-3">
         <div className="rounded-md bs-muted overflow-hidden">
@@ -68,7 +75,11 @@ export function TokenTransfersSection({
             columns={columns}
             rows={tokenTransfers}
             rowKey={(tt, i) => `${tt.hash}-${i}`}
-            emptyLabel="No token transfers"
+            emptyLabel={
+              available
+                ? "No token transfers"
+                : "Could not load token transfers — the node did not answer."
+            }
           />
         </div>
       </div>

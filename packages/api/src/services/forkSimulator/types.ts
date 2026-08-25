@@ -54,6 +54,11 @@ export interface ForkSimulationResult {
   gasUsed: string;
   revertReason?: string;
   stateDiff: StateDiff;
+  /**
+   * False when the "before" reading could not be taken, so an empty
+   * `stateDiff` means "unknown" rather than "nothing changed".
+   */
+  stateDiffAvailable?: boolean;
   logs: SimulationLog[];
   decodedInput?: unknown;
   blockNumber: number;

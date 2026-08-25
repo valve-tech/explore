@@ -10,9 +10,17 @@ type InternalTransaction = TransactionDetails["internalTransactions"][number];
 
 export function InternalTxSection({
   internalTransactions,
+  available = true,
   onNavigate,
 }: {
   internalTransactions: TransactionDetails["internalTransactions"];
+  /**
+   * False when no trace source answered. The empty list then means "we do
+   * not know", so the section withholds its count and says so instead of
+   * printing "No internal transactions" — which would be a claim about the
+   * chain we cannot back.
+   */
+  available?: boolean;
   onNavigate: AddressNavigate;
 }) {
   const symbol = chainSymbol(useActiveChainId());
@@ -59,8 +67,8 @@ export function InternalTxSection({
   return (
     <SectionCard
       title="Internal Transactions"
-      count={internalTransactions.length}
-      defaultOpen={false}
+      count={available ? internalTransactions.length : undefined}
+      defaultOpen={!available}
     >
       <div className="pt-3">
         <div className="rounded-md bs-muted overflow-hidden">
@@ -68,7 +76,11 @@ export function InternalTxSection({
             columns={columns}
             rows={internalTransactions}
             rowKey={(_itx, i) => i}
-            emptyLabel="No internal transactions"
+            emptyLabel={
+              available
+                ? "No internal transactions"
+                : "Could not load internal transactions — no trace source answered for this chain."
+            }
           />
         </div>
       </div>

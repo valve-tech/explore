@@ -25,6 +25,77 @@ need the user (both named under OPEN). Landed this session, on top of the
   they were seen on.
 - **The rail sees Uniswap V3 swaps**, which its `/swap/i` test never could.
 
+### 2026-08-25 THREE MORE EMPTY-MEANS-BROKEN SITES, AND THE TRIAGE OF THE REST
+
+The chifra fix has siblings. I audited all 30 `catch` blocks in
+`packages/api/src` that swallow a failure into `[]`, `null` or `{}` and
+asked one question of each: can this empty reach a reader as a fact about
+the chain? Four could. The other 26 are best-effort enrichment where
+"absent" is the honest answer, and they are unchanged.
+
+**The four, all fixed the same way — find the second signal, extract a pure
+exported predicate, tell the truth on the wire, test the distinguishing
+case:**
+
+- **`getInternalTransactions`** returned `[]` for a dead tracer, and the
+  route piled `.catch(() => [])` and a 10s `[]` timeout on top. The tx page
+  hides an empty section, so the reader concludes there were none. **A chain
+  whose RPC has no `debug_*` namespace hits this on EVERY transaction** —
+  which is most of them, since `DEBUG_RPC_URL` is chain 369 only. The signal
+  is the trace root: `traceTransaction` never throws, it answers `trace:
+  null` on total failure, and a plain value transfer traces fine and
+  flattens to `[]`. `isTraceUnavailable()`.
+- **`getTokenTransfers`** had the same shape. Its receipt read throws both
+  for a pending hash (honest) and for a node that never answered. viem
+  separates them: `TransactionReceiptNotFoundError` means the node replied
+  with a null receipt. `isReceiptMissing()`.
+- **`parseSlitherOutput`** turned unreadable output into `[]`, and
+  `analyzeContract` published `detectorCount: 0, error: null`. **That is a
+  clean bill of health for a contract nobody analysed.** Three signals from
+  Slither itself: no `{`, JSON that will not parse, and an envelope whose
+  own `success`/`error` say the run failed. A clean contract emits
+  `results.detectors: []`, so a real empty survives.
+  `isFailedSlitherRun()`.
+- **`getPrestateTrace`** returned `{}`, so `collectStateDiff` used each
+  post-state as its own pre-state and the simulator printed "No state
+  changes detected." **A simulated transaction always spends gas**, so an
+  empty prestate map is impossible from a working tracer — that
+  impossibility is the whole signal. `isPrestateUnavailable()`.
+
+**The wire now carries the distinction, and the UI reads it.** Three new
+optional flags — `internalTransactionsAvailable`, `tokenTransfersAvailable`,
+`stateDiffAvailable`. Optional is deliberate: TanStack Query persists to
+IndexedDB, and a response cached before these existed must not paint a
+phantom failure, so an ABSENT flag counts as available.
+
+**A hidden section is the same lie said more quietly.** `TxDetail` only
+rendered these sections when non-empty. A failed section now appears, open,
+saying it could not load. Hiding it lets the reader conclude there were
+none — which is exactly the conclusion we were trying to stop.
+
+**Two things I looked at and deliberately left:**
+
+- `monitor/matchers.ts` `matchBalanceThreshold` swallows a `getBalance`
+  failure into "the alert did not fire". That is a real silent failure, but
+  nothing renders it, and the outer `matchAlerts` already treats a throw
+  identically (log, no alert). Fixing the inner catch changes nothing
+  observable. **A user's balance alert can miss a block on an RPC blip and
+  nobody is told.** The fix is an alert-health channel, not a predicate.
+- `ForkSimulator/ResultPanels.tsx:71` sums a null `gasEstimate` as `0n`, so
+  a bundle total silently understates when one leg could not be estimated.
+  Web-side, outside this sweep.
+
+**What a green suite did not catch, again.** Every one of these four had
+passing tests. The tests asserted the SHAPE of the response — an array, a
+count, a diff object — and every one of those assertions is true of a lie.
+The new tests each pin the case where the two empties differ, and would fail
+if the predicate were inverted.
+
+**Not browser-verified.** The four failure states are hard to provoke
+locally (they need a node without `debug_*`, a broken Slither, a fork
+without `prestateTracer`). The new copy is exercised by jsdom render tests,
+which is not the same thing as opening the page.
+
 ### 2026-08-24 A 4BYTE NAME NOW ADMITS WHEN IT IS A GUESS
 
 **The scale, measured against production today.** 4byte.directory holds every
