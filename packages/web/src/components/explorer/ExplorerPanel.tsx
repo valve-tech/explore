@@ -46,6 +46,27 @@ function pathForView(v: ExplorerView, chainId: number | undefined): string {
   }
 }
 
+/**
+ * The recents-store reference for a view, or null for the explorer home.
+ * Pure, so the record effect below stays one line and one branch.
+ */
+function recentRefForView(
+  v: ExplorerView,
+): { kind: "tx" | "address" | "contract" | "block"; value: string } | null {
+  switch (v.type) {
+    case "tx":
+      return { kind: "tx", value: v.hash };
+    case "address":
+      return { kind: "address", value: v.address };
+    case "contract":
+      return { kind: "contract", value: v.address };
+    case "block":
+      return { kind: "block", value: v.numberOrHash };
+    case "none":
+      return null;
+  }
+}
+
 export default function ExplorerPanel() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,12 +135,19 @@ export default function ExplorerPanel() {
     [location.state],
   );
 
+  // Record the visit WITH the page's chain, so the recents rail and the ⌘K
+  // palette can link back to the chain the user actually looked at instead of
+  // a bare path that re-resolves. `scopedChainId` is undefined on an
+  // all-chain page, which the store stores as "no chain" and links bare.
+  //
+  // `scopedChainId` belongs in the dependency list, and adds no extra visit:
+  // a chain-less URL that redirects to its scoped form changes
+  // `location.pathname`, which already rebuilds `view` and refires this
+  // effect. The second pass now carries the chain the first pass lacked.
   useEffect(() => {
-    if (view.type === "tx") recordVisit({ kind: "tx", value: view.hash });
-    else if (view.type === "address") recordVisit({ kind: "address", value: view.address });
-    else if (view.type === "contract") recordVisit({ kind: "contract", value: view.address });
-    else if (view.type === "block") recordVisit({ kind: "block", value: view.numberOrHash });
-  }, [view]);
+    const ref = recentRefForView(view);
+    if (ref) recordVisit({ ...ref, chainId: scopedChainId });
+  }, [view, scopedChainId]);
 
   const navigateTo = useCallback(
     (newView: ExplorerView) => {

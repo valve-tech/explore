@@ -1,5 +1,28 @@
 # Explore (trace) — Progress
 
+## 2026-08-24 RECENTS NAME THEIR CHAIN
+
+`RecentEntity` now carries the chain the entry was seen on, and the recents
+rail and the ⌘K palette both build their links through one function,
+`recentEntityView.hrefFor`. The palette used to call `scanPath` itself; it
+does not any more, so the two surfaces cannot drift.
+
+Which kinds get a chain is a rule, not an oversight. A transaction, a contract
+and a block name theirs. An **address stays bare**, because `/address/0x…`
+with no prefix is the documented "every chain" route and an address is valid
+on all of them.
+
+**The legacy decision.** An entry written before this change has no chain and
+there is no way to recover one. It stays unset and links bare — exactly what
+shipped before — so a resolve+redirect still finds the right chain on click.
+A stored `chainId` that is not a positive integer (`null`, `"369"`, NaN) is
+STRIPPED at load, because keeping one would build `/eip155/NaN/tx/0x…`. Both
+paths are pinned by tests in `recentEntities.test.ts`.
+
+The chain is deliberately NOT part of the entry's identity (`idOf`). One
+address is one row whichever chain you reached it from; a revisit on another
+chain overwrites the field, so the link follows the newest visit.
+
 ## Last updated: 2026-08-25 GAS PAYLOAD + EXPLORER HOME REBUILD
 
 Gate green: 3 typechecks silent, lint clean, web **2416 unit tests**, api unit

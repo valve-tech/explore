@@ -20,17 +20,36 @@ export function dotColor(e: RecentEntity): string {
 }
 
 /**
- * Hash-router target for an entity (EIP-3091 path scheme). Deliberately
- * bare, not threaded to the caller's active chain: `RecentEntity` (and
- * `recordVisit`) never store which chain an entry was seen on, and
- * `BackHistoryControl` / `RecentRail` are global chrome, not scoped to one
- * page. Filling in the CURRENT page's chain would be a guess, and a wrong
- * guess is worse than no scope — it turns a correct resolve+redirect into a
- * false "not found" on whichever chain happened to be active. The bare path
- * lets `useResolvedChainRedirect` find the entity's real chain instead.
+ * The chain a recents link should name, or `undefined` for a bare path.
+ *
+ * An address is valid on every chain, and `/address/0x…` with no prefix is
+ * the documented "show me every chain" route. Scoping it would answer a
+ * narrower question than the user asked, so an address link stays bare
+ * whatever chain the entry was seen on.
+ *
+ * Every other kind names its chain. A transaction hash lives on exactly one
+ * chain. A contract is deployed per chain, and a block number means a
+ * different block on each one — sending the user to an all-chain fan-out
+ * after they viewed one chain's block is both a worse answer and four times
+ * the RPC spend.
+ *
+ * `undefined` also covers the two cases with no chain to name: an entry
+ * written before the store recorded one, and a visit made on an all-chain
+ * page. Both fall back to the bare path, which is what shipped before, so
+ * `useResolvedChainRedirect` finds the real chain for a hash and the
+ * all-chain views render for an address.
+ */
+export function chainForHref(e: RecentEntity): number | undefined {
+  return e.kind === "address" ? undefined : e.chainId;
+}
+
+/**
+ * Hash-router target for an entity (EIP-3091 path scheme), scoped to the
+ * chain the entry was seen on. This is the ONLY place a recents link is
+ * built — the ⌘K palette calls it too — so the two surfaces cannot drift.
  */
 export function hrefFor(e: RecentEntity): string {
-  return scanPath(e.kind, e.value);
+  return scanPath(e.kind, e.value, chainForHref(e));
 }
 
 function truncMid(v: string): string {

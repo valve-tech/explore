@@ -61,6 +61,45 @@ describe("recentEntities — load() at import", () => {
     expect(snap[0]!.value).toBe("0xbb");
     expect(snap[1]!.value).toBe("0xaa");
   });
+
+  /**
+   * The migration case. Every entry written before the store recorded a chain
+   * lacks `chainId`, and there is no way to recover which chain it was. The
+   * deliberate answer is to leave it unset: the entry loads, renders and links
+   * chain-less, which is exactly the behaviour that shipped before, so a
+   * resolve+redirect finds the right chain on click.
+   */
+  it("loads a legacy entry that predates chainId, leaving the chain unset", async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        { kind: "tx", value: "0xaa", pinned: false, visits: 2, lastSeen: 10 },
+      ]),
+    );
+    const m = await freshModule();
+    const snap = m.getSnapshot();
+    expect(snap).toHaveLength(1);
+    expect(snap[0]!.chainId).toBeUndefined();
+    expect(snap[0]!.visits).toBe(2); // nothing else was disturbed
+  });
+
+  it("strips a stored chainId that is not a usable chain id", async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        { kind: "tx", value: "0xaa", chainId: null, pinned: false, visits: 1, lastSeen: 3 },
+        { kind: "tx", value: "0xbb", chainId: "369", pinned: false, visits: 1, lastSeen: 2 },
+        { kind: "tx", value: "0xcc", chainId: 0, pinned: false, visits: 1, lastSeen: 1 },
+        { kind: "tx", value: "0xdd", chainId: 369, pinned: false, visits: 1, lastSeen: 4 },
+      ]),
+    );
+    const m = await freshModule();
+    const byValue = new Map(m.getSnapshot().map((e) => [e.value, e.chainId]));
+    expect(byValue.get("0xaa")).toBeUndefined();
+    expect(byValue.get("0xbb")).toBeUndefined();
+    expect(byValue.get("0xcc")).toBeUndefined();
+    expect(byValue.get("0xdd")).toBe(369);
+  });
 });
 
 describe("recentEntities — recordVisit", () => {
@@ -127,6 +166,34 @@ describe("recentEntities — recordVisit", () => {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(stored).toHaveLength(1);
     expect(stored[0].value).toBe("0xaa");
+  });
+
+  it("stores the chain the visit happened on", async () => {
+    const m = await freshModule();
+    m.recordVisit({ kind: "tx", value: "0xaa", chainId: 369 });
+    expect(m.getSnapshot()[0]!.chainId).toBe(369);
+  });
+
+  it("leaves the chain unset for a visit on an all-chain page", async () => {
+    const m = await freshModule();
+    m.recordVisit({ kind: "address", value: "0xaa" });
+    expect(m.getSnapshot()[0]!.chainId).toBeUndefined();
+  });
+
+  it("follows the newest visit when the same entity is seen on another chain", async () => {
+    const m = await freshModule();
+    m.recordVisit({ kind: "contract", value: "0xaa", chainId: 369 });
+    m.recordVisit({ kind: "contract", value: "0xaa", chainId: 1 });
+    const snap = m.getSnapshot();
+    expect(snap).toHaveLength(1); // the chain is not part of the identity
+    expect(snap[0]!.chainId).toBe(1);
+  });
+
+  it("keeps the known chain when a later all-chain visit reports none", async () => {
+    const m = await freshModule();
+    m.recordVisit({ kind: "contract", value: "0xaa", chainId: 369 });
+    m.recordVisit({ kind: "contract", value: "0xaa" });
+    expect(m.getSnapshot()[0]!.chainId).toBe(369);
   });
 
   it("survives a localStorage.setItem failure (best-effort persistence)", async () => {

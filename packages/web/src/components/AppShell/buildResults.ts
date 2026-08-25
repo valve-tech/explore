@@ -1,6 +1,6 @@
 import type { RecentEntity } from "../../lib/recentEntities";
 import { NAV_GROUPS, UTILITY_PAGES } from "../../lib/navGroups";
-import { scanPath } from "../../lib/scanRoutes";
+import { hrefFor } from "../../lib/recentEntityView";
 import type { WorkspaceItemKind } from "../../lib/workspace/types";
 import type { Parsed } from "./parseInput";
 import { resolvedActions, type Resolution } from "./resolvedJumps";
@@ -52,12 +52,11 @@ function truncMid(v: string): string {
 }
 
 function recentToResult(e: RecentEntity): Result {
-  // Bare, on purpose — see the matching note on `recentEntityView.hrefFor`.
-  // `RecentEntity` never records which chain it was seen on, and the palette
-  // has no page scope of its own, so there is no chain here that is known to
-  // be right. Guessing the current chain would silently mis-scope any recent
-  // entity from a different chain into a false "not found".
-  const to = scanPath(e.kind, e.value);
+  // Through `hrefFor`, not `scanPath`, so a palette row and the recents rail
+  // land on the same URL. The entry carries the chain it was seen on and the
+  // link names it — see `recentEntityView.chainForHref` for which kinds get a
+  // chain and which stay bare.
+  const to = hrefFor(e);
   // "contract" recents are addresses with verified bytecode — file as
   // kind:"address" in a workspace (workspaces don't distinguish contracts).
   const wsKind: WorkspaceItemKind =

@@ -185,9 +185,11 @@ export default function DebuggerView() {
   useEffect(() => {
     if (validUrlHash && hasResult) {
       recordDebuggerTx(validUrlHash);
-      recordVisit({ kind: "tx", value: validUrlHash });
+      // The chain goes in: a tx hash lives on exactly one chain, so the
+      // recents link should name it rather than pay for a resolve on click.
+      recordVisit({ kind: "tx", value: validUrlHash, chainId });
     }
-  }, [validUrlHash, hasResult]);
+  }, [validUrlHash, hasResult, chainId]);
 
   const isValidHash = isValidTxHash(txHash);
 
