@@ -92,7 +92,31 @@ timeout. Once warm, the same reads take 2.7-10.4s — comfortably inside the
 page's 40s deadline. Do NOT try to buy this back by raising
 `ADDRESS_SECTION_TIMEOUT_MS`; the numbers are 3x past it.
 
-## Last updated: 2026-08-25 CHECKLIST CLEARED + DEPLOYED
+## Last updated: 2026-08-25 EMPTY-MEANS-BROKEN SWEEP
+
+Gate: 3 typechecks silent, lint clean, **api unit 746**, **web 2495 / 290
+files**, **sdk 552**, **41 e2e**, production build clean.
+
+**The theme of this whole session: an empty result is a CLAIM about the
+world, and we were making it without proof.** It started with one bug — the
+address page saying WPLS has no transactions — and the sweep that followed
+found the same shape five more times, plus a signal that was measuring the
+wrong thing entirely.
+
+- **Four more empty-means-broken sites fixed** (internal transactions, token
+  transfers, Slither's clean bill of health, and a fork simulation reporting
+  "no state changes" after using the post-state as the pre-state). 30 sites
+  triaged; 21 are honest best-effort degradation and were left alone.
+- **The 4byte guess marker was measuring registrations, not doubt.**
+  `transfer` and a mined `atInversebrah` both scored 6. Replaced with a
+  vouched-signature table whose selectors are DERIVED by hashing.
+- **`0x60806040` is not a selector** — it is the Solidity `PUSH1 0x80 PUSH1
+  0x40` prologue, so every contract deployment was being given a method name
+  off the front of its init bytecode.
+- **A heavy address now warms its index out of band.** Helps to ~44M
+  appearances; WPLS at 224.7M still needs work on the chifra box.
+
+### 2026-08-25 CHECKLIST CLEARED + DEPLOYED
 
 Gate green on the merged tree: 3 typechecks silent, lint clean, web **2490**
 unit tests / 290 files, api unit **693**, sdk **552**, **41 e2e**, production
