@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router-dom";
 import { renderWithProviders } from "./_test-utils";
 import type {
@@ -271,6 +271,41 @@ describe("<AddressView /> — sub-tab lives in the URL", () => {
     expect(screen.getByTestId("location").textContent).toContain("tab=tokens");
 
     fireEvent.click(screen.getByRole("button", { name: /^Transactions/ }));
+    expect(screen.getByTestId("location").textContent).toContain("tab=transactions");
+  });
+
+  it("adds ?address= for Storage and takes it away again on the way out", async () => {
+    // Storage and Re-verify compose top-level views that read their own
+    // `?address=`. Setting it was already right; NOT clearing it was the bug —
+    // one visit to Storage left the param riding along on every later URL for
+    // the rest of the session, duplicating the address already in the path.
+    mockInfo.mockResolvedValue(contractInfo);
+
+    renderWithProviders(
+      <>
+        <LocationProbe />
+        <AddressView address={WPLS} onNavigate={vi.fn()} />
+      </>,
+      { initialEntries: [`/address/${WPLS}`] },
+    );
+    await screen.findByText(WPLS);
+    expect(screen.getByTestId("location").textContent).not.toContain("address=");
+
+    const tabs = within(screen.getByRole("navigation", { name: "Address sections" }));
+    fireEvent.click(tabs.getByRole("button", { name: /^Storage/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId("location").textContent).toContain(
+        `address=${WPLS}`,
+      ),
+    );
+
+    fireEvent.click(tabs.getByRole("button", { name: /^Transactions/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId("location").textContent).not.toContain(
+        "address=",
+      ),
+    );
+    // The tab itself still round-trips — removing one param must not eat the other.
     expect(screen.getByTestId("location").textContent).toContain("tab=transactions");
   });
 

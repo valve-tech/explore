@@ -35,6 +35,9 @@ function TabButton({
   return (
     <button
       onClick={onClick}
+      // The active tab is signalled by a 2px underline and a text colour.
+      // Neither reaches a screen reader, so state it.
+      aria-current={active ? "page" : undefined}
       className={`px-4 py-2.5 text-sm font-medium transition-colors shrink-0 ${
         active ? "theme-text" : "theme-text-secondary"
       }`}
@@ -65,7 +68,11 @@ export function SubTabBar({
   extraTabs = [],
 }: Props) {
   return (
-    <div className="flex gap-0 bs-b overflow-x-auto">
+    // `aria-label` is load-bearing beyond accessibility: "Storage" is also an
+    // AddressHeader quick-action button and a sidebar nav item, so a query for
+    // it matches three different controls. Naming this strip is what lets a
+    // caller — or a test — mean this one.
+    <nav aria-label="Address sections" className="flex gap-0 bs-b overflow-x-auto">
       <TabButton
         active={active === "transactions"}
         onClick={() => onSelect("transactions")}
@@ -86,6 +93,6 @@ export function SubTabBar({
           label={t.label}
         />
       ))}
-    </div>
+    </nav>
   );
 }

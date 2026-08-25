@@ -101,11 +101,26 @@ export default function AddressView({
   // own `?address=` (the same hook the ⌘K palette already deep-links
   // through) rather than taking a prop — keep it in sync so landing here
   // directly, or reloading, prefills them with this page's own address.
+  //
+  // The param is REMOVED again when you leave those two tabs. It used to be
+  // set and never cleared, so one visit to Storage left `&address=0x…` riding
+  // along on every later URL for the rest of the session — duplicating the
+  // address already in the path, and turning any link copied afterwards into
+  // a puzzle. Only ever removes the value this page put there; an `?address=`
+  // pointing somewhere else is not ours to clear.
   useEffect(() => {
-    if (subTab !== "storage" && subTab !== "verify") return;
-    if (searchParams.get("address") === address) return;
+    const needsParam = subTab === "storage" || subTab === "verify";
+    const current = searchParams.get("address");
+    if (needsParam ? current === address : current === null) return;
+
     const next = new URLSearchParams(searchParams);
-    next.set("address", address);
+    if (needsParam) {
+      next.set("address", address);
+    } else if (current === address) {
+      next.delete("address");
+    } else {
+      return;
+    }
     setSearchParams(next, { replace: true });
   }, [subTab, address, searchParams, setSearchParams]);
 
