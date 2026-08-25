@@ -118,9 +118,11 @@ export interface AddressTransaction {
   isError: string;
   functionName: string;
   /**
-   * How many signatures the 4byte directories hold for `methodId`. 0 when
-   * nothing resolved, 1 for a single confident match, N > 1 when
-   * `functionName` is the first of several guesses.
+   * How many candidate signatures leave `functionName` in doubt. 0 when
+   * nothing resolved, 1 when the name is settled, N > 1 when it is one guess
+   * among N. Not the raw registration count — the server vouches for
+   * canonical signatures and reports 1 for them. See
+   * `services/signatures/vouched.ts`.
    *
    * OPTIONAL on purpose. Every response this browser cached before the field
    * existed is missing it, and TanStack Query persists those to IndexedDB

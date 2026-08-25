@@ -7,20 +7,32 @@ import { Tooltip } from "../primitives/Tooltip";
  *
  * 4byte.directory is a dictionary of every signature anyone registered, not a
  * record of what a contract compiled to, so most selectors carry several
- * entries. Measured against production: of the Ethereum transactions that
- * resolve to a name at all, 77% have more than one candidate; on chain 369 it
- * is 47%. We printed the first entry as fact, which is how a list came to say
- * a transaction called `ijekfhacdgb()` — a gas-token-era name someone
+ * entries. We printed the first entry as fact, which is how a list came to
+ * say a transaction called `ijekfhacdgb()` — a gas-token-era name someone
  * brute-forced so its selector had leading zero bytes.
  *
- * At three names in four, the marker cannot shout. A loud badge on nearly
- * every row is noise a reader learns to skip, and then it flags nothing. So
- * the row keeps the name it always had and adds two quiet things: a dotted
+ * The row keeps the name it always had and adds two quiet things: a dotted
  * underline, and a footnote-sized count. Both say "there is more here"
- * without competing with the name. The alternatives appear on hover.
+ * without competing with the name. The alternatives appear on hover. A
+ * settled name renders as plain text — no underline, no count, nothing to
+ * read past.
  *
- * A single confident match renders as plain text — no underline, no count,
- * nothing to read past.
+ * **Reviewed against the rendered page on 2026-08-25, and the threshold
+ * moved.** The first version marked every selector with more than one
+ * registration: 77% of named Ethereum rows, 47% on chain 369. On the page
+ * that was not a quiet caveat, it was wallpaper. In a 250-transaction sample
+ * across all four chains, every marked row was ERC-20 `transfer`,
+ * `transferFrom`, or a Uniswap V2 swap — names nobody doubts. The one row
+ * that was genuinely wrong, `atInversebrah(…)` on a contract deployment, wore
+ * the identical superscript 6 as `transfer(address,uint256)` three rows above
+ * it. At 375px it wore less than that: the long mined name truncated and took
+ * its own marker off screen, so the treatment was strongest on the rows least
+ * in doubt.
+ *
+ * The count now arrives already reduced. `summarizeMatches` on the server
+ * vouches for canonical signatures and reports 1 for them, so `> 1` here
+ * means the name really is a guess. The component did not have to change —
+ * the fix was to stop feeding it a number that meant nothing.
  */
 export function MethodName({
   label,
@@ -32,8 +44,10 @@ export function MethodName({
   /** The 4-byte selector, used to fetch the alternatives on hover. */
   selector: string;
   /**
-   * How many candidate signatures the selector has. Optional: a row served
-   * from IndexedDB predates the field, so `undefined` reaches here for real.
+   * How many candidate signatures leave `label` in doubt — 1 when the name is
+   * settled, not the raw number of 4byte registrations. Optional: a row
+   * served from IndexedDB predates the field, so `undefined` reaches here for
+   * real.
    */
   candidates?: number;
 }) {
