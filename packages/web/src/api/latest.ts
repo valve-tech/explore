@@ -67,8 +67,11 @@ export interface RecentTx {
    * nothing resolved, 1 for a single confident match, N > 1 when `methodName`
    * is the first of several guesses. `MethodName` marks anything above 1 and
    * fetches the alternatives only when the reader asks for them.
+   *
+   * OPTIONAL on purpose — see the note on `functionCandidates` in
+   * `api/explorer.ts`. A row served from IndexedDB predates the field.
    */
-  methodCandidates: number;
+  methodCandidates?: number;
 }
 
 export interface RecentTxsResult {

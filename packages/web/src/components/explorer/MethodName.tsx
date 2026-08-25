@@ -31,15 +31,22 @@ export function MethodName({
   label: string;
   /** The 4-byte selector, used to fetch the alternatives on hover. */
   selector: string;
-  /** How many candidate signatures the selector has. */
-  candidates: number;
+  /**
+   * How many candidate signatures the selector has. Optional: a row served
+   * from IndexedDB predates the field, so `undefined` reaches here for real.
+   */
+  candidates?: number;
 }) {
-  // `> 1`, never `<= 1`. The count is absent from any response this browser
-  // cached before the field existed, and TanStack Query persists those to
-  // IndexedDB with `staleTime: Infinity` — so `undefined` arrives here for
-  // real. `undefined <= 1` is false, which would have marked every stale row
-  // as a guess of `undefined` candidates. Not marking is the safe direction.
-  if (!(candidates > 1) || !selector) return <>{label}</>;
+  // An absent count is handled FIRST and on its own line. The count is
+  // missing from any response this browser cached before the field existed,
+  // and TanStack Query persists those to IndexedDB with
+  // `staleTime: Infinity` — so `undefined` arrives here for real. Folding it
+  // into a `<= 1` test would not catch it (`undefined <= 1` is false) and
+  // every stale row would render as "a guess of undefined candidates".
+  // Not marking is the safe direction.
+  if (candidates === undefined || candidates <= 1 || !selector) {
+    return <>{label}</>;
+  }
 
   return (
     <Tooltip label={<CandidateList selector={selector} shown={label} count={candidates} />}>

@@ -121,8 +121,15 @@ export interface AddressTransaction {
    * How many signatures the 4byte directories hold for `methodId`. 0 when
    * nothing resolved, 1 for a single confident match, N > 1 when
    * `functionName` is the first of several guesses.
+   *
+   * OPTIONAL on purpose. Every response this browser cached before the field
+   * existed is missing it, and TanStack Query persists those to IndexedDB
+   * with `staleTime: Infinity` — so `undefined` genuinely arrives here.
+   * Declaring it required would be a type that lies about the wire, and
+   * `MethodName` already tests `> 1` rather than `<= 1` for exactly this
+   * reason. Treat absent as "not known to be a guess".
    */
-  functionCandidates: number;
+  functionCandidates?: number;
   methodId: string;
   input: string;
   type: string;
