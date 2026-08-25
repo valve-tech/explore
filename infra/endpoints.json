@@ -93,15 +93,6 @@
       "notes": "Redirects; explorer data source alongside RPC"
     },
     {
-      "name": "evm-1-substreams",
-      "url": "https://evm-1-substreams.valve.city/",
-      "method": "GET",
-      "category": "substreams",
-      "expect": "grpc",
-      "owner": "fleet",
-      "notes": "gRPC endpoint — a plain GET yields 200 or 415 when alive"
-    },
-    {
       "name": "evm-369-substreams",
       "url": "https://evm-369-substreams.valve.city/",
       "method": "GET",
@@ -117,7 +108,7 @@
       "category": "substreams",
       "expect": "grpc",
       "owner": "fleet",
-      "notes": "gRPC endpoint; first chain stood up"
+      "notes": "gRPC endpoint; first chain stood up. Chain 1 has NO entry: it was never provisioned, so evm-1-substreams.valve.city returns a Cloudflare 530 (origin down). 'not-live' would not help — it matches a network error, not an HTTP status, so a 530 still reads as a failure. Add an entry once chain 1 is actually stood up."
     },
     {
       "name": "gib.show icons",
