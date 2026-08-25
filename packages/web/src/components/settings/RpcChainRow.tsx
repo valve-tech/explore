@@ -6,15 +6,7 @@ import {
 } from "../../lib/rpcEndpoint";
 import { VALVE_PUBLIC_RPC } from "../../lib/rpcDefaults";
 import type { RpcChoice } from "../../lib/rpcSuggestions";
-
-/** Host of a URL, for a compact chip label. Falls back to the raw string. */
-function hostOf(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
-}
+import { RpcAlternatives } from "./RpcAlternatives";
 
 /**
  * One chain's bring-your-own-RPC override editor: names the endpoint the
@@ -159,40 +151,23 @@ export function RpcChainRow({
       {error && <div className="text-xs theme-danger">{error}</div>}
 
       {/*
-       * Endpoints the user can switch to. Every one states it keeps no logs —
-       * that is the provider's own claim from the chainlist dataset, not
-       * something we measured, so the wording says "states".
+       * Endpoints the user can switch to, plus whatever is in force right
+       * now, so one Test covers the node actually being called as well as
+       * the alternatives. `rpcAlternatives` already leads with Valve's, so
+       * this only prepends when the user has set their own.
        */}
-      {alternatives.length > 0 && (
-        <div className="flex flex-wrap items-center gap-inline text-xs">
-          <span className="theme-text-muted uppercase tracking-wide shrink-0">
-            No-log options
-          </span>
-          {alternatives.map((choice) => {
-            const active = effective === choice.url;
-            return (
-              <button
-                key={choice.url}
-                type="button"
-                onClick={() => {
-                  setDraft(choice.url);
-                  setError(null);
-                }}
-                title={`${choice.url} — provider states it keeps no logs${
-                  choice.isValve ? ". Valve's own node, archive depth." : ""
-                }`}
-                className={`px-1.5 py-0.5 theme-mono shrink-0 shadow-[0_0_0_1px_var(--color-border-default)] ${
-                  active
-                    ? "theme-accent-solid text-white"
-                    : "theme-text-muted hover:theme-text"
-                }`}
-              >
-                {choice.isValve ? "Valve" : hostOf(choice.url)}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <RpcAlternatives
+        choices={
+          stored && !alternatives.some((c) => c.url === stored)
+            ? [{ url: stored, tracking: "unknown", isValve: false }, ...alternatives]
+            : alternatives
+        }
+        effective={effective}
+        onPick={(url) => {
+          setDraft(url);
+          setError(null);
+        }}
+      />
 
     </div>
   );

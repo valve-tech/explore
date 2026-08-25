@@ -47,6 +47,10 @@ describe("RPC modules — bundle boundary", () => {
       "lib/rpcDefaults.ts",
       "components/settings/RpcChainRow.tsx",
       "components/settings/RpcSourceChip.tsx",
+      // Reached statically from RpcChainRow, so it sits on the same cold
+      // path. It may name `RpcChoice` as a type but must never import the
+      // module for its value.
+      "components/settings/RpcAlternatives.tsx",
     ]) {
       const imports = staticImports(read(file));
       expect(

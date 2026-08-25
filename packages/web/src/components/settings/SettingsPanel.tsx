@@ -212,14 +212,19 @@ function RpcEndpointSection() {
           anything your connected wallet needs.
         </p>
         <p className="text-xs theme-text-muted max-w-md">
-          The default is Valve&apos;s own public node, which answers for
-          historical state — we check that by asking each endpoint for state at
-          block 1. Valve states it keeps no request logs and no client IP
-          addresses; so does every alternative listed below. Those are the
-          providers&apos; own claims, from the chainlist dataset, and we have
-          not measured any of them — including ours. Point a chain at your own
-          node to depend on nobody. Any endpoint you set must allow browser
-          requests (CORS).
+          The default is Valve&apos;s own public node. Valve states it keeps no
+          request logs and no client IP addresses, and so does every
+          alternative below. Those are the providers&apos; own claims, taken
+          from the chainlist dataset. We cannot check any of them, ours
+          included.
+        </p>
+        <p className="text-xs theme-text-muted max-w-md">
+          What we can check is whether an endpoint serves history. Press Test
+          on a row and each one is asked for state at block 1. Most public
+          endpoints answer only for recent blocks, and this app reads old ones
+          constantly, so those will fail here. Point a chain at your own node
+          to depend on nobody. Any endpoint you set must allow browser requests
+          (CORS).
         </p>
         {CHAINS.map((chain) => (
           <RpcChainRow key={chain.id} chainId={chain.id} name={chain.name} />
