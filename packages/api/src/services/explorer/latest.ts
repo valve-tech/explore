@@ -257,8 +257,10 @@ export async function getRecentTxs(limit: number = 10): Promise<RecentTxsResult>
 
     for (const tx of block.transactions) {
       if (typeof tx === "string") continue; // shouldn't happen with full=true
-      const methodId =
-        tx.input && tx.input !== "0x" ? tx.input.slice(0, 10) : "";
+      // A selector is four bytes. `input.slice(0, 10)` on a shorter blob
+      // yields a fragment that is not a selector and can never resolve, so
+      // require the full width — same rule as the address tx list.
+      const methodId = (tx.input?.length ?? 0) >= 10 ? tx.input.slice(0, 10) : "";
 
       // viem narrows gas fields by tx.type; read through a loose view so we
       // can pull whichever set the tx carries (legacy gasPrice vs 1559 caps).
