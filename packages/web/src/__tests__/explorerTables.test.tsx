@@ -129,4 +129,51 @@ describe("TxGasInfo", () => {
     expect(screen.getByText("EIP-2930")).toBeInTheDocument();
     expect(screen.queryByText(/gwei/)).not.toBeInTheDocument();
   });
+
+  it("collapses an equal tip and cap into a single number", () => {
+    renderWithProviders(
+      <TxGasInfo
+        type="eip1559"
+        gasPrice={null}
+        maxFeePerGas="3000000000000"
+        maxPriorityFeePerGas="3000000000000"
+      />,
+    );
+    expect(screen.getByText(/tip = cap/)).toBeInTheDocument();
+    expect(screen.getByText(/3,000/)).toBeInTheDocument();
+  });
+
+  it("keeps tip and cap as two numbers when raw wei differs but the 3-decimal display would round to the same string", () => {
+    // 3922697967000000 wei → 3,922,697.967 gwei exactly.
+    // 3922697967499000 wei → 3,922,697.967499 gwei, which caps (rounds down,
+    // no carry) to the identical "3,922,697.967" display string. The raw
+    // values differ, so this must NOT collapse to "tip = cap".
+    renderWithProviders(
+      <TxGasInfo
+        type="eip1559"
+        gasPrice={null}
+        maxFeePerGas="3922697967000000"
+        maxPriorityFeePerGas="3922697967499000"
+      />,
+    );
+    expect(screen.queryByText(/tip = cap/)).not.toBeInTheDocument();
+    expect(screen.getByText(/tip 3,922,697\.967/)).toBeInTheDocument();
+    expect(screen.getByText(/cap 3,922,697\.967/)).toBeInTheDocument();
+  });
+
+  it("de-emphasizes the EIP-1559 chip but keeps the label readable text", () => {
+    renderWithProviders(
+      <TxGasInfo type="eip1559" gasPrice={null} maxFeePerGas={null} maxPriorityFeePerGas={null} />,
+    );
+    const chip = screen.getByText("EIP-1559");
+    expect(chip.className).not.toMatch(/theme-tertiary-bg/);
+  });
+
+  it("keeps full chip weight for a legacy transaction, where the type matters", () => {
+    renderWithProviders(
+      <TxGasInfo type="legacy" gasPrice="2000000000000" maxFeePerGas={null} maxPriorityFeePerGas={null} />,
+    );
+    const chip = screen.getByText("Legacy");
+    expect(chip.className).toMatch(/theme-tertiary-bg/);
+  });
 });

@@ -39,6 +39,21 @@ function toGwei(wei: string | null): string | null {
   return formatGwei(wei, 3);
 }
 
+/**
+ * True only when both raw wei strings parse and carry the exact same value.
+ * Compares the RAW integers, never the formatted (rounded) gwei strings —
+ * two different wei amounts can round to the same display text at 3 decimal
+ * places, and treating those as "equal" would hide a real difference.
+ */
+function sameWei(a: string | null, b: string | null): boolean {
+  if (a == null || b == null) return false;
+  try {
+    return BigInt(a) === BigInt(b);
+  } catch {
+    return false;
+  }
+}
+
 export function TxGasInfo({
   type,
   gasPrice,
@@ -49,24 +64,36 @@ export function TxGasInfo({
   const tip = toGwei(maxPriorityFeePerGas);
   const cap = toGwei(maxFeePerGas);
   const legacy = toGwei(gasPrice);
+  const tipEqualsCap = sameWei(maxPriorityFeePerGas, maxFeePerGas);
+  const isDefaultType = type === "eip1559";
 
   return (
     <span
-      className={`inline-flex items-center gap-tight font-mono text-[10px] theme-text-muted ${className}`}
+      className={`inline-flex items-center min-w-0 gap-tight font-mono text-[10px] tabular-nums theme-text-muted ${className}`}
     >
       <span
-        className="px-1.5 py-0.5 uppercase tracking-wider font-semibold shrink-0 theme-tertiary-bg theme-text-secondary"
+        className={
+          isDefaultType
+            ? "shrink-0 theme-text-muted"
+            : "px-1.5 py-0.5 uppercase tracking-wider font-semibold shrink-0 theme-tertiary-bg theme-text-secondary"
+        }
       >
         {typeLabel(type)}
       </span>
       {tip != null || cap != null ? (
-        <span className="whitespace-nowrap">
-          {tip != null && <>tip {tip}</>}
-          {tip != null && cap != null && " / "}
-          {cap != null && <>cap {cap}</>} gwei
+        <span className="min-w-0 break-words">
+          {tipEqualsCap ? (
+            <>tip = cap {cap} gwei</>
+          ) : (
+            <>
+              {tip != null && <>tip {tip}</>}
+              {tip != null && cap != null && " / "}
+              {cap != null && <>cap {cap}</>} gwei
+            </>
+          )}
         </span>
       ) : legacy != null ? (
-        <span className="whitespace-nowrap">{legacy} gwei</span>
+        <span className="min-w-0 break-words">{legacy} gwei</span>
       ) : null}
     </span>
   );
