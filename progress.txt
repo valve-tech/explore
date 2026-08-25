@@ -1,0 +1,120 @@
+# Explore (trace) — Progress
+
+## Last updated: 2026-08-24 MULTICHAIN ROUTING + DRAFTS BUILT OUT + STATE AUDIT
+
+Six commits, all on `main`, all pushed, all deployed. Production serves
+`bfacb4e`. Working tree clean. Gate green: 3 typechecks silent, lint + spacing
+clean, web **2373 unit tests**, **35 e2e**, monorepo smoke **6/6**,
+`check:infra` reports `deploy in sync`.
+
+### SHIPPED
+
+**Multichain entity routing** (`df72fa5`, a 51-commit merge). The chain now
+lives in the path as `/eip155/369/tx/0xabc` — two CAIP-2 path segments, so a
+later chain family costs one route line. An unscoped `/address/0x…` no longer
+picks a chain silently: it aggregates every chain into a presence strip plus a
+merged activity feed. `?chainid=N` still works and redirects. API transport
+unchanged.
+
+**The testnet switch, fixed** (`8ede3d0`). It shipped visibly broken — the knob
+sat entirely outside its own track and overlapped the label. Two causes:
+an absolutely-positioned knob with no explicit `left` resolved its static
+position to 15px inside a 30px track, and `* { border-radius: 0 !important }`
+in `index.css` made `rounded-full` dead CSS. Its footer bar is gone; a
+rarely-touched preference does not earn a strip on every page.
+
+**Every wagmi transport now has an explicit endpoint** (`7c9cbea`). A bare
+`http()` is NOT "no endpoint" — viem substitutes the URL compiled into its own
+chain definition, so Ethereum pointed at `https://eth.merkle.io`, a third party
+nobody chose, on a page that told the user their browser makes no direct node
+calls. Sepolia had no transport at all. Defaults are Valve's own `vk_demo`
+endpoints, probed archive-deep. Settings now names the endpoint the browser
+will actually call and offers no-log alternatives from
+`@valve-tech/rpc-collector`.
+
+**The two `components/drafts/` mockups became real features** (`d23600b`,
+`43d7264`, `87652e2`): an adaptive "what to do next" rail on the tx page, and
+Source/Storage/Diff/Re-verify as `?tab=` sub-tabs on the single-chain address
+view. Ruling: these AUGMENT the existing pages rather than replacing them,
+though the drafts call themselves "pivots" — a wholesale replacement is not
+reviewable in one pass.
+
+**Four parallel state audits, 61 states rendered, 11 defects** (`bfacb4e`).
+None were caught by any test. Fixed: an errored chain claiming "0% of recent";
+neither all-chain view naming its own subject; `?fromTx=` written by three call
+sites and read by none; rail copy promising an allowance checker that does not
+exist; Settings stating the no-logs claim as fact for us and hedging it for
+everyone else on the same screen.
+
+### HARD-WON — DO NOT RE-DERIVE
+
+- **`npm run test` is NOT the tests.** It runs the API *integration* suite.
+  There are FOUR: web vitest, api unit (`test:unit`), api integration, and the
+  Playwright gate (`npm run test:e2e --workspace=packages/web`, needs
+  `npx playwright install chromium` once). I skipped e2e for a whole branch and
+  it was hiding four real failures.
+- **jsdom does no layout.** `getBoundingClientRect` returns zeros, so no vitest
+  test can see a knob escaping its track, an overlap, or a clip. Geometry
+  belongs in e2e. This is why the switch shipped broken past 2329 green tests.
+- **The sidebar is a selector minefield.** It has nav items literally named
+  Storage, Debugger, Simulate, Monitoring, Actions, Verify. `text=Storage`
+  matches the SIDEBAR, not your component. This produced three false findings
+  in one session — two of mine, one an auditor caught itself. Always scope to
+  the component's own container first.
+- **A finite 0 is not "no data".** `EntityRow` withholds its fill only for a
+  NON-finite share, so folding an errored chain in at `returned: 0` made the
+  strip contradict its own footer. Absent, not zero, is the honest answer.
+- **Terminal-return views get no breadcrumb.** `MultiChainAddressView` and
+  `BlockHeightView` return before `ExplorerPanel` renders one, so neither named
+  its own subject until fixed. Any future early-return view has the same trap.
+- **`op` hangs on a STALE `~/.config/op/op-daemon.sock`.** Killing the daemon is
+  not enough — the socket file survives the process. `op --version` works while
+  `op whoami` hangs; that is the tell. Fix:
+  `pkill -f "op daemon"; rm -f ~/.config/op/op-daemon.sock`.
+- **Two implementer subagents must not share a working tree.** Disjoint FILES
+  do not make a shared git INDEX safe. Both agents hit it; one had its staged
+  files cleared mid-commit. Worktree per agent, or sequence them. Read-only
+  audit agents in parallel are fine.
+
+### DEPLOY
+
+`yarn deploy --env rpc-otterscan --plan explore-deploy` from the monorepo, with
+`TRACE_HOLDINGS_GRAPHQL_SECRET` exported from
+`op://valve/valve_hasura_secret/password`. Blue/green; rollback is
+`--plan explore-rollback`, health-only is `--plan explore-health-only`. The box
+clones `origin/main` and short-circuits when the image label `trace.sha`
+already matches HEAD, so **pushing is what selects the build**. No env var, no
+migration, no `config/chains.json` change, no Caddy change — Express serves the
+SPA from a true catch-all, so `/eip155/…` needs no edge config.
+
+### OPEN
+
+- **Spinner-forever in `AddressView`.** Its `Promise.all` of four fetches has no
+  timeout and only one of the four is individually caught, so a backend hang on
+  one leaves the page loading with no error. PRE-EXISTING (verified unchanged
+  by `d23600b`), reproduces on a high-volume token contract, not on an EOA.
+  Severe; not fixed.
+- **The rail's swap branch fires under 1% of the time.** It matches `/swap/i`
+  on the decoded function name, but real chain-369 swaps arrive
+  multicall-wrapped — a scan of 963 txs across 25 blocks found 33 swaps, ALL
+  inside `multicall`, versus 7 with a direct `swapExact*` name. Fixing it means
+  decoding inner calls.
+- **`&address=` outlives its tab.** Only Storage/Re-verify add it, nothing
+  removes it, so it rides along on later URLs that session. Harmless,
+  confusing in a shared link.
+- **Archive probing is available but unwired.** `@valve-tech/rpc-collector`'s
+  `probe.js` has `checkArchive`/`requireArchive` and rides in the same POST as
+  the liveness call. Fits an explicit "test these endpoints" button; must NOT
+  fire on page load, which would call every third party on render.
+- **Sepolia is missing from `valve-tech/chainlist`** though
+  `one.valve.city/rpc/vk_demo/evm/11155111` serves it. Worth a PR. The
+  `rpc-collector` vendored snapshot also predates our entries reaching
+  upstream, so it ships with no Valve endpoints — regenerating would pick them
+  up.
+- **`evm-1-substreams` reports 530 in `check:infra`.** Chain 1 substreams was
+  never stood up, so the manifest's 200/415 expectation is stale — it should be
+  marked not-live like the `ipfs.explore` row.
+- **`recentEntityView.ts` and `AppShell/buildResults.ts` build chain-less
+  paths**, because `RecentEntity` does not record which chain it saw an entry
+  on. Guessing would turn a correct cross-chain resolve into a false "not
+  found". A real fix needs a `chainId` field on that type.

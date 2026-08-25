@@ -96,6 +96,20 @@ either names a real chain or genuinely renders every chain.
 
 For detailed architecture, service dependencies, data flows, and gotchas, see [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md).
 
+## Session progress
+
+`progress.txt` at the repo root is the running log, newest checkpoint at the
+top — same convention as the valve monorepo and msgboard. **Read it first, and
+update it as you go, not once at the end.** It carries what shipped, the
+hard-won facts worth never re-deriving, and the open items with enough detail
+to pick them up cold.
+
+It is not a changelog — `git log` already is one. It is for what the code does
+not say: why a thing was left undone, which trap cost an hour, what a green
+test suite failed to catch.
+
+---
+
 ## Quick Start
 
 ```bash
