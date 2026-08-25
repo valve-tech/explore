@@ -64,8 +64,41 @@ export function hasFailedTransferFrom(
   );
 }
 
+/**
+ * Swap entry points whose NAME never contains the word "swap". Uniswap V3's
+ * router is the big one: `exactInputSingle` is the single most common swap
+ * on Ethereum, and a `/swap/i` test cannot see it.
+ *
+ * Measured against production on 2026-08-25 — 40 blocks of chain 1 (11,609
+ * transactions) and 60 blocks of chain 369 (4,592):
+ *
+ *   chain 1    202 named swaps matched, 88 missed  -> 30.3% invisible
+ *   chain 369  117 named swaps matched, 16 missed  -> 12.0% invisible
+ *
+ * Almost all of the miss is `exactInputSingle` (86 of 88 on chain 1). These
+ * are anchored at the start of the name, not searched anywhere inside it, so
+ * an unrelated function that merely ends in "route" does not match.
+ */
+const SWAP_SEMANTIC_PREFIXES =
+  /^(exactInput|exactOutput|unoswap|clipperSwap|sellToUniswap|sellToken|buyToken|fillOtcOrder|fillQuote)/i;
+
+/**
+ * True when the top-level call is a swap.
+ *
+ * Deliberately name-only. A wrapper — `multicall`, `execute`, `aggregate3` —
+ * hides whatever it wraps behind its own name, and this function sees only
+ * the outer name, so a wrapped swap reads as a non-swap here. That gap is
+ * measured and left open on purpose: over the same sample, direct swaps beat
+ * wrappers 117:100 on chain 369 while wrappers beat direct swaps 350:186 on
+ * chain 1, and both sit near 2-3% of all traffic. Unwrapping them means
+ * decoding calldata argument-by-argument for a minority of a minority, so it
+ * is a product decision, not a regex tweak. See progress.txt "OPEN".
+ */
 function isSwap(functionName: string | null): boolean {
-  return functionName !== null && /swap/i.test(functionName);
+  if (functionName === null) return false;
+  return (
+    /swap/i.test(functionName) || SWAP_SEMANTIC_PREFIXES.test(functionName)
+  );
 }
 
 /**

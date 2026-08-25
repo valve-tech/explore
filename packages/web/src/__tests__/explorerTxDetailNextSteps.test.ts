@@ -113,6 +113,61 @@ describe("nextStepsFor", () => {
     expect(steps.map((s) => s.id)).toEqual(["fork", "actions"]);
   });
 
+  /**
+   * Uniswap V3's router names none of its entry points "swap", so a bare
+   * /swap/i test cannot see the most common swap on Ethereum. Measured on
+   * 2026-08-25 against production: 30.3% of named swaps on chain 1 were
+   * invisible to the old test, 86 of those 88 being `exactInputSingle`.
+   */
+  it.each([
+    "exactInputSingle",
+    "exactInput",
+    "exactOutputSingle",
+    "unoswap",
+    "sellToUniswap",
+  ])("treats %s as a swap even though the name never says so", (fn) => {
+    const steps = nextStepsFor(
+      baseFacts({ status: "success", functionName: fn }),
+      CHAIN_ID,
+    );
+    expect(steps.map((s) => s.id)).toEqual(["fork", "actions"]);
+  });
+
+  /**
+   * The semantic names are anchored at the start, so a function that merely
+   * CONTAINS one of them is not swept up. `setExactInputLimit` configures a
+   * limit; it does not swap anything, and offering a fork-replay for it
+   * would be a false positive the reader has to learn to ignore.
+   */
+  it.each(["setExactInputLimit", "reroute", "resellTokenApproval"])(
+    "does not treat %s as a swap",
+    (fn) => {
+      expect(
+        nextStepsFor(
+          baseFacts({ status: "success", functionName: fn }),
+          CHAIN_ID,
+        ),
+      ).toEqual([]);
+    },
+  );
+
+  /**
+   * A wrapper hides what it wraps behind its own name, and this rail reads
+   * only the outer name. Pinned as a KNOWN, measured gap rather than left
+   * ambiguous: unwrapping needs calldata decoding, which is a product call.
+   */
+  it.each(["multicall", "execute", "aggregate3"])(
+    "does not see a swap wrapped in %s — known gap, decided deliberately",
+    (fn) => {
+      expect(
+        nextStepsFor(
+          baseFacts({ status: "success", functionName: fn }),
+          CHAIN_ID,
+        ),
+      ).toEqual([]);
+    },
+  );
+
   it("offers the debugger, a generic re-simulate, and an alert for a plain revert", () => {
     const steps = nextStepsFor(
       baseFacts({ status: "reverted", hasFailedTransferFrom: false }),
