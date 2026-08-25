@@ -63,10 +63,15 @@ export interface RecentTx {
   methodId: string;
   methodName: string | null;
   /**
-   * How many signatures the 4byte directories hold for `methodId`. 0 when
-   * nothing resolved, 1 for a single confident match, N > 1 when `methodName`
-   * is the first of several guesses. `MethodName` marks anything above 1 and
-   * fetches the alternatives only when the reader asks for them.
+   * How many candidate signatures leave `methodName` in doubt. 0 when nothing
+   * resolved, 1 when the name is settled, N > 1 when it is one guess among N.
+   * `MethodName` marks anything above 1 and fetches the alternatives only
+   * when the reader asks for them.
+   *
+   * Not the raw registration count: the server vouches for canonical
+   * signatures and reports 1 for them, so a selector with six 4byte entries
+   * arrives as 1 when one of them is `transfer(address,uint256)`. See
+   * `services/signatures/vouched.ts` for why.
    *
    * OPTIONAL on purpose — see the note on `functionCandidates` in
    * `api/explorer.ts`. A row served from IndexedDB predates the field.

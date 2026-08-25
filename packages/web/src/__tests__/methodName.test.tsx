@@ -6,13 +6,19 @@ import { MethodName } from "../components/explorer/MethodName";
 /**
  * A method name resolved through 4byte is often a guess. The directory holds
  * every signature anyone registered, so one selector routinely carries
- * several — 77% of named Ethereum transactions, 47% on chain 369. These tests
- * pin the two halves of the fix: a single match reads as plain text, and a
- * multi-candidate name is marked and reveals its alternatives on hover.
+ * several. These tests pin the two halves of the fix: a settled name reads as
+ * plain text, and a name still in doubt is marked and reveals its
+ * alternatives on hover.
  *
  * `ijekfhacdgb` is the real first candidate production returns for selector
  * 0x00000012 on chain 1 — a gas-token-era name someone brute-forced so its
  * selector had leading zero bytes.
+ *
+ * `candidates` counts the candidates still IN DOUBT, not 4byte registrations.
+ * Marking on the raw count marked 77% of named Ethereum rows and every one of
+ * them was `transfer`, `transferFrom`, or a Uniswap V2 swap — see
+ * `services/signatures/vouched.ts`. The component's threshold never moved;
+ * the number feeding it did.
  */
 vi.mock("../api/signatures", () => ({
   lookupSignature: vi.fn(),
@@ -38,13 +44,17 @@ beforeEach(() => {
 });
 
 describe("<MethodName />", () => {
-  it("shows a single confident match as plain text", () => {
+  it("shows a settled name as plain text", () => {
+    // 4byte holds SIX signatures for 0xa9059cbb, five of them mined spam. The
+    // server vouches for the ERC-20 one and sends 1, so the most common call
+    // on Ethereum reads as a fact — which is what it is.
     renderWithProviders(
       <MethodName label="transfer(address,uint256)" selector="0xa9059cbb" candidates={1} />,
     );
     expect(screen.getByText("transfer(address,uint256)")).toBeInTheDocument();
     // Nothing extra to read past: no count, no caveat.
     expect(screen.queryByText(/candidate signatures/)).not.toBeInTheDocument();
+    expect(screen.queryByText("6")).not.toBeInTheDocument();
   });
 
   it("shows an unresolved selector (0 candidates) as plain text too", () => {

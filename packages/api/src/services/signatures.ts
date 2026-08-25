@@ -1,4 +1,5 @@
 import { pool } from "./pool.js";
+import { isVouched } from "./signatures/vouched.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,29 +13,44 @@ export interface SignatureMatch {
 
 /**
  * One selector, reduced to what a list row needs: the name we show, and how
- * many names we had to choose from.
+ * much of a guess it is.
  *
- * The count is the point. 4byte.directory is a dictionary of every signature
- * anyone ever registered, not a record of what a contract compiled to, so a
- * selector routinely carries several entries. On a sample of 40 recent
- * Ethereum blocks, 4,351 transactions resolved to a name and 3,348 of them —
- * 77% — had more than one candidate. On chain 369 it is 47%. We were printing
- * the first row of that list as if it were the truth, which is how a page came
- * to say a transaction called `ijekfhacdgb()` (selector 0x00000012) or
- * `rz_16jun22_88961909()`: gas-token-era mined names, brute-forced so their
- * selector had leading zero bytes, and legitimately registered upstream.
+ * 4byte.directory is a dictionary of every signature anyone ever registered,
+ * not a record of what a contract compiled to, so a selector routinely
+ * carries several entries. We were printing the first of them as if it were
+ * the truth, which is how a page came to say a transaction called
+ * `ijekfhacdgb()` (selector 0x00000012) or `rz_16jun22_88961909()`:
+ * gas-token-era mined names, brute-forced so their selector had leading zero
+ * bytes, and legitimately registered upstream.
  *
- * `UNRESOLVABLE_SELECTORS` cannot help there — those selectors are real. The
- * honest fix is to keep serving the first candidate, say how many there were,
- * and let the UI mark it as a guess.
+ * The first fix shipped the raw candidate count and let the UI mark anything
+ * above 1. It marked 77% of named Ethereum rows, and a review against the
+ * rendered page on 2026-08-25 showed why that was useless: in a 250-tx sample
+ * across all four chains, EVERY marked row was ERC-20 `transfer`,
+ * `transferFrom`, or a Uniswap V2 router swap. Not one was a real guess.
+ * Meanwhile `atInversebrah(…)` — the mined name for 0x60806040, which is not
+ * a selector at all — wore the same superscript 6 as
+ * `transfer(address,uint256)` three rows above it.
  *
- * One integer per row is the whole wire cost. A client that wants the other
- * candidates asks `GET /api/signatures/:selector` for that one selector.
+ * So the count no longer counts registrations. It counts the candidates that
+ * leave the displayed name IN DOUBT, and `signatures/vouched.ts` is what
+ * takes a candidate out of doubt. The wire cost is unchanged: one integer per
+ * row, and a client that wants the alternatives asks
+ * `GET /api/signatures/:selector` for that one selector.
  */
 export interface SelectorSummary {
-  /** The candidate we display — first by (created_at, text_signature). */
+  /**
+   * The candidate we display: the vouched signature if the selector has one,
+   * otherwise the first by (created_at, text_signature).
+   */
   textSignature: string;
-  /** How many candidates the directories hold. Always >= 1 here. */
+  /**
+   * How many candidates leave `textSignature` in doubt. Always >= 1.
+   *
+   * `1` means settled — either the selector had one candidate, or the one we
+   * show is the canonical signature for it. Above 1 is the honest count of a
+   * selector where nothing vouches for any of the names, and the UI marks it.
+   */
   candidateCount: number;
 }
 
@@ -45,25 +61,31 @@ export interface SelectorSummary {
 /**
  * Selectors no signature database can answer honestly.
  *
- * `0x00000000` is the whole set today. It is not a real function selector —
- * it is what the first four bytes look like when a contract takes a raw
- * calldata blob through its fallback, which every MEV and arbitrage bot on
- * chain 369 does. Nobody compiled a function to it; people MINED names that
- * hash to it, back when gas tokens paid for the effort, and registered all of
- * them upstream. 4byte.directory holds 49 such names for it, and Sourcify
- * mirrors them.
+ * Neither of these is a function selector. Both are the first four bytes of
+ * something else, and people MINED names that hash to them back when gas
+ * tokens paid for the effort, then registered every one upstream.
+ * 4byte.directory serves them, and Sourcify mirrors them.
  *
- * Taking the first of 49 mined names produced a page that told the user tx
- * 0x8b69a556… called `get_block_hash_257335279069929()`, while the tx detail
- * page and the debugger — which decode against the real ABI — correctly said
- * they could not decode it at all. The list was not reading a different
- * source; it was reading a dictionary of guesses and printing the guess as a
- * fact.
+ * `0x00000000` is what calldata starts with when a contract takes a raw blob
+ * through its fallback, which every MEV and arbitrage bot on chain 369 does.
+ * The directory holds 49 mined names for it. Taking the first produced a page
+ * that told the user tx 0x8b69a556… called
+ * `get_block_hash_257335279069929()`, while the tx detail page and the
+ * debugger — which decode against the real ABI — correctly said they could
+ * not decode it at all.
+ *
+ * `0x60806040` is the Solidity contract-creation prologue: `PUSH1 0x80 PUSH1
+ * 0x40`, the first instruction of essentially every contract deployed since
+ * 0.5.x. A list row reads its "selector" off the front of the init bytecode,
+ * so every deployment resolved to `atInversebrah(bytes28,(int56),…)`, the
+ * first of six mined names. Seven of 25 rows on one address feed said it.
  *
  * Returning nothing lets the caller fall back to showing the raw selector,
- * which is true.
+ * which is true. The cost is a real function that happens to hash to one of
+ * these two losing its name; the benefit is that deployments and raw-blob
+ * fallbacks stop inventing one. That trade is heavily one-sided.
  */
-const UNRESOLVABLE_SELECTORS = new Set(["0x00000000"]);
+const UNRESOLVABLE_SELECTORS = new Set(["0x00000000", "0x60806040"]);
 
 // ---------------------------------------------------------------------------
 // API sources — try Sourcify first, then 4byte.directory
@@ -249,13 +271,25 @@ export async function lookupSelectors(
 }
 
 /**
- * Reduce a match list to the displayed name plus the candidate count.
+ * Reduce a match list to the displayed name plus the in-doubt count.
  *
- * Pure, and separate from the lookup, so the ordering rule lives in exactly
- * one place: the first match wins, and the SQL above already pinned that
- * order with `ORDER BY created_at, text_signature`. A Postgres `SELECT` with
- * no `ORDER BY` returns rows in whatever order it likes, which would have
- * made "the first candidate" a different name from one request to the next.
+ * Pure, and separate from the lookup, so both rules live in exactly one
+ * place.
+ *
+ * **Which name wins.** A vouched signature beats registration order. The
+ * fallback is the first match, and the SQL above pinned that order with
+ * `ORDER BY created_at, text_signature` — a Postgres `SELECT` with no `ORDER
+ * BY` returns rows however it likes, which would have made "the first
+ * candidate" a different name from one request to the next. Preferring the
+ * vouched entry also removes our dependence on 4byte's own ordering: if the
+ * directory ever listed `many_msg_babbage(bytes1)` ahead of
+ * `transfer(address,uint256)`, we would still print `transfer`.
+ *
+ * **How much doubt is left.** A vouched name is settled, so the count is 1
+ * and the UI renders it as plain text. Nothing vouches for a mined name, so
+ * its selector reports the honest number and the UI marks it. This is the
+ * whole difference between a marker that fired on 77% of Ethereum rows and
+ * one that fires when the name is actually a guess.
  *
  * Returns null for a selector with no matches, so the caller renders the raw
  * selector rather than a name.
@@ -265,7 +299,12 @@ export function summarizeMatches(
 ): SelectorSummary | null {
   const first = matches?.[0];
   if (!first) return null;
-  return { textSignature: first.textSignature, candidateCount: matches.length };
+  const vouched = matches.find((m) => isVouched(m.selector, m.textSignature));
+  const shown = vouched ?? first;
+  return {
+    textSignature: shown.textSignature,
+    candidateCount: vouched ? 1 : matches.length,
+  };
 }
 
 /**
