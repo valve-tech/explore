@@ -1,6 +1,5 @@
 import { runWithChain } from "../chains/context.js";
 import { getAddressTransactions } from "../explorer/addresses.js";
-import { countAppearances } from "../chifra/appearances.js";
 import { hasPresence, type ChainPresence } from "./chainPresence.js";
 
 /**
@@ -43,30 +42,20 @@ export interface ActivityDeps {
 }
 
 /**
- * `getAddressTransactions` is a degradable read for every OTHER caller: a
- * chifra outage lands on `listAppearances`' `catch { return []; }` and comes
- * back as `{ transactions: [], total: 0 }`, indistinguishable from a real
- * empty history. That is the right answer for the plain address page, which
- * has no per-chain error slot to report into.
+ * Reporting "0 rows, no error" for an unreachable chain is exactly the
+ * conflation this page exists to remove — `PerChainStatus.error` is the slot
+ * that distinguishes them.
  *
- * This page does have one (`PerChainStatus.error`), and reporting "0 rows, no
- * error" for an unreachable chain is exactly the conflation the feature
- * exists to remove. So this fetcher makes its OWN `countAppearances` call —
- * cheap and already 30s-cached, so it costs nothing beyond the coincident
- * in-flight call `getAddressTransactions` makes — and throws when the page
- * came back empty AND the count came back `null`. `null` only happens on an
- * outage; a real empty address reports a real `0`.
+ * This fetcher used to make its own `countAppearances` call to tell an outage
+ * from a genuinely empty address, because `getAddressTransactions` swallowed
+ * the difference. It no longer does: since 2026-08-25 it throws a 503 on that
+ * exact condition, for every caller, so a chifra outage arrives here as a
+ * rejection and lands in the per-chain error slot on its own.
  */
 export const defaultDeps: ActivityDeps = {
   fetchForChain: async (chainId, address, limit) =>
     runWithChain(chainId, async () => {
-      const [{ transactions }, count] = await Promise.all([
-        getAddressTransactions(address, 1, limit),
-        countAppearances(address),
-      ]);
-      if (transactions.length === 0 && count === null) {
-        throw new Error("chifra unreachable for this chain");
-      }
+      const { transactions } = await getAddressTransactions(address, 1, limit);
       return transactions.map((t) => ({ ...t, chainId }) as TaggedTx);
     }),
   timeoutMs: 12_000,

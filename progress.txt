@@ -112,6 +112,19 @@ two causes are under HARD-WON below — neither is a clip.
 
 ### HARD-WON — DO NOT RE-DERIVE
 
+- **A bare `catch { return [] }` told readers that WPLS has no history.**
+  `listAppearances` swallowed every chifra failure into an empty array, so a
+  30-second timeout was served to the browser as `{transactions: [], total: 0}`
+  — a 200. The address page then printed "No transactions found" about one of
+  the busiest contracts on chain 369. Measured: 30.2s, the chifra cap exactly.
+  The signal to tell the two apart was already being computed one line above:
+  `countAppearances` returns `null` ONLY on an outage, and a genuinely empty
+  address reports a real `0`. `getMergedActivity` already knew this and made
+  its own second call to work around it. `getAddressTransactions` now throws a
+  503 on `isAppearanceOutage()`, so every caller gets the truth and the
+  workaround is deleted. **An empty result is a claim about the world — make
+  sure you can prove it before you serve it.**
+
 - **A stale route interception outlives the page that installed it.** After
   testing the home page's outage state by forcing `**/api/**` to 500, that
   route stayed armed in the browser context. The next session opened

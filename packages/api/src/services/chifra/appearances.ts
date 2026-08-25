@@ -120,6 +120,26 @@ export function appearanceCountFromRow(
   return row.nRecords ?? null;
 }
 
+/**
+ * True when an empty appearance page means "the index did not answer", not
+ * "this address has no history".
+ *
+ * `listAppearances` swallows every failure into `catch { return []; }`, so an
+ * empty page alone cannot tell an outage from a genuinely unused address.
+ * `countAppearances` can: it returns `null` ONLY on an outage, and a real
+ * empty address reports a real `0`. Reading the two together is the only way
+ * to separate them.
+ *
+ * A non-empty page is never an outage, whatever the count says — rows in hand
+ * are rows in hand.
+ */
+export function isAppearanceOutage(
+  appearanceCount: number,
+  indexCount: number | null,
+): boolean {
+  return appearanceCount === 0 && indexCount === null;
+}
+
 export async function countAppearances(address: string): Promise<number | null> {
   const chain = currentChain().chifraChain;
   const cacheKey = `${chain}:${address.toLowerCase()}`;

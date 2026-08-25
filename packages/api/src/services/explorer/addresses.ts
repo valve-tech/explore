@@ -1,6 +1,11 @@
 import { type Address, type Hex, erc20Abi, formatEther, padHex } from "viem";
 import { chainClient } from "../chains/context.js";
-import { listAppearances, countAppearances } from "../chifra/appearances.js";
+import { ApiError } from "../../lib/respond.js";
+import {
+  listAppearances,
+  countAppearances,
+  isAppearanceOutage,
+} from "../chifra/appearances.js";
 import { lookupSelectorSummaries, type SelectorSummary } from "../signatures.js";
 import { TRANSFER_TOPIC } from "./tokenTransfers/transforms.js";
 import {
@@ -45,6 +50,30 @@ export async function getAddressTransactions(
     listAppearances(address, page, limit),
     countAppearances(address),
   ]);
+  /*
+   * An empty page plus a `null` count means chifra never answered — NOT that
+   * the address has no history. `listAppearances` swallows every failure into
+   * `catch { return []; }`, so on its own an empty page cannot tell the two
+   * apart. `countAppearances` can: it returns `null` only on an outage, and a
+   * genuinely empty address reports a real `0`.
+   *
+   * This used to return an empty success anyway, on the grounds that the
+   * address page had nowhere to report an error. That stopped being true on
+   * 2026-08-25, when the page gained a per-section failed state with a reason
+   * and a Retry. Measured before the fix: WPLS on chain 369
+   * (0xA1077a...9a27) answered in 30.2s — the chifra cap exactly — with
+   * `total: 0`, and the page said "No transactions found" about one of the
+   * busiest contracts on the chain.
+   *
+   * `getMergedActivity` already used this same test for the same reason; it
+   * simply had to compute the count itself. It no longer does.
+   */
+  if (isAppearanceOutage(appearances.length, count)) {
+    throw new ApiError(
+      503,
+      "The transaction index did not answer in time. This is an outage, not an empty address.",
+    );
+  }
   if (appearances.length === 0) return { transactions: [], total: count ?? 0 };
 
   const client = chainClient();
