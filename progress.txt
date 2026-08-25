@@ -1,80 +1,75 @@
 # Explore (trace) — Progress
 
-## Last updated: 2026-08-24 MULTICHAIN ROUTING + DRAFTS BUILT OUT + STATE AUDIT
+## Last updated: 2026-08-24 SELECTOR HONESTY + ARCHIVE PROBE
 
-Six commits, all on `main`, all pushed, all deployed. Production serves
-`bfacb4e`. Working tree clean. Gate green: 3 typechecks silent, lint + spacing
-clean, web **2373 unit tests**, **35 e2e**, monorepo smoke **6/6**,
-`check:infra` reports `deploy in sync`.
+Four commits on `main` since the last checkpoint. Gate green: 3 typechecks
+silent, lint + spacing clean, web **2390 unit tests**, api unit **684**, sdk
+**552**, e2e green. Production still serves `bfacb4e` — these are unpushed
+until deployed.
 
-### SHIPPED
+### SHIPPED THIS SESSION
 
-**Multichain entity routing** (`df72fa5`, a 51-commit merge). The chain now
-lives in the path as `/eip155/369/tx/0xabc` — two CAIP-2 path segments, so a
-later chain family costs one route line. An unscoped `/address/0x…` no longer
-picks a chain silently: it aggregates every chain into a presence strip plus a
-merged activity feed. `?chainid=N` still works and redirects. API transport
-unchanged.
+**A transaction is no longer named after a mined 4byte collision**
+(`0f13199`). The home page said tx 0x8b69a556… called
+`get_block_hash_257335279069929()` while the detail page and the debugger
+correctly could not decode it. Selector `0x00000000` now resolves to nothing.
+Also ordered both signature-cache reads and tightened `latest.ts`'s methodId
+slice.
 
-**The testnet switch, fixed** (`8ede3d0`). It shipped visibly broken — the knob
-sat entirely outside its own track and overlapped the label. Two causes:
-an absolutely-positioned knob with no explicit `left` resolved its static
-position to 15px inside a 30px track, and `* { border-radius: 0 !important }`
-in `index.css` made `rounded-full` dead CSS. Its footer bar is gone; a
-rarely-touched preference does not earn a strip on every page.
+**Settings measures whether a suggested endpoint serves history**
+(`3faa100`). `probeArchive` asks each endpoint for state at block 1, behind a
+Test button. Struck-through chips carry their verdict; the endpoint in force
+is tested alongside the suggestions.
 
-**Every wagmi transport now has an explicit endpoint** (`7c9cbea`). A bare
-`http()` is NOT "no endpoint" — viem substitutes the URL compiled into its own
-chain definition, so Ethereum pointed at `https://eth.merkle.io`, a third party
-nobody chose, on a page that told the user their browser makes no direct node
-calls. Sepolia had no transport at all. Defaults are Valve's own `vk_demo`
-endpoints, probed archive-deep. Settings now names the endpoint the browser
-will actually call and offers no-log alternatives from
-`@valve-tech/rpc-collector`.
+**`&address=` no longer outlives its tab** (`289b523`), and the sub-tab strip
+became a labelled `<nav>` with `aria-current`.
 
-**The two `components/drafts/` mockups became real features** (`d23600b`,
-`43d7264`, `87652e2`): an adaptive "what to do next" rail on the tx page, and
-Source/Storage/Diff/Re-verify as `?tab=` sub-tabs on the single-chain address
-view. Ruling: these AUGMENT the existing pages rather than replacing them,
-though the drafts call themselves "pivots" — a wholesale replacement is not
-reviewable in one pass.
-
-**Four parallel state audits, 61 states rendered, 11 defects** (`bfacb4e`).
-None were caught by any test. Fixed: an errored chain claiming "0% of recent";
-neither all-chain view naming its own subject; `?fromTx=` written by three call
-sites and read by none; rail copy promising an allowance checker that does not
-exist; Settings stating the no-logs claim as fact for us and hedging it for
-everyone else on the same screen.
+**`evm-1-substreams` dropped from the infra manifest** (`4e25530`). Endpoints
+now 14/14.
 
 ### HARD-WON — DO NOT RE-DERIVE
 
+- **There is no archive filter anywhere, and there never was.** chainlist
+  records a provider's logging claim and nothing about pruning, so
+  `rpc-collector`'s `collectRpcs` has no archive option and `RpcEndpoint` has
+  no archive field — at ANY version. `probeEndpoints` measures liveness only,
+  which a pruned node passes. I twice reported `checkArchive`/`requireArchive`
+  as existing in 0.24.0. They do not. Ask the node or you do not know.
+- **Measure the state you are shipping, not the one before it.** I measured
+  the endpoint chip row at 375px, found it clean, and shipped. The overflow
+  only appears AFTER the probe adds a verdict to every label —
+  "eth-sepolia-testnet.api.pocket.network · recent blocks only" is 425px
+  against a 365px pane. The e2e caught it; my manual pass could not, because I
+  never pressed the button first.
+- **`0x00000000` is not a selector.** It is a raw fallback blob's first four
+  bytes. 4byte holds 49 MINED names for it. Any list that takes `matches[0]`
+  prints one of them as fact.
+- **The signature cache had no ORDER BY.** Same selector, different name on
+  different days, with nothing in the code to point at. Fixed, but the general
+  problem stands: 4byte is a dictionary of guesses and both list views present
+  the first guess as a fact.
+- **`npm run test:unit --workspace=packages/api` needs the API on :10100.**
+  Five `/api/tx/:hash` tests live under `tests/unit/` and hit the live server.
+  Without it they fail with a bare `createConnectionError` that reads like a
+  Postgres problem. Start `npm run dev:api` first; then 684/684 pass.
 - **`npm run test` is NOT the tests.** It runs the API *integration* suite.
   There are FOUR: web vitest, api unit (`test:unit`), api integration, and the
   Playwright gate (`npm run test:e2e --workspace=packages/web`, needs
-  `npx playwright install chromium` once). I skipped e2e for a whole branch and
-  it was hiding four real failures.
-- **jsdom does no layout.** `getBoundingClientRect` returns zeros, so no vitest
-  test can see a knob escaping its track, an overlap, or a clip. Geometry
-  belongs in e2e. This is why the switch shipped broken past 2329 green tests.
-- **The sidebar is a selector minefield.** It has nav items literally named
-  Storage, Debugger, Simulate, Monitoring, Actions, Verify. `text=Storage`
-  matches the SIDEBAR, not your component. This produced three false findings
-  in one session — two of mine, one an auditor caught itself. Always scope to
-  the component's own container first.
+  `npx playwright install chromium` once).
+- **jsdom does no layout.** `getBoundingClientRect` returns zeros, so no
+  vitest test can see a chip escaping its pane. Geometry belongs in e2e.
+- **The sidebar is a selector minefield**, and so is `{name: "Test"}` —
+  substring matching also selects chips named
+  "eth-sepolia-**test**net.api.pocket.network". Use `exact: true`.
 - **A finite 0 is not "no data".** `EntityRow` withholds its fill only for a
-  NON-finite share, so folding an errored chain in at `returned: 0` made the
-  strip contradict its own footer. Absent, not zero, is the honest answer.
+  NON-finite share.
 - **Terminal-return views get no breadcrumb.** `MultiChainAddressView` and
-  `BlockHeightView` return before `ExplorerPanel` renders one, so neither named
-  its own subject until fixed. Any future early-return view has the same trap.
-- **`op` hangs on a STALE `~/.config/op/op-daemon.sock`.** Killing the daemon is
-  not enough — the socket file survives the process. `op --version` works while
-  `op whoami` hangs; that is the tell. Fix:
+  `BlockHeightView` return before `ExplorerPanel` renders one.
+- **`op` hangs on a STALE `~/.config/op/op-daemon.sock`.** `op --version`
+  works while `op whoami` hangs; that is the tell. Fix:
   `pkill -f "op daemon"; rm -f ~/.config/op/op-daemon.sock`.
 - **Two implementer subagents must not share a working tree.** Disjoint FILES
-  do not make a shared git INDEX safe. Both agents hit it; one had its staged
-  files cleared mid-commit. Worktree per agent, or sequence them. Read-only
-  audit agents in parallel are fine.
+  do not make a shared git INDEX safe. Read-only audits in parallel are fine.
 
 ### DEPLOY
 
@@ -83,38 +78,32 @@ everyone else on the same screen.
 `op://valve/valve_hasura_secret/password`. Blue/green; rollback is
 `--plan explore-rollback`, health-only is `--plan explore-health-only`. The box
 clones `origin/main` and short-circuits when the image label `trace.sha`
-already matches HEAD, so **pushing is what selects the build**. No env var, no
-migration, no `config/chains.json` change, no Caddy change — Express serves the
-SPA from a true catch-all, so `/eip155/…` needs no edge config.
+already matches HEAD, so **pushing is what selects the build**.
 
 ### OPEN
 
-- **Spinner-forever in `AddressView`.** Its `Promise.all` of four fetches has no
-  timeout and only one of the four is individually caught, so a backend hang on
-  one leaves the page loading with no error. PRE-EXISTING (verified unchanged
-  by `d23600b`), reproduces on a high-volume token contract, not on an EOA.
-  Severe; not fixed.
-- **The rail's swap branch fires under 1% of the time.** It matches `/swap/i`
-  on the decoded function name, but real chain-369 swaps arrive
-  multicall-wrapped — a scan of 963 txs across 25 blocks found 33 swaps, ALL
-  inside `multicall`, versus 7 with a direct `swapExact*` name. Fixing it means
-  decoding inner calls.
-- **`&address=` outlives its tab.** Only Storage/Re-verify add it, nothing
-  removes it, so it rides along on later URLs that session. Harmless,
-  confusing in a shared link.
-- **Archive probing is available but unwired.** `@valve-tech/rpc-collector`'s
-  `probe.js` has `checkArchive`/`requireArchive` and rides in the same POST as
-  the liveness call. Fits an explicit "test these endpoints" button; must NOT
-  fire on page load, which would call every third party on render.
-- **Sepolia is missing from `valve-tech/chainlist`** though
-  `one.valve.city/rpc/vk_demo/evm/11155111` serves it. Worth a PR. The
-  `rpc-collector` vendored snapshot also predates our entries reaching
-  upstream, so it ships with no Valve endpoints — regenerating would pick them
-  up.
-- **`evm-1-substreams` reports 530 in `check:infra`.** Chain 1 substreams was
-  never stood up, so the manifest's 200/415 expectation is stale — it should be
-  marked not-live like the `ipfs.explore` row.
+- **Spinner-forever in `AddressView`.** Framing corrected: the backend does
+  NOT hang — `chifra/appearances.ts` bounds at 30s and viem carries its own
+  30s. The real defect is a 15–30s load with no feedback and no client-side
+  defence at all. Fix is per-call-site `AbortSignal.timeout` at **35–40s**
+  (above the observed natural latency, NOT the 8–10s used for cheap lookups),
+  `Promise.allSettled`, and per-section degradation.
+- **The rail's swap branch — the two audits contradict each other.** A 25-block
+  scan found 33 multicall-wrapped swaps vs 7 direct-named ("well under 1%").
+  An 85-block scan over 716 successful txs found the OPPOSITE: 23 direct vs 7
+  wrapped, with the current regex already matching ~3.2%. Do NOT quote the
+  <1% figure. Re-measure before relying on either. Separately, ~90% of decoded
+  successful txs have no `functionName` at all, so a swap-only rail is
+  permanently a minority feature — a generic rail may be the right answer, and
+  that is a product call.
+- **4byte guesses still render as facts** when a selector has several
+  candidates. Would need a candidate count carried to the UI.
+- **The explorer home page needs a facelift.** Raised in passing; not scoped.
+- **Sepolia is missing from `valve-tech/chainlist`.** Correction: our other
+  entries are ALREADY upstream (DefiLlama PR #2938, merged July). The
+  `rpc-collector` dataset is stale for a duller reason — vendored 2026-07-22,
+  five days before that merge. Our chainlist checkout is 143 commits behind.
+  Needs the user: a DefiLlama PR, the stale-branch call, and an npm publish.
 - **`recentEntityView.ts` and `AppShell/buildResults.ts` build chain-less
   paths**, because `RecentEntity` does not record which chain it saw an entry
-  on. Guessing would turn a correct cross-chain resolve into a false "not
-  found". A real fix needs a `chainId` field on that type.
+  on. A real fix needs a `chainId` field on that type.
