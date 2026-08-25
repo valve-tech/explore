@@ -18,11 +18,13 @@ data/
 test-results/
 playwright-report/
 blob-report/
-/draft-*.png
-/palette-*.png
-/prod-*.png
-/chart-*.png
-/audit-*.png
-/verify-*.png
-/debugger-*.png
-/layout*.png
+# Screenshots taken while verifying a change. Every one of these used to be
+# added here by name after it appeared, so the list only ever grew. One rule
+# replaces it: the repo tracks NO png at its root (checked — zero tracked png
+# files anywhere), and real images belong under docs/ or a package's public/.
+# A root-level png is scratch by definition.
+/*.png
+
+# Agent worktrees. Git-ignored scratch: `git worktree` owns the real state in
+# .git/worktrees, and these are working copies it can recreate.
+/.claude/worktrees/
