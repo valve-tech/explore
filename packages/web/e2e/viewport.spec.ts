@@ -30,9 +30,9 @@ const ROUTES = [
  *
  *   route             paneScrollWidth  paneClientWidth  overflow
  *   /                             412              375       37px
- *   /explorer                     577              375      202px
+ *   /explorer                     577              375      202px   FIXED
  *   /network-health               580              375      205px
- *   /ui                           598              375      223px
+ *   /ui                           598              375      223px   FIXED
  *
  * Each is wrapped in `test.fail()` so the suite stays green on the truth
  * (these routes ARE broken today) while still alerting the next person the
@@ -41,7 +41,13 @@ const ROUTES = [
  * route got fixed and the wrapper should come off. Do not use `test.skip()`
  * here — a skipped test stops running and stops watching for the fix.
  */
-const KNOWN_FAILING = new Set(["/", "/explorer", "/network-health", "/ui"]);
+// /explorer and /ui both came off this list the same day they went on.
+// /explorer had two causes: the gas strip was a no-wrap flex row of shrink-0
+// children, and the tx hash could not wrap because EntityRow's main line sets
+// nowrap. /ui is the component showcase, so fixing EntityRow's right column
+// and the gas strip fixed it too — which is exactly the signal test.fail()
+// exists to give: it went red for PASSING. / and /network-health remain.
+const KNOWN_FAILING = new Set(["/", "/network-health"]);
 
 for (const path of ROUTES) {
   const t = KNOWN_FAILING.has(path) ? test.fail : test;

@@ -6,15 +6,15 @@ export function formatBlockNum(decimal: string): string {
   return decimal.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-/** wei → gwei, exact: scale then group, never float math. */
-export function formatGwei(weiDecimal: string): string {
-  try {
-    const gwei = formatUnits(BigInt(weiDecimal), 9);
-    return subscriptSmallString(gwei) ?? groupDecimalString(gwei, 2);
-  } catch {
-    return weiDecimal;
-  }
-}
+/**
+ * wei → gwei, re-exported rather than reimplemented.
+ *
+ * There used to be two of these: this one, and a zero-decimal variant inside
+ * `GasOracleWidget`. On chain 1 the stat tile read "0.11 gwei" while the gas
+ * strip directly beneath it read "base 0 gwei" for the same number. One
+ * formatter now, in `../format`, so a second door cannot reopen that.
+ */
+export { formatGweiDisplay as formatGwei } from "../format";
 
 const ONE_MILLION = 1_000_000n * 10n ** 18n;
 

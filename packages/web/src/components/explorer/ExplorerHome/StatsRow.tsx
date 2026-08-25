@@ -71,7 +71,13 @@ function StatTile({
   loading: boolean;
 }) {
   return (
-    <div className="p-2 sm:p-4 theme-card-bg shadow-[0_0_0_1px_var(--color-border-default)]">
+    /*
+     * `min-w-0` is load-bearing. A grid item defaults to `min-width: auto`,
+     * which refuses to shrink below its own content — so `break-all` on the
+     * value below never got a chance to act, and a large base fee (chain 369
+     * runs to ~2.7M gwei) pushed the whole content pane sideways at 375px.
+     */
+    <div className="min-w-0 p-2 sm:p-4 theme-card-bg shadow-[0_0_0_1px_var(--color-border-default)]">
       <div className="flex items-center gap-1.5 text-xs uppercase tracking-widest theme-text-muted">
         <Icon icon={icon} className="w-3 h-3 shrink-0" aria-hidden="true" />
         {label}
