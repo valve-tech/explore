@@ -1,11 +1,13 @@
 import { type Address, type Hex, erc20Abi, formatEther, padHex } from "viem";
-import { chainClient } from "../chains/context.js";
+import { chainClient, currentChain } from "../chains/context.js";
 import { ApiError } from "../../lib/respond.js";
 import {
   listAppearances,
   countAppearances,
   isAppearanceOutage,
 } from "../chifra/appearances.js";
+import { isWarming, isWarmHopeless } from "../chifra/warmIndex.js";
+import { appearanceOutageMessage } from "./addresses/outageMessage.js";
 import { lookupSelectorSummaries, type SelectorSummary } from "../signatures.js";
 import { TRANSFER_TOPIC } from "./tokenTransfers/transforms.js";
 import {
@@ -69,10 +71,13 @@ export async function getAddressTransactions(
    * simply had to compute the count itself. It no longer does.
    */
   if (isAppearanceOutage(appearances.length, count)) {
-    throw new ApiError(
-      503,
-      "The transaction index did not answer in time. This is an outage, not an empty address.",
-    );
+    // The failing read has already asked for a background warm. Promise a
+    // retry only while one is running AND this address has not already
+    // defeated the warm twice.
+    const chain = currentChain().chifraChain;
+    const worthRetrying =
+      isWarming(chain, address) && !isWarmHopeless(chain, address);
+    throw new ApiError(503, appearanceOutageMessage(worthRetrying));
   }
   if (appearances.length === 0) return { transactions: [], total: count ?? 0 };
 

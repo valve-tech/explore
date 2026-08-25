@@ -1,5 +1,97 @@
 # Explore (trace) — Progress
 
+## 2026-08-25 A HEAVY ADDRESS: WHERE THE 30 SECONDS ACTUALLY GO
+
+**Hydration is not the bottleneck. The appearance index is all of it.**
+Measured against the live API and chifra.valve.city, chain 369.
+
+Hydration, isolated by hitting the same page twice inside the 30s appearance
+cache (so the second call is pure RPC): **25 rows in 0.96s, 100 rows in
+2.58s** — about **25 ms per row**, batched and bounded. It never needed
+fixing.
+
+The index read is the whole cost. First read of the day, `list --reversed
+--max_records 25`:
+
+```
+        52 appearances      1.8s      5.3M appearances     2.7s
+    92,572 appearances      1.7s     30.6M appearances   125.5s -> 524
+   526,139 appearances      1.9s     43.7M appearances   125.2s -> 524
+                                    224.7M appearances   125.6s -> 524  (WPLS)
+```
+
+**Size is a proxy. The real driver is the FRESHEN BACKLOG.** `chifra list`
+brings the address's monitor file up to head before it pages it, and that
+catch-up is the bill. Two addresses of the same size prove it: 0x95b303…
+(23.9M appearances) needed four attempts, while 0x28c6c0… (22.55M) answered
+cold in 10.8s. The direct measurement: on 0x0cfd4b… the monitor grew
+38,204,576 -> 42,286,848 bytes (~510k new appearances) during a 26.5s call,
+and the very next read took 2.7s. Big monitors correlate with big backlogs
+only because a busy address accrues more appearances per block.
+
+**Four facts worth never re-deriving:**
+
+1. **`chifra list --count` is NOT the cheap half**, whatever the old comment
+   in `appearances.ts` said. It freshens the same monitor and costs the same
+   order — 524 at ~125s on every monitor above 30M appearances.
+2. **`firstRecord`/`maxRecords` are already used and do not rescue a big
+   address.** chifra freshens before it pages, and the OpenAPI says
+   `firstBlock`/`lastBlock` are "ignored when freshening". A block-bounded
+   read of WPLS measured 125.5s — identical to the unbounded one.
+3. **chifra.valve.city sits behind Cloudflare, which cuts the origin at
+   ~100s (HTTP 524 at 125s).** Our 30s cap is not the binding limit. No
+   caller can wait longer, however patient.
+4. **The work is cumulative and it warms.** The first read pays; later ones
+   are cheap. On a 23.9M-appearance monitor, four attempts capped at 30s
+   each: `30s, 30s, 30s, then 200 in 9.2s`. On 30.6M: `524 at 125s`, then
+   33.8s, then 7.3s. The index becomes answerable — nobody was ever letting
+   it finish.
+
+### SHIPPED — the background warm
+
+`services/chifra/warmIndex.ts`. When a request-bound index read TIMES OUT, we
+start the same read again with a 120s budget, outside the request, and drop
+the result. The reader gets the 503 and a Retry; the retry lands on a warm
+index.
+
+**Where it earns its place, measured.** Below about 16M appearances the warm
+changes nothing: one abandoned 30s attempt already warms the index, and old
+and new code both answer on the second call (8.2s and 9.2s, two untouched
+~15.5M monitors, same one-call/150s/one-call timeline). Higher up, one slice
+is not enough — a 23.9M monitor read under 30s-only slices went
+`30s, 30s, 30s, then 200 in 9.2s`. That is four page loads, and nothing in
+the product told the reader to keep trying. The warm does that work in one
+background pass.
+
+Restraint is the whole design: one warm per (chain, address), at most 2 at
+once, a 5-minute cooldown after each. Chain-scoped like every other cache
+here.
+
+**Only a timeout earns a warm** (`isIndexTimeout`). If chifra cannot be
+reached, a longer read fails the same way, so we neither spend the daemon's
+time nor promise a retry that cannot work. Proved both ways: a dead chifra
+returns the plain 503 in **8.7ms**; one that accepts and hangs returns the
+warming 503 at **30.0s**.
+
+**And the promise expires.** After `HOPELESS_AFTER_FAILURES` failed warms on
+one address the 503 drops the "try again" sentence. Telling a reader to retry
+something that cannot work is the same lie as "no transactions found".
+
+### STILL BROKEN — WPLS needs infrastructure we do not have
+
+**224.7M appearances, a 1.797 GB monitor file.** It did not converge in three
+consecutive ~125s reads, and its monitor file was byte-identical before and
+after (1,797,444,160 bytes). The 71.6M monitor did not converge either
+(524, 524, then 502 at 104s). The warm helps up to about 44M appearances and
+no further.
+
+The fix for those is on the chifra box, not in this repo: **keep the hot
+monitors freshened out of band** (a scheduled `chifra list --silent` per
+heavy address), and/or serve chifra from an origin without a ~100s edge
+timeout. Once warm, the same reads take 2.7-10.4s — comfortably inside the
+page's 40s deadline. Do NOT try to buy this back by raising
+`ADDRESS_SECTION_TIMEOUT_MS`; the numbers are 3x past it.
+
 ## Last updated: 2026-08-25 CHECKLIST CLEARED + DEPLOYED
 
 Gate green on the merged tree: 3 typechecks silent, lint clean, web **2490**

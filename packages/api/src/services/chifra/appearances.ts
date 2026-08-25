@@ -2,9 +2,37 @@
  * Address appearance index via chifra `/list`, through the typed
  * @valve-tech/trueblocks-sdk client (same client style as transfers.ts).
  * An appearance is a (blockNumber, transactionIndex) pair for every tx an
- * address shows up in — the cheap index read (seconds, even cold) as opposed
- * to the heavyweight log walks in transfers.ts. Callers hydrate the pairs
- * into full transactions through our own RPC.
+ * address shows up in — a much lighter read than the log walks in
+ * transfers.ts. Callers hydrate the pairs into full transactions through our
+ * own RPC.
+ *
+ * **It is not "cheap" on a heavy address, and this file used to say it was.**
+ * `chifra list` brings the address's monitor file up to head before it pages
+ * it, and that catch-up is the bill — it dominates everything else on the
+ * page. Measured 2026-08-25 against chifra.valve.city on chain 369
+ * (`list --reversed --max_records 25`, first read of the day for each
+ * address):
+ *
+ *        52 appearances       1.8s
+ *    92,572 appearances       1.7s
+ *   526,139 appearances       1.9s
+ *   5.3M    appearances       2.7s
+ *   30.6M   appearances     125.5s  -> HTTP 524
+ *   31.5M   appearances     125.2s  -> HTTP 524
+ *   43.7M   appearances     125.2s  -> HTTP 524
+ *   224.7M  appearances     125.6s  -> HTTP 524   (WPLS, 0xA1077a…9a27)
+ *
+ * Size is only a proxy for the backlog, so do not read that table as a rule:
+ * 0x28c6c0… holds 22.55M appearances and answered cold in 10.8s, while
+ * 0x95b303… holds 23.9M and needed four attempts. What differs is how far
+ * behind head each monitor had fallen.
+ *
+ * `firstRecord`/`maxRecords` do not rescue the big ones — they page the
+ * monitor AFTER the freshen — and the OpenAPI spells out that `firstBlock`
+ * and `lastBlock` are "ignored when freshening". A block-bounded read of WPLS
+ * measured 125.5s, identical to the unbounded one.
+ *
+ * See `warmIndex.ts` for what we do about it.
  *
  * Results cache briefly (30s) per (chain, address, page) — long enough to
  * absorb a UI's refetch bursts, short enough that a new tx shows up on the
@@ -13,21 +41,69 @@
 
 import { createTrueblocksClient } from "@valve-tech/trueblocks-sdk";
 import { currentChain } from "../chains/context.js";
+import {
+  isIndexTimeout,
+  scheduleIndexWarm,
+  WARM_TIMEOUT_MS,
+} from "./warmIndex.js";
 
 const CHIFRA_BASE = process.env.CHIFRA_BASE_URL || "https://chifra.valve.city";
 
 /**
- * chifra cold-cache index reads can take a few seconds. The SDK has no
- * built-in timeout, so bound each request via the injected fetch (mirrors
- * transfers.ts).
+ * The budget for a read a browser is waiting on. The SDK has no built-in
+ * timeout, so bound each request via the injected fetch (mirrors
+ * transfers.ts). It stays at 30s because the address page gives up at 40s —
+ * raising it here would only move the failure, not remove it.
  */
 const CHIFRA_TIMEOUT_MS = 30_000;
 
-const client = createTrueblocksClient({
-  baseUrl: CHIFRA_BASE,
-  fetch: (input, init) =>
-    fetch(input, { ...init, signal: AbortSignal.timeout(CHIFRA_TIMEOUT_MS) }),
-});
+function makeClient(timeoutMs: number) {
+  return createTrueblocksClient({
+    baseUrl: CHIFRA_BASE,
+    fetch: (input, init) =>
+      fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) }),
+  });
+}
+
+const client = makeClient(CHIFRA_TIMEOUT_MS);
+
+/**
+ * A second client for background warms only. Nobody waits on it, so it may
+ * run far past the request that started it.
+ */
+const warmClient = makeClient(WARM_TIMEOUT_MS);
+
+/**
+ * Start the long read that a request-bound one cannot finish. Called from the
+ * failure paths below, where we have just proved this address needs it — but
+ * only when the read timed out. A daemon that cannot be reached is not warmed.
+ */
+function warmAppearanceIndex(
+  chain: string,
+  address: string,
+  err: unknown,
+): void {
+  if (!isIndexTimeout(err)) return;
+  const outcome = scheduleIndexWarm(chain, address, {
+    run: (c, a) =>
+      warmClient.list({
+        addrs: [a],
+        chain: c,
+        reversed: true,
+        firstRecord: 0,
+        maxRecords: 25,
+      }),
+    now: () => Date.now(),
+  });
+  // A warm is invisible from the outside — it answers nobody and returns
+  // nothing — so say when one starts. Without this, a box quietly spending two
+  // minutes on one address looks idle.
+  if (outcome === "started") {
+    console.warn(
+      `[chifra] warming the appearance index for ${chain}:${address.toLowerCase()} (up to ${WARM_TIMEOUT_MS / 1000}s)`,
+    );
+  }
+}
 
 const APPEARANCE_TTL_MS = 30_000;
 const appearanceCache = new Map<
@@ -84,16 +160,24 @@ export async function listAppearances(
       if (oldest !== undefined) appearanceCache.delete(oldest);
     }
     return appearances;
-  } catch {
+  } catch (err) {
+    // This address just proved it cannot be read inside a request. Start the
+    // long read now so the reader's Retry lands on a warm index.
+    warmAppearanceIndex(chain, address, err);
     return [];
   }
 }
 
 /**
- * Total number of appearances for an address — chifra's `list --count` (a cheap
- * index read), so a paged list can report a real total instead of just the page
- * size. Returns `null` on outage so the caller can fall back gracefully. Cached
- * briefly per (chain, address), like `listAppearances`.
+ * Total number of appearances for an address — chifra's `list --count`, so a
+ * paged list can report a real total instead of just the page size. Returns
+ * `null` on outage so the caller can fall back gracefully. Cached briefly per
+ * (chain, address), like `listAppearances`.
+ *
+ * This is NOT the cheap half of the pair, whatever an older comment here
+ * claimed. It freshens the same monitor a paged read does, and it costs the
+ * same order: measured 2026-08-25, `--count` returned HTTP 524 at ~125s on
+ * every monitor above 30M appearances, exactly like the paged read did.
  */
 /**
  * True appearance count from a `chifra list --count` row `{ fileSize, nRecords }`.
@@ -160,7 +244,8 @@ export async function countAppearances(address: string): Promise<number | null> 
       if (oldest !== undefined) countCache.delete(oldest);
     }
     return value;
-  } catch {
+  } catch (err) {
+    warmAppearanceIndex(chain, address, err);
     return null;
   }
 }
