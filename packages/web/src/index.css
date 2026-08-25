@@ -184,7 +184,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ekg-flow, .glow-pulse, .skeleton { animation: none; }
+  /* The spinner stops on its ring rather than disappearing — every place it
+     appears also carries a "Loading …" line, so no information is lost. */
+  .ekg-flow, .glow-pulse, .skeleton, .spinner { animation: none; }
 }
 
 /* Focus styles */

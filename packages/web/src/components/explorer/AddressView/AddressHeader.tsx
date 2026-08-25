@@ -9,10 +9,17 @@ export function AddressHeader({
   address,
   info,
   onViewContract,
+  balanceUnavailable = false,
 }: {
   address: string;
   info: AddressInfo | null;
   onViewContract: () => void;
+  /**
+   * True when the overview read FAILED rather than being in flight. "…" means
+   * "still coming"; a failed balance has to say so, or the user reads a stale
+   * ellipsis as a hung page.
+   */
+  balanceUnavailable?: boolean;
 }) {
   const symbol = chainSymbol(useActiveChainId());
   return (
@@ -56,9 +63,15 @@ export function AddressHeader({
             Balance
           </span>
           <span
-            className="font-mono text-lg font-semibold theme-text"
+            className={`font-mono text-lg font-semibold tabular-nums ${
+              balanceUnavailable ? "theme-danger" : "theme-text"
+            }`}
           >
-            {info ? formatPLS(info.balancePLS, symbol) : "..."}
+            {info
+              ? formatPLS(info.balancePLS, symbol)
+              : balanceUnavailable
+                ? "Unavailable"
+                : "..."}
           </span>
         </div>
       </div>

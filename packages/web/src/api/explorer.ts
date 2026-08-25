@@ -295,6 +295,7 @@ async function readTransactionViaRpc(
 export async function fetchAddressInfo(
   address: string,
   chainId: number = DEFAULT_CHAIN_ID,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<AddressInfo> {
   // Balance + code are raw JSON-RPC reads. When the user has set a per-chain
   // RPC override (bring-your-own-RPC), go DIRECT to their node so the read runs
@@ -302,8 +303,8 @@ export async function fetchAddressInfo(
   // byte-identical to before. Both paths yield the same `{ balance, code }`,
   // so the composition below is shared.
   const { balance, code } = isRpcOverridden(chainId)
-    ? await readAddressViaRpc(address, chainId)
-    : await readAddressViaDispatcher(address, chainId);
+    ? await readAddressViaRpc(address, chainId, opts.signal)
+    : await readAddressViaDispatcher(address, chainId, opts.signal);
 
   // An address holds code iff eth_getCode returns more than the empty "0x".
   const isContract = code.length > 2;
@@ -329,13 +330,16 @@ export async function fetchAddressInfo(
 async function readAddressViaDispatcher(
   address: string,
   chainId: number,
+  signal?: AbortSignal,
 ): Promise<{ balance: string; code: string }> {
   const [balanceRes, codeRes] = await Promise.all([
     fetch(
       scoped(`${API_BASE}?module=account&action=balance&address=${address}`, chainId),
+      { signal },
     ),
     fetch(
       scoped(`${API_BASE}?module=proxy&action=eth_getCode&address=${address}&tag=latest`, chainId),
+      { signal },
     ),
   ]);
 
@@ -372,15 +376,18 @@ async function readAddressViaDispatcher(
 async function readAddressViaRpc(
   address: string,
   chainId: number,
+  signal?: AbortSignal,
 ): Promise<{ balance: string; code: string }> {
   const [balanceRes, codeRes] = (await Promise.all([
     sendRpcRequest(
       { jsonrpc: "2.0", id: 1, method: "eth_getBalance", params: [address, "latest"] },
       chainId,
+      signal,
     ),
     sendRpcRequest(
       { jsonrpc: "2.0", id: 1, method: "eth_getCode", params: [address, "latest"] },
       chainId,
+      signal,
     ),
   ])) as [JsonRpcResponse, JsonRpcResponse];
 
@@ -389,22 +396,33 @@ async function readAddressViaRpc(
   return { balance: hexToBigInt(balanceHex as `0x${string}`).toString(), code };
 }
 
+/**
+ * One page of an address's transactions. `opts.signal` is how the address
+ * workspace puts a client-side deadline on the read — chifra can spend tens of
+ * seconds on a busy address, and without a signal the browser waits forever
+ * when the answer never comes.
+ */
 export async function fetchAddressTransactions(
   address: string,
   page: number = 1,
   limit: number = 25,
   chainId: number = DEFAULT_CHAIN_ID,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<{ transactions: AddressTransaction[]; total: number }> {
   return apiFetch<{ transactions: AddressTransaction[]; total: number }>(
     scoped(`${API_BASE}/address/${address}/txs?page=${page}&limit=${limit}`, chainId),
+    { signal: opts.signal },
   );
 }
 
 export async function fetchAddressTokens(
   address: string,
   chainId: number = DEFAULT_CHAIN_ID,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<AddressToken[]> {
-  return apiFetch<AddressToken[]>(scoped(`${API_BASE}/address/${address}/tokens`, chainId));
+  return apiFetch<AddressToken[]>(scoped(`${API_BASE}/address/${address}/tokens`, chainId), {
+    signal: opts.signal,
+  });
 }
 
 export interface TokenMetaInfo {

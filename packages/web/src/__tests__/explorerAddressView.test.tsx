@@ -112,12 +112,15 @@ describe("<AddressView />", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("shows the loading spinner copy before the fetches resolve", () => {
+  it("shows per-section loading copy before the fetches resolve", () => {
+    // The page itself paints straight away — only the sections wait. See
+    // addressSectionDegradation.test.tsx for the full progressive-load rules.
     mockInfo.mockReturnValue(new Promise(() => {}));
     mockTxs.mockReturnValue(new Promise(() => {}));
     mockTokens.mockReturnValue(new Promise(() => {}));
     renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />);
-    expect(screen.getByText("Loading address...")).toBeInTheDocument();
+    expect(screen.getByText(ADDR)).toBeInTheDocument();
+    expect(screen.getByText("Loading transactions…")).toBeInTheDocument();
   });
 
   it("renders an error when a fetch rejects", async () => {
@@ -195,7 +198,14 @@ describe("<AddressView />", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByText("Page 2")).toBeInTheDocument();
-    expect(mockTxs).toHaveBeenCalledWith(ADDR, 2, 25, expect.any(Number));
+    // Every read carries its own 40s deadline — see the deadline module.
+    expect(mockTxs).toHaveBeenCalledWith(
+      ADDR,
+      2,
+      25,
+      expect.any(Number),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
   it("shows the TRUE total in the tab badge, not the current page size", async () => {
