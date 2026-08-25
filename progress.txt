@@ -1,109 +1,110 @@
 # Explore (trace) — Progress
 
-## Last updated: 2026-08-24 SELECTOR HONESTY + ARCHIVE PROBE
+## Last updated: 2026-08-25 GAS PAYLOAD + EXPLORER HOME REBUILD
 
-Four commits on `main` since the last checkpoint. Gate green: 3 typechecks
-silent, lint + spacing clean, web **2390 unit tests**, api unit **684**, sdk
-**552**, e2e green. Production still serves `bfacb4e` — these are unpushed
-until deployed.
+Gate green: 3 typechecks silent, lint clean, web **2416 unit tests**, api unit
+**687**, sdk **552**, **41 e2e**. Production serves `4b9f575`; everything below
+`2b19c21` is built but NOT deployed.
 
-### SHIPPED THIS SESSION
+### SHIPPED
 
-**A transaction is no longer named after a mined 4byte collision**
-(`0f13199`). The home page said tx 0x8b69a556… called
-`get_block_hash_257335279069929()` while the detail page and the debugger
-correctly could not decode it. Selector `0x00000000` now resolves to nothing.
-Also ordered both signature-cache reads and tightened `latest.ts`'s methodId
-slice.
+**The gas oracle stopped shipping its own memory to every browser**
+(`2b19c21`). `GET /api/gas/oracle` returned **647,932 bytes** on chain 369, of
+which 1,158 were real. `ring` was 98.4% of it — twenty blocks, each holding
+every transaction's tip. The home page polls it every five seconds, so one
+open tab pulled ~7.4 MB a minute to render four numbers. The route did
+`serialize(state)` on a PRODUCER state object; the package says four times
+over that these fields are producer-local and publishers should strip them.
+Now 1,259 bytes. **515x.**
 
-**Settings measures whether a suggested endpoint serves history**
-(`3faa100`). `probeArchive` asks each endpoint for state at block 1, behind a
-Test button. Struck-through chips carry their verdict; the endpoint in force
-is tested alongside the suggestions.
+**The explorer home page, rebuilt** (`963bbf1`, `3e30dd2`, `c42a515`, plus
+three merged branches). An outage used to be invisible, both lists now have
+real empty and error states, the page names its chain, and both lists sit on
+`EntityRow`. Details in the commits.
 
-**`&address=` no longer outlives its tab** (`289b523`), and the sub-tab strip
-became a labelled `<nav>` with `aria-current`.
-
-**`evm-1-substreams` dropped from the infra manifest** (`4e25530`). Endpoints
-now 14/14.
+**A transaction is no longer named after a mined 4byte collision** (`0f13199`)
+and **Settings measures whether an endpoint serves history** (`3faa100`).
 
 ### HARD-WON — DO NOT RE-DERIVE
 
-- **There is no archive filter anywhere, and there never was.** chainlist
-  records a provider's logging claim and nothing about pruning, so
-  `rpc-collector`'s `collectRpcs` has no archive option and `RpcEndpoint` has
-  no archive field — at ANY version. `probeEndpoints` measures liveness only,
-  which a pruned node passes. I twice reported `checkArchive`/`requireArchive`
-  as existing in 0.24.0. They do not. Ask the node or you do not know.
-- **Measure the state you are shipping, not the one before it.** I measured
-  the endpoint chip row at 375px, found it clean, and shipped. The overflow
-  only appears AFTER the probe adds a verdict to every label —
-  "eth-sepolia-testnet.api.pocket.network · recent blocks only" is 425px
-  against a 365px pane. The e2e caught it; my manual pass could not, because I
-  never pressed the button first.
-- **`0x00000000` is not a selector.** It is a raw fallback blob's first four
-  bytes. 4byte holds 49 MINED names for it. Any list that takes `matches[0]`
-  prints one of them as fact.
-- **The signature cache had no ORDER BY.** Same selector, different name on
-  different days, with nothing in the code to point at. Fixed, but the general
-  problem stands: 4byte is a dictionary of guesses and both list views present
-  the first guess as a fact.
+- **A "state" object from a package is not a wire format.** Check for a
+  `toPublishable` before serializing one wholesale. Ours lived in the relay
+  and was never called; nobody noticed for as long as the endpoint existed,
+  because no client read the extra fields — they were just sent.
+- **`truncate` is `white-space: nowrap` + `overflow: hidden`.** A `break-all`
+  flex child inside it cannot wrap, collapses to nothing, and SPILLS its text
+  across whatever is beside it. This produced two separate bugs in one hour: a
+  method name overlapping the fee readout, and a 66-char hash running 196px
+  past the content pane. One line holds one thing.
+- **A grid item defaults to `min-width: auto`** and refuses to shrink below
+  its content, so `break-all` on a child never fires. `min-w-0` on the item is
+  what lets it act.
+- **`viewport.spec.ts` was blind for its whole life.** It asserted only
+  `document.documentElement.scrollWidth <= 375`, and `app-content` is a
+  `flex-1 overflow-auto min-w-0` containment boundary that absorbs overflow
+  internally — the document never moves off 375. Four of nineteen routes were
+  overflowing while it passed: `/ui` 223px, `/network-health` 205px,
+  `/explorer` 202px, `/` 37px. It asserts the pane now. `/` and
+  `/network-health` are still marked `test.fail()` — genuinely broken.
+- **`test.fail()` goes red when a test PASSES.** That is the feature: fixing
+  EntityRow and the gas strip fixed `/ui` as a side effect, and the gate said
+  so without anyone thinking to check.
+- **`--color-text-muted` was 3.77:1** on the card background against a 4.5:1
+  floor, used 450 times. Now `#808996`, the darkest value on the same hue line
+  that clears AA on every surface.
+- **Two formatters named `formatGwei` disagreed in public.** Chain 1's stat
+  tile said "0.11 gwei" beside a gas strip saying "base 0 gwei". One shared
+  `formatGweiDisplay` now.
+- **Parallel agents each start their own dev server.** Mine landed on 11802
+  while an agent's worktree held 11801, and I screenshotted THEIR build and
+  briefly believed my changes had not applied. Read the port out of the log
+  every time.
+- **`npx playwright test` collides with the repo's own install** ("did not
+  expect test() to be called here"). Use `node_modules/.bin/playwright`.
 - **`npm run test:unit --workspace=packages/api` needs the API on :10100.**
-  Five `/api/tx/:hash` tests live under `tests/unit/` and hit the live server.
-  Without it they fail with a bare `createConnectionError` that reads like a
-  Postgres problem. Start `npm run dev:api` first; then 684/684 pass.
+  Five `/api/tx/:hash` tests live under `tests/unit/` and hit the live server;
+  without it they fail with a bare `createConnectionError`.
 - **`npm run test` is NOT the tests.** It runs the API *integration* suite.
-  There are FOUR: web vitest, api unit (`test:unit`), api integration, and the
-  Playwright gate (`npm run test:e2e --workspace=packages/web`, needs
-  `npx playwright install chromium` once).
-- **jsdom does no layout.** `getBoundingClientRect` returns zeros, so no
-  vitest test can see a chip escaping its pane. Geometry belongs in e2e.
-- **The sidebar is a selector minefield**, and so is `{name: "Test"}` —
-  substring matching also selects chips named
-  "eth-sepolia-**test**net.api.pocket.network". Use `exact: true`.
-- **A finite 0 is not "no data".** `EntityRow` withholds its fill only for a
-  NON-finite share.
-- **Terminal-return views get no breadcrumb.** `MultiChainAddressView` and
-  `BlockHeightView` return before `ExplorerPanel` renders one.
-- **`op` hangs on a STALE `~/.config/op/op-daemon.sock`.** `op --version`
-  works while `op whoami` hangs; that is the tell. Fix:
-  `pkill -f "op daemon"; rm -f ~/.config/op/op-daemon.sock`.
-- **Two implementer subagents must not share a working tree.** Disjoint FILES
-  do not make a shared git INDEX safe. Read-only audits in parallel are fine.
+  Four suites: web vitest, api unit, api integration, Playwright.
+- **jsdom does no layout.** Geometry belongs in e2e, always.
+- **op hangs on a STALE `~/.config/op/op-daemon.sock`.** `op --version` works
+  while `op whoami` hangs. Fix: `pkill -f "op daemon"; rm -f` the socket.
+- **Two implementer subagents must not share a working tree.** Worktree
+  isolation worked cleanly here — three branches, three merges, one conflict
+  auto-resolved.
 
 ### DEPLOY
 
-`yarn deploy --env rpc-otterscan --plan explore-deploy` from the monorepo, with
-`TRACE_HOLDINGS_GRAPHQL_SECRET` exported from
-`op://valve/valve_hasura_secret/password`. Blue/green; rollback is
-`--plan explore-rollback`, health-only is `--plan explore-health-only`. The box
-clones `origin/main` and short-circuits when the image label `trace.sha`
-already matches HEAD, so **pushing is what selects the build**.
+`yarn deploy --env rpc-otterscan --plan explore-deploy` from the monorepo.
+`TRACE_HOLDINGS_GRAPHQL_SECRET` is EMPTY in the monorepo `.env` and must come
+from `op://valve/valve_hasura_secret/password` on the command line each time;
+the other five `TRACE_*` vars are populated and bun autoloads them. Blue/green;
+rollback is `--plan explore-rollback`. Pushing selects the build.
 
 ### OPEN
 
-- **Spinner-forever in `AddressView`.** Framing corrected: the backend does
-  NOT hang — `chifra/appearances.ts` bounds at 30s and viem carries its own
-  30s. The real defect is a 15–30s load with no feedback and no client-side
-  defence at all. Fix is per-call-site `AbortSignal.timeout` at **35–40s**
-  (above the observed natural latency, NOT the 8–10s used for cheap lookups),
-  `Promise.allSettled`, and per-section degradation.
-- **The rail's swap branch — the two audits contradict each other.** A 25-block
-  scan found 33 multicall-wrapped swaps vs 7 direct-named ("well under 1%").
-  An 85-block scan over 716 successful txs found the OPPOSITE: 23 direct vs 7
-  wrapped, with the current regex already matching ~3.2%. Do NOT quote the
-  <1% figure. Re-measure before relying on either. Separately, ~90% of decoded
-  successful txs have no `functionName` at all, so a swap-only rail is
-  permanently a minority feature — a generic rail may be the right answer, and
+- **`/` overflows 37px and `/network-health` 205px at 375px.** Both marked
+  `test.fail()` in `viewport.spec.ts` with their measurements.
+- **Spinner-forever in `AddressView`.** The backend does NOT hang — chifra
+  bounds at 30s, viem at 30s. The defect is a 15–30s load with no feedback and
+  no client-side defence. Needs per-call-site `AbortSignal.timeout` at **35–40s**
+  (above the observed latency, NOT the 8–10s used for cheap lookups),
+  `Promise.allSettled`, per-section degradation.
+- **The rail's swap branch — the two audits contradict each other.** 25 blocks
+  said 33 multicall-wrapped vs 7 direct ("under 1%"); 85 blocks over 716
+  successful txs said the OPPOSITE, 23 direct vs 7 wrapped, with the current
+  regex already matching ~3.2%. Re-measure before trusting either. Separately
+  ~90% of decoded successful txs have no `functionName` at all, so a swap-only
+  rail is permanently a minority feature — a generic rail may be right, and
   that is a product call.
+- **The home page shows no fee per transaction any more.** Deliberate: it did
+  not survive a two-line row. If this audience wants it back, the mempool view
+  is the place, not a scan list.
 - **4byte guesses still render as facts** when a selector has several
-  candidates. Would need a candidate count carried to the UI.
-- **The explorer home page needs a facelift.** Raised in passing; not scoped.
-- **Sepolia is missing from `valve-tech/chainlist`.** Correction: our other
-  entries are ALREADY upstream (DefiLlama PR #2938, merged July). The
-  `rpc-collector` dataset is stale for a duller reason — vendored 2026-07-22,
-  five days before that merge. Our chainlist checkout is 143 commits behind.
-  Needs the user: a DefiLlama PR, the stale-branch call, and an npm publish.
+  candidates. Needs a candidate count carried to the UI.
+- **Sepolia is missing from `valve-tech/chainlist`.** Our other entries ARE
+  upstream already (DefiLlama PR #2938, merged July); the `rpc-collector`
+  dataset is stale because it was vendored five days before that merge. Our
+  chainlist checkout is 143 commits behind. Needs the user.
 - **`recentEntityView.ts` and `AppShell/buildResults.ts` build chain-less
-  paths**, because `RecentEntity` does not record which chain it saw an entry
-  on. A real fix needs a `chainId` field on that type.
+  paths** — `RecentEntity` has no `chainId` field.
