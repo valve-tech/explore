@@ -75,3 +75,21 @@ export function NoStateChangesPanel() {
     </div>
   );
 }
+
+/**
+ * Shown in place of NoStateChangesPanel when the fork could not report the
+ * state before the call. The diff is empty either way; only this panel is
+ * honest about why.
+ */
+export function StateDiffUnavailablePanel() {
+  return (
+    <div
+      className="rounded-lg bs p-2 sm:p-4 text-center theme-card-bg"
+    >
+      <p className="text-sm theme-text-muted">
+        State changes unknown — the fork could not report the state before
+        this call.
+      </p>
+    </div>
+  );
+}

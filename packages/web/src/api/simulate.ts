@@ -164,6 +164,13 @@ export interface ForkSimulationResult {
   gasUsed: string;
   revertReason?: string;
   stateDiff: StateDiff;
+  /**
+   * False when the fork could not report the state before the call, so an
+   * empty `stateDiff` means "unknown" rather than "nothing changed".
+   * Optional: a response from before this field existed omits it, and an
+   * absent flag counts as available.
+   */
+  stateDiffAvailable?: boolean;
   logs: Array<{ address: string; topics: string[]; data: string; decoded?: unknown }>;
   decodedInput?: unknown;
   blockNumber: number;

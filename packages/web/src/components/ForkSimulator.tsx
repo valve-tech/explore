@@ -21,6 +21,7 @@ import {
   ErrorPanel,
   RevertReasonBlock,
   NoStateChangesPanel,
+  StateDiffUnavailablePanel,
 } from "./ForkSimulator/Panels";
 
 function plsToWeiHex(plsValue: string): string | undefined {
@@ -98,8 +99,13 @@ export default function ForkSimulator() {
       ? isValidHash && !loading
       : isAddress(from) && isAddress(to) && !loading;
 
+  // An absent flag is an older response from before it existed — treat it as
+  // available so a cached result never paints a phantom failure.
+  const stateDiffUnavailable = result?.stateDiffAvailable === false;
+
   const hasNoStateChanges =
     result &&
+    !stateDiffUnavailable &&
     result.stateDiff.balanceChanges.length === 0 &&
     result.stateDiff.storageChanges.length === 0 &&
     result.logs.length === 0;
@@ -150,6 +156,7 @@ export default function ForkSimulator() {
           {result.logs.length > 0 && <EventsList logs={result.logs} />}
 
           {hasNoStateChanges && <NoStateChangesPanel />}
+          {stateDiffUnavailable && <StateDiffUnavailablePanel />}
         </div>
       )}
     </div>

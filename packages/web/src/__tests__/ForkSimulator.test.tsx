@@ -46,6 +46,7 @@ import {
   ErrorPanel,
   RevertReasonBlock,
   NoStateChangesPanel,
+  StateDiffUnavailablePanel,
 } from "../components/ForkSimulator/Panels";
 import { StatusSummary } from "../components/ForkSimulator/StatusSummary";
 
@@ -294,6 +295,19 @@ describe("ForkSimulator presentational pieces", () => {
     r3.unmount();
     render(<NoStateChangesPanel />);
     expect(screen.getByText(/No state changes detected/i)).toBeInTheDocument();
+  });
+
+  /**
+   * The distinguishing case. Both panels stand in for an empty diff; only
+   * this one is honest that the fork never reported the "before" state, and
+   * it must not claim nothing changed.
+   */
+  it("StateDiffUnavailablePanel says unknown, not 'no changes'", () => {
+    render(<StateDiffUnavailablePanel />);
+    expect(screen.getByText(/State changes unknown/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/No state changes detected/i),
+    ).not.toBeInTheDocument();
   });
 
   it("StatusSummary hides action buttons when there's no contract/tx", () => {

@@ -96,6 +96,11 @@ export async function forkSimulate(
       storageChanges: [],
       nonceChanges: [],
     };
+    // An empty diff says "nothing changed", which is a real outcome for a
+    // reverted call and a lie for a failed probe. The flag keeps them apart.
+    // A simulation that never produced a tx hash has no diff to collect and
+    // nothing to claim, so it stays available with an empty diff.
+    let stateDiffAvailable = true;
     if (txHash) {
       try {
         stateDiff = await collectStateDiff(
@@ -106,6 +111,7 @@ export async function forkSimulate(
         );
       } catch (err) {
         console.error("[forkSimulator] state diff collection failed:", err);
+        stateDiffAvailable = false;
       }
     }
 
@@ -127,6 +133,7 @@ export async function forkSimulate(
       gasUsed,
       revertReason,
       stateDiff,
+      stateDiffAvailable,
       logs,
       decodedInput,
       blockNumber:

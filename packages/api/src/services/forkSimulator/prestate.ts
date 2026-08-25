@@ -17,25 +17,63 @@ interface PrestateAccount {
 type PrestateResult = Record<string, PrestateAccount>;
 
 /**
+ * Raised when the prestate tracer did not answer. `collectStateDiff` uses
+ * the prestate as its "before" reading, so without it every account looks
+ * unchanged — and an unchanged account is the one thing a simulated
+ * transaction can never be.
+ */
+export class PrestateUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PrestateUnavailableError";
+  }
+}
+
+/**
+ * True when a prestate result means "the tracer did not answer", not "this
+ * transaction touched nothing".
+ *
+ * The second reading is impossible, and that is what makes the empty object
+ * decidable. A simulated transaction always spends gas from its sender, so
+ * a working `prestateTracer` always reports at least that one account.
+ * An empty map therefore only ever comes from a node that lacks the tracer
+ * — which used to render every balance, nonce and storage slot as
+ * unchanged, and the simulator's Diff tab printed "No state changes
+ * detected."
+ */
+export function isPrestateUnavailable(prestate: PrestateResult): boolean {
+  return Object.keys(prestate).length === 0;
+}
+
+/**
  * Ask anvil for the prestate (state BEFORE the tx executed) for every
- * account the tx touched. Anvil supports `prestateTracer` natively;
- * non-anvil nodes that lack it return an empty result, which makes
- * balance/nonce/storage changes appear as "no change" — the simulator
- * still functions, just without diff data.
+ * account the tx touched. Anvil supports `prestateTracer` natively; a node
+ * that lacks it answers with nothing, and that must not be mistaken for a
+ * transaction that changed nothing.
  */
 async function getPrestateTrace(
   rpcUrl: string,
   txHash: string,
 ): Promise<PrestateResult> {
+  let result: unknown;
   try {
-    const result = await forkRpc(rpcUrl, "debug_traceTransaction", [
+    result = await forkRpc(rpcUrl, "debug_traceTransaction", [
       txHash,
       { tracer: "prestateTracer" },
     ]);
-    return result as PrestateResult;
-  } catch {
-    return {};
+  } catch (err) {
+    throw new PrestateUnavailableError(
+      `prestateTracer failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
+
+  const prestate = (result ?? {}) as PrestateResult;
+  if (isPrestateUnavailable(prestate)) {
+    throw new PrestateUnavailableError(
+      "prestateTracer returned no accounts — this node does not support it",
+    );
+  }
+  return prestate;
 }
 
 /**
@@ -43,6 +81,11 @@ async function getPrestateTrace(
  * diff of balance / nonce / storage changes. The address set is the union
  * of (from, to, every account in the prestate) — covers transitively
  * touched contracts the caller didn't explicitly name.
+ *
+ * Throws `PrestateUnavailableError` rather than returning an empty diff when
+ * there is no "before" reading to compare against. An empty diff is a claim
+ * that nothing changed, and the caller must be able to tell that apart from
+ * not knowing.
  */
 export async function collectStateDiff(
   rpcUrl: string,
