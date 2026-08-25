@@ -74,12 +74,16 @@ vi.mock("../components/explorer/ContractView", () => ({
 // `EntityRow`s with an href. The mock matches, or these tests drive a shape
 // the component no longer has. See the fuller note in explorerPanel.test.tsx.
 vi.mock("../components/explorer/ExplorerHome", () => ({
-  default: () => (
-    <div>
-      home-view
-      <Link to={scanPath("block", "100", useActiveChainId())}>home-go-block</Link>
-    </div>
-  ),
+  default: function MockExplorerHome() {
+    return (
+      <div>
+        home-view
+        <Link to={scanPath("block", "100", useActiveChainId())}>
+          home-go-block
+        </Link>
+      </div>
+    );
+  },
 }));
 vi.mock("../lib/recentEntities", () => ({ recordVisit: vi.fn() }));
 

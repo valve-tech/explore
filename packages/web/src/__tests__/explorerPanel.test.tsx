@@ -72,7 +72,9 @@ vi.mock("../components/explorer/ContractView", () => ({
  * linking it bare would throw away that knowledge and fan out across four.
  */
 vi.mock("../components/explorer/ExplorerHome", () => ({
-  default: () => {
+  // Named, and capitalised, so the rules-of-hooks lint can see it is a
+  // component and allow the hook call.
+  default: function MockExplorerHome() {
     const chainId = useActiveChainId();
     return (
       <div>
