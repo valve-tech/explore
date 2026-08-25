@@ -11,9 +11,14 @@ need the user (both named under OPEN). Landed this session, on top of the
 `f002f61` deploy:
 
 - **The address page can no longer spin forever.** Three sections, three
-  deadlines, three rendered states. Verified live: the overview paints at
-  t+1s and a dead transactions read gives up at t+46s with a reason and a
-  Retry, instead of a spinner with no end.
+  deadlines, three rendered states. Verified on PRODUCTION: the overview
+  paints at t+1s and the page settles at ~31s, where it used to show a
+  spinner for the whole 31 seconds.
+- **And the backend stopped lying to it.** `getAddressTransactions` served a
+  chifra timeout as `{transactions: [], total: 0}` with a 200, so the page
+  said "No transactions found" about WPLS. It now returns a 503 and the page
+  says so. Verified live: WPLS is a 503 at 30.6s, a normal address still
+  returns its rows.
 - **Every route fits a 375px screen.** `viewport.spec.ts`'s `KNOWN_FAILING`
   set is EMPTY for the first time — 19/19.
 - **A 4byte name admits when it is a guess**, and recents link to the chain
