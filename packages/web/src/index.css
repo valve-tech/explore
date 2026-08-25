@@ -10,7 +10,21 @@
   --color-border-muted: #21262d;
   --color-text-primary: #e6edf3;
   --color-text-secondary: #8b949e;
-  --color-text-muted: #6e7681;
+  /*
+   * Raised from #6e7681 on 2026-08-25. The old value measured 3.77:1 against
+   * --color-bg-card and 3.52:1 against --color-bg-tertiary, under the 4.5:1
+   * floor that text below 18px owes. It is used 450 times, and the explorer
+   * home page alone renders it six times at 10-11px — timestamps, tx counts,
+   * method names, gas labels. That is body text, not decoration, so the floor
+   * applies.
+   *
+   * #808996 is the DARKEST value on the same blue-grey hue line that clears
+   * 4.5:1 on every surface it lands on: 4.58:1 on --color-bg-tertiary (the
+   * lightest, so the worst case), 4.89:1 on --color-bg-card, 5.35:1 on
+   * --color-bg-primary. Chosen as the minimum rather than something lighter
+   * so the muted tier stays visibly below --color-text-secondary.
+   */
+  --color-text-muted: #808996;
   --color-accent: #8B5CF6;
   --color-accent-hover: #7C3AED;
   --color-accent-muted: rgba(139, 92, 246, 0.15);

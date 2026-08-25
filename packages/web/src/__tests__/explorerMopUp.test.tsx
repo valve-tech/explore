@@ -135,6 +135,21 @@ describe("<ExplorerHome /> — formatter branches", () => {
           gasLimit: "y",
           baseFeePerGas: null,
         },
+        {
+          // The minute bucket used to be covered by a 30-minute-old tx. The
+          // tx row now shows which block included it instead of an age —
+          // every tx in that list shares a block, so the age column printed
+          // one fact ten times — so the m-bucket moves here, where an age is
+          // still what the row says.
+          number: "26804490",
+          hash: "0x" + "aa".repeat(32),
+          timestamp: nowSec - 30 * 60, // 30m ago
+          miner: "0x" + "44".repeat(20),
+          transactionCount: 0,
+          gasUsed: "15000000",
+          gasLimit: "30000000",
+          baseFeePerGas: null,
+        },
       ],
       cursor: null,
     });
@@ -146,7 +161,7 @@ describe("<ExplorerHome /> — formatter branches", () => {
         {
           hash: "0xshort",
           blockNumber: "1",
-          timestamp: nowSec - 30 * 60, // 30m ago → `ago` minute-bucket (line 399)
+          timestamp: nowSec - 30 * 60,
           from: "0x" + "44".repeat(20),
           to: "0x" + "55".repeat(20),
           value: "not-wei",
@@ -162,7 +177,7 @@ describe("<ExplorerHome /> — formatter branches", () => {
       ],
     });
 
-    renderWithProviders(<ExplorerHome onNavigate={vi.fn()} />);
+    renderWithProviders(<ExplorerHome />);
 
     // plural "blocks behind"
     expect(await screen.findByText("2 blocks behind")).toBeInTheDocument();
@@ -170,7 +185,7 @@ describe("<ExplorerHome /> — formatter branches", () => {
     expect(screen.getAllByText("not-a-number").length).toBeGreaterThan(0);
     // gasPctLabel zero-limit + catch both render "—" in the blocks card.
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
-    // `ago` h-bucket + d-bucket (blocks) and m-bucket (the 30m-old tx).
+    // `ago` h-, d- and m-buckets, all three from the blocks list.
     expect(screen.getByText(/2h ago/)).toBeInTheDocument();
     expect(screen.getByText(/2d ago/)).toBeInTheDocument();
     expect(screen.getByText(/30m ago/)).toBeInTheDocument();

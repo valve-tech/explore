@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Routes, Route, Link } from "react-router-dom";
 
 /**
  * ExplorerPanel coverage mop-up — the breadcrumb/navigation arms the base
@@ -70,17 +70,14 @@ vi.mock("../components/explorer/BlockView", () => ({
 vi.mock("../components/explorer/ContractView", () => ({
   default: ({ address }: { address: string }) => <div>contract-view:{address}</div>,
 }));
+// ExplorerHome renders links, not callback-wired buttons — its rows are
+// `EntityRow`s with an href. The mock matches, or these tests drive a shape
+// the component no longer has. See the fuller note in explorerPanel.test.tsx.
 vi.mock("../components/explorer/ExplorerHome", () => ({
-  default: ({
-    onNavigate,
-  }: {
-    onNavigate: (t: { type: string; value: string }) => void;
-  }) => (
+  default: () => (
     <div>
       home-view
-      <button onClick={() => onNavigate({ type: "block", value: "100" })}>
-        home-go-block
-      </button>
+      <Link to={scanPath("block", "100", useActiveChainId())}>home-go-block</Link>
     </div>
   ),
 }));
@@ -97,6 +94,8 @@ vi.mock("../api/resolve", async (importOriginal) => {
 });
 
 import ExplorerPanel from "../components/explorer/ExplorerPanel";
+import { scanPath } from "../lib/scanRoutes";
+import { useActiveChainId } from "../lib/activeChain";
 
 function renderAt(path: string) {
   const queryClient = new QueryClient({

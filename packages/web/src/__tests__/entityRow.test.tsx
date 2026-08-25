@@ -19,10 +19,28 @@ describe("EntityRow", () => {
     expect(screen.getByText("nonce 1,204")).toBeInTheDocument();
     expect(screen.getByText("12.401 ETH")).toBeInTheDocument();
     expect(screen.getByText("68%")).toBeInTheDocument();
-    // Assert truncate class prevents wrapping on all four text spans, making the row
-    // structurally two lines.
-    const textSpans = container.querySelectorAll("span.truncate");
-    expect(textSpans.length).toBe(4);
+    // The LEFT side truncates: it carries a hash or a name, which can run to
+    // any length, and clipping it is the price of a two-line row.
+    expect(container.querySelectorAll("span.truncate").length).toBe(2);
+  });
+
+  it("does not clip the right column", () => {
+    // The right column carries short whole values — a count, an amount, a
+    // block number — so it is `shrink-0` and never truncates. It used to
+    // share the squeeze with the left column, and lost: the explorer home
+    // page rendered "#27,372…" for a block number and cut an amount to
+    // "0.0₇2 …", clipping exactly the digits that carried the meaning.
+    const { container } = renderRow({
+      main: "0x" + "ab".repeat(32),
+      sub: "transfer",
+      right: "12.401 ETH",
+      rightSub: "#27,372,424",
+    });
+    const rightColumn = container.querySelector("span.text-right");
+    expect(rightColumn).not.toBeNull();
+    expect(rightColumn!.className).toContain("shrink-0");
+    expect(rightColumn!.querySelectorAll("span.truncate").length).toBe(0);
+    expect(screen.getByText("#27,372,424")).toBeInTheDocument();
   });
 
   it("renders a link when href is set and a plain row when it is not", () => {

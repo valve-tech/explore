@@ -158,7 +158,7 @@ describe("<ExplorerHome />", () => {
     mockBlocks.mockResolvedValue(blocksResult);
     mockTxs.mockResolvedValue(txsResult);
 
-    renderWithProviders(<ExplorerHome onNavigate={vi.fn()} />);
+    renderWithProviders(<ExplorerHome />);
 
     // Stat tiles labels are always present.
     expect(screen.getByText("Latest block")).toBeInTheDocument();
@@ -173,22 +173,28 @@ describe("<ExplorerHome />", () => {
     expect(screen.getByText("1 block behind")).toBeInTheDocument();
   });
 
-  it("navigates to a tx when its row link is clicked", async () => {
+  it("points each row at a real, chain-scoped href", async () => {
     mockSummary.mockResolvedValue(summary);
     mockBlocks.mockResolvedValue(blocksResult);
     mockTxs.mockResolvedValue(txsResult);
-    const onNavigate = vi.fn();
 
-    renderWithProviders(<ExplorerHome onNavigate={onNavigate} />);
+    renderWithProviders(<ExplorerHome />);
 
-    const txLink = await screen.findByText("transfer()");
-    const anchor = txLink.closest("a");
-    expect(anchor).not.toBeNull();
-    fireEvent.click(anchor!);
-    expect(onNavigate).toHaveBeenCalledWith({
-      type: "tx",
-      value: txsResult.transactions[0]!.hash,
+    // These used to be divs with an onClick, which cannot be middle-clicked,
+    // copied, or opened in a new tab. The assertion is the href, because the
+    // href is the behaviour a callback could never give.
+    const txAnchor = (await screen.findByText("transfer()")).closest("a");
+    expect(txAnchor).toHaveAttribute(
+      "href",
+      `/eip155/369/tx/${txsResult.transactions[0]!.hash}`,
+    );
+
+    // By accessible name, not by text: the same number renders in the stat
+    // tile too, and the stat tile is deliberately not a link.
+    const blockAnchor = await screen.findByRole("link", {
+      name: "Block 26,804,492",
     });
+    expect(blockAnchor).toHaveAttribute("href", "/eip155/369/block/26804492");
   });
 
   it("compacts a millions-PLS value, shows 'just now', and a gas percent", async () => {
@@ -207,13 +213,68 @@ describe("<ExplorerHome />", () => {
       ],
     });
 
-    renderWithProviders(<ExplorerHome onNavigate={vi.fn()} />);
+    renderWithProviders(<ExplorerHome />);
     expect(await screen.findByText(/2M/)).toBeInTheDocument();
-    expect(screen.getAllByText("just now").length).toBeGreaterThan(0);
-    // gasUsed/gasLimit → 50% in the blocks card.
+    // gasUsed/gasLimit → 50% in the blocks list.
     expect(screen.getByText("50%")).toBeInTheDocument();
     // methodId fallback (no methodName).
     expect(screen.getByText("0xabcdef12")).toBeInTheDocument();
+    // The tx row shows which block included it — a field that was fetched and
+    // rendered nowhere before — rather than an age repeated down the column.
+    expect(screen.getByText("#26,804,224")).toBeInTheDocument();
+  });
+
+  it("says the feed is live when the queries succeed", async () => {
+    mockSummary.mockResolvedValue(summary);
+    mockBlocks.mockResolvedValue(blocksResult);
+    mockTxs.mockResolvedValue(txsResult);
+
+    renderWithProviders(<ExplorerHome />);
+    expect(await screen.findByText("live")).toBeInTheDocument();
+  });
+
+  it("says the backend is unreachable instead of rendering empty lists", async () => {
+    // The defect: a cold total outage used to render two empty lists and no
+    // error at all, which reads as "this chain has no activity" rather than
+    // "we cannot reach the backend".
+    mockSummary.mockRejectedValue(new Error("500"));
+    mockBlocks.mockRejectedValue(new Error("500"));
+    mockTxs.mockRejectedValue(new Error("500"));
+
+    renderWithProviders(<ExplorerHome />);
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "cannot reach the backend",
+      ),
+    );
+    // And the lists say they are empty rather than showing nothing at all.
+    expect(screen.getByText("No blocks yet")).toBeInTheDocument();
+    expect(screen.getByText("No transactions yet")).toBeInTheDocument();
+  });
+
+  it("names the chain it is describing", async () => {
+    mockSummary.mockResolvedValue(summary);
+    mockBlocks.mockResolvedValue(blocksResult);
+    mockTxs.mockResolvedValue(txsResult);
+
+    renderWithProviders(<ExplorerHome />);
+    // It reads one chain's blocks and one chain's transactions on a product
+    // that serves four, and never said which.
+    expect(
+      await screen.findByRole("heading", { name: "PulseChain" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a block's age in the blocks list", async () => {
+    mockSummary.mockResolvedValue(summary);
+    mockBlocks.mockResolvedValue({
+      blocks: [{ ...blocksResult.blocks[0]!, timestamp: nowSec }],
+      cursor: null,
+    });
+    mockTxs.mockResolvedValue({ transactions: [] });
+
+    renderWithProviders(<ExplorerHome />);
+    expect(await screen.findByText(/just now/)).toBeInTheDocument();
   });
 
   it("falls back to 'transfer' label when a tx has neither method name nor id", async () => {
@@ -229,7 +290,7 @@ describe("<ExplorerHome />", () => {
         },
       ],
     });
-    renderWithProviders(<ExplorerHome onNavigate={vi.fn()} />);
+    renderWithProviders(<ExplorerHome />);
     expect(await screen.findByText("transfer")).toBeInTheDocument();
   });
 
@@ -238,7 +299,7 @@ describe("<ExplorerHome />", () => {
     mockBlocks.mockReturnValue(new Promise(() => {}));
     mockTxs.mockReturnValue(new Promise(() => {}));
 
-    renderWithProviders(<ExplorerHome onNavigate={vi.fn()} />);
+    renderWithProviders(<ExplorerHome />);
     expect(screen.getAllByText("loading…").length).toBeGreaterThan(0);
   });
 });

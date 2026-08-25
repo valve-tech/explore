@@ -77,9 +77,18 @@ export default function EntityRow({
         <span className="theme-text-muted theme-mono text-xs truncate">{sub}</span>
       </span>
       {(right !== undefined || rightSub !== undefined) && (
-        <span className="relative min-w-0 flex flex-col text-right">
-          <span className="theme-text theme-mono text-xs tabular-nums truncate">{right}</span>
-          <span className="theme-text-muted theme-mono text-xs tabular-nums truncate">{rightSub}</span>
+        /*
+         * `shrink-0`, not `min-w-0`. The right column carries short, whole
+         * values — a count, an amount, a block number — and the left column
+         * carries a hash that already truncates gracefully through
+         * `MiddleTruncate`. Sharing the squeeze between them clipped the
+         * short values instead: the explorer home page rendered
+         * "#27,372…" for a block number and "0.0₇2 …" for an amount, cutting
+         * exactly the digits that carried the meaning. Let the hash absorb it.
+         */
+        <span className="relative shrink-0 flex flex-col text-right">
+          <span className="theme-text theme-mono text-xs tabular-nums">{right}</span>
+          <span className="theme-text-muted theme-mono text-xs tabular-nums">{rightSub}</span>
         </span>
       )}
     </>

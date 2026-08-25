@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Routes, Route, Link } from "react-router-dom";
 
 /**
  * ExplorerPanel is the URL-driven router shell that picks tx / address / block /
@@ -60,38 +60,31 @@ vi.mock("../components/explorer/ContractView", () => ({
     <div>contract-view:{address}</div>
   ),
 }));
+/*
+ * ExplorerHome renders LINKS, not buttons wired to a callback. Its rows are
+ * `EntityRow`s with an `href`, so a click navigates the router rather than
+ * invoking `handleNavigate`. This mock has to do the same or these tests
+ * exercise a component shape that no longer exists.
+ *
+ * The hrefs are chain-scoped because the real ones are: the home page reads
+ * ONE chain's blocks and transactions (a bare /explorer collapses to
+ * DEFAULT_CHAIN_ID), so a row it renders is known to live on that chain, and
+ * linking it bare would throw away that knowledge and fan out across four.
+ */
 vi.mock("../components/explorer/ExplorerHome", () => ({
-  default: ({
-    onNavigate,
-  }: {
-    onNavigate: (t: { type: string; value: string }) => void;
-  }) => (
-    <div>
-      home-view
-      <button
-        onClick={() =>
-          onNavigate({ type: "block", value: "26804492" })
-        }
-      >
-        go-block
-      </button>
-      <button
-        onClick={() =>
-          onNavigate({ type: "address", value: "0xaddr" })
-        }
-      >
-        go-address
-      </button>
-      <button
-        onClick={() =>
-          onNavigate({ type: "contract", value: "0xcontract" })
-        }
-      >
-        go-contract
-      </button>
-    </div>
-  ),
+  default: () => {
+    const chainId = useActiveChainId();
+    return (
+      <div>
+        home-view
+        <Link to={scanPath("block", "26804492", chainId)}>go-block</Link>
+        <Link to={scanPath("address", "0xaddr", chainId)}>go-address</Link>
+        <Link to={scanPath("contract", "0xcontract", chainId)}>go-contract</Link>
+      </div>
+    );
+  },
 }));
+
 vi.mock("../lib/recentEntities", () => ({
   recordVisit: vi.fn(),
 }));
@@ -117,6 +110,8 @@ vi.mock("../api/resolve", async (importOriginal) => {
 });
 
 import ExplorerPanel from "../components/explorer/ExplorerPanel";
+import { scanPath } from "../lib/scanRoutes";
+import { useActiveChainId } from "../lib/activeChain";
 import { recordVisit } from "../lib/recentEntities";
 
 const WPLS = "0xA1077a294dDE1B09bB078844df40758a5D0f9a27";
@@ -297,9 +292,18 @@ describe("<ExplorerPanel /> — pathForView keeps the active chain", () => {
   });
 
   it("stays bare when navigating from an all-chain page", async () => {
-    renderAt("/explorer");
-    fireEvent.click(screen.getByText("go-address"));
-    // Bare page → bare address link → the all-chain view, not AddressView.
-    expect(await screen.findByText("multi-chain-view:0xaddr")).toBeInTheDocument();
+    // Launched from a bare tx page rather than from home. `handleNavigate` is
+    // what this test is about, and home no longer calls it: its rows are
+    // links, and they are chain-scoped because the home page reads exactly
+    // one chain's blocks and transactions. TxDetail still takes onNavigate,
+    // and a bare /tx/<hash> is genuinely un-scoped, so it is the honest
+    // launcher for the bare case.
+    const hash = "0x" + "ef".repeat(32);
+    renderAt(`/tx/${hash}`);
+    fireEvent.click(await screen.findByText("tx-go-addr"));
+    // Bare page → bare address path → the all-chain view, not AddressView.
+    expect(
+      await screen.findByText("multi-chain-view:0xAddrFromTx"),
+    ).toBeInTheDocument();
   });
 });

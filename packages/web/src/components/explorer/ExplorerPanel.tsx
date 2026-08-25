@@ -191,7 +191,9 @@ export default function ExplorerPanel() {
       )}
 
       {/* Home view — latest summary, recent blocks, recent txs */}
-      {view.type === "none" && <ExplorerHome onNavigate={handleNavigate} />}
+      {/* No onNavigate: its rows are real <Link>s now, so they can be
+          middle-clicked and copied like any other link. */}
+      {view.type === "none" && <ExplorerHome />}
 
       {/* Hold the entity views until the chain is settled — otherwise each one
           fires its fetch against the default chain first and renders a
