@@ -242,6 +242,21 @@ rollback is `--plan explore-rollback`. Pushing selects the build.
   is the place, not a scan list.
 - **4byte guesses still render as facts** when a selector has several
   candidates. Needs a candidate count carried to the UI.
+- **The `rpc-collector` dataset is refreshed and pushed** (evm-toolkit
+  `7a53a57`). The source is at `evm-toolkit/packages/rpc-collector` — it WAS
+  on this machine; an earlier note here said otherwise and was wrong. The
+  vendored DefiLlama constants were snapshotted 2026-07-22, five days before
+  our endpoints merged upstream, holding ZERO `valve.city` entries. After
+  `refresh-vendor` + `generate:data`: **609 -> 981 chains, 3,000 endpoints**,
+  both transports on 1/369/943. Sepolia stays 0 until its PR merges.
+  Added the guard that was missing: every prior test checked the data was
+  WELL-FORMED, none checked it was CURRENT — which is how 0.23.0 and 0.24.0
+  both shipped byte-identical stale data with a green suite. Sepolia is
+  pinned with `it.fails`, so it goes RED the moment the PR merges.
+  **Not released.** `evm-toolkit/CLAUDE.md` forbids autonomous releases and
+  the release line covers 14 packages. Version left at 0.24.0. And note
+  `packages/web` pins `^0.23.0` — a caret on a `0.x` never crosses a minor,
+  so trace sees none of this until that pin moves.
 - **Sepolia in chainlist — prepared, needs the user to open the PR.** The
   "143 commits behind" question answered itself: our old branch
   `valve-rpc-privacy-none` was **entirely redundant**. Chains 1/369/943 are
