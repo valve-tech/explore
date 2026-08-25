@@ -24,30 +24,39 @@ const ROUTES = [
 ];
 
 /**
- * Routes measured to overflow their own content pane at 375px, as of the
- * investigation that added the pane-level assertion below (see the fix's
- * report for the full 19-route table, including the routes that pass):
+ * Routes that once overflowed their own content pane at 375px. All four are
+ * fixed, so the set below is empty — keep it that way.
  *
  *   route             paneScrollWidth  paneClientWidth  overflow
- *   /                             412              375       37px
+ *   /                             412              375       37px   FIXED
  *   /explorer                     577              375      202px   FIXED
- *   /network-health               580              375      205px
+ *   /network-health               580              375      205px   FIXED
  *   /ui                           598              375      223px   FIXED
  *
- * Each is wrapped in `test.fail()` so the suite stays green on the truth
- * (these routes ARE broken today) while still alerting the next person the
- * moment a fix lands: `test.fail()` runs the test as normal and only turns
+ * A route listed here is wrapped in `test.fail()` so the suite stays green on
+ * the truth (the route IS broken today) while still alerting the next person
+ * the moment a fix lands: `test.fail()` runs the test as normal and only turns
  * the suite red if the test starts PASSING, which is the signal that the
  * route got fixed and the wrapper should come off. Do not use `test.skip()`
  * here — a skipped test stops running and stops watching for the fix.
+ *
+ * The four causes, so nobody re-derives them:
+ *   /explorer        the gas strip was a no-wrap flex row of shrink-0 children,
+ *                    and the tx hash could not wrap because EntityRow's main
+ *                    line sets nowrap.
+ *   /ui              the component showcase — the two /explorer fixes fixed it.
+ *   /                Landing's search box is a `flex-1` item holding an
+ *                    `<input>`. A flex item defaults to `min-width: auto` and
+ *                    an input carries a browser intrinsic width, so the box
+ *                    refused to shrink and shoved the Go button off screen.
+ *                    `min-w-0` on the box and the input let it act.
+ *   /network-health  InfoTip's popover was `position: absolute; left: 0;
+ *                    width: 18rem`. An absolutely-positioned box still grows
+ *                    its scroll container, so a trigger near the right edge
+ *                    threw 288px of bubble past it. It now renders through a
+ *                    portal at `position: fixed`, clamped on screen.
  */
-// /explorer and /ui both came off this list the same day they went on.
-// /explorer had two causes: the gas strip was a no-wrap flex row of shrink-0
-// children, and the tx hash could not wrap because EntityRow's main line sets
-// nowrap. /ui is the component showcase, so fixing EntityRow's right column
-// and the gas strip fixed it too — which is exactly the signal test.fail()
-// exists to give: it went red for PASSING. / and /network-health remain.
-const KNOWN_FAILING = new Set(["/", "/network-health"]);
+const KNOWN_FAILING = new Set<string>([]);
 
 for (const path of ROUTES) {
   const t = KNOWN_FAILING.has(path) ? test.fail : test;

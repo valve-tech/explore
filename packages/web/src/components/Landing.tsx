@@ -193,7 +193,11 @@ function HeroTile({
         >
           <ChainSelector value={chain} onChange={onChainChange} variant="full" />
           <div
-            className="flex-1 flex items-center gap-inline px-3 h-11 theme-input-bg bs-in"
+            // `min-w-0` is load-bearing: a flex item defaults to
+            // `min-width: auto`, and the input inside carries a browser
+            // intrinsic width (~173px). Without it this box refuses to
+            // shrink and pushes the Go button off a 375px screen.
+            className="flex-1 min-w-0 flex items-center gap-inline px-3 h-11 theme-input-bg bs-in"
           >
             <Icon
               icon="heroicons:magnifying-glass"
@@ -203,7 +207,7 @@ function HeroTile({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Paste a tx hash, address, block, or 4byte selector…"
-              className="bare-input flex-1 bg-transparent outline-none text-sm font-mono theme-text"
+              className="bare-input flex-1 min-w-0 bg-transparent outline-none text-sm font-mono theme-text"
             />
             <kbd className="hidden sm:block text-[10px] px-1.5 py-0.5 font-mono shrink-0 theme-tertiary-bg theme-text-secondary">
               ⌘K

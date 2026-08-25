@@ -28,6 +28,11 @@ real empty and error states, the page names its chain, and both lists sit on
 **A transaction is no longer named after a mined 4byte collision** (`0f13199`)
 and **Settings measures whether an endpoint serves history** (`3faa100`).
 
+**Every route now fits a 375px screen.** `/` was 412px wide and
+`/network-health` 580px. Both are 375px, `KNOWN_FAILING` in
+`packages/web/e2e/viewport.spec.ts` is empty, and all 41 e2e tests pass. The
+two causes are under HARD-WON below — neither is a clip.
+
 ### HARD-WON — DO NOT RE-DERIVE
 
 - **A "state" object from a package is not a wire format.** Check for a
@@ -47,8 +52,19 @@ and **Settings measures whether an endpoint serves history** (`3faa100`).
   `flex-1 overflow-auto min-w-0` containment boundary that absorbs overflow
   internally — the document never moves off 375. Four of nineteen routes were
   overflowing while it passed: `/ui` 223px, `/network-health` 205px,
-  `/explorer` 202px, `/` 37px. It asserts the pane now. `/` and
-  `/network-health` are still marked `test.fail()` — genuinely broken.
+  `/explorer` 202px, `/` 37px. It asserts the pane now, all four are fixed,
+  and `KNOWN_FAILING` is empty. Keep it empty.
+- **An absolutely-positioned popover still grows its scroll container.**
+  `InfoTip` on `/network-health` was `absolute left-0 w-72` inside its ⓘ
+  trigger; a trigger near the right edge threw all 288px of bubble past the
+  pane — the whole 205px. `visibility: hidden` does not help, because a hidden
+  box is still laid out. It renders through a portal at `position: fixed` now,
+  clamped on screen, the same trick `primitives/Tooltip` already used. Any
+  hover panel measured by that gate needs the portal.
+- **An `<input>` carries a browser intrinsic width (~173px)**, and a flex item
+  defaults to `min-width: auto`, so a `flex-1` box holding one will not shrink.
+  That was Landing's whole 37px: the search box held its ground and pushed the
+  Go button off a 375px screen. `min-w-0` on the box AND on the input.
 - **`test.fail()` goes red when a test PASSES.** That is the feature: fixing
   EntityRow and the gas strip fixed `/ui` as a side effect, and the gate said
   so without anyone thinking to check.
