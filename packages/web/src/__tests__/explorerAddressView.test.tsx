@@ -77,6 +77,7 @@ const tx: AddressTransaction = {
   gasPrice: "2000000000000",
   isError: "0",
   functionName: "transfer(address,uint256)",
+  functionCandidates: 1,
   methodId: "0xa9059cbb",
   input: "0xa9059cbb",
   type: "eip1559",

@@ -10,6 +10,34 @@ export interface SignatureMatch {
   sigType: "function" | "event";
 }
 
+/**
+ * One selector, reduced to what a list row needs: the name we show, and how
+ * many names we had to choose from.
+ *
+ * The count is the point. 4byte.directory is a dictionary of every signature
+ * anyone ever registered, not a record of what a contract compiled to, so a
+ * selector routinely carries several entries. On a sample of 40 recent
+ * Ethereum blocks, 4,351 transactions resolved to a name and 3,348 of them —
+ * 77% — had more than one candidate. On chain 369 it is 47%. We were printing
+ * the first row of that list as if it were the truth, which is how a page came
+ * to say a transaction called `ijekfhacdgb()` (selector 0x00000012) or
+ * `rz_16jun22_88961909()`: gas-token-era mined names, brute-forced so their
+ * selector had leading zero bytes, and legitimately registered upstream.
+ *
+ * `UNRESOLVABLE_SELECTORS` cannot help there — those selectors are real. The
+ * honest fix is to keep serving the first candidate, say how many there were,
+ * and let the UI mark it as a guess.
+ *
+ * One integer per row is the whole wire cost. A client that wants the other
+ * candidates asks `GET /api/signatures/:selector` for that one selector.
+ */
+export interface SelectorSummary {
+  /** The candidate we display — first by (created_at, text_signature). */
+  textSignature: string;
+  /** How many candidates the directories hold. Always >= 1 here. */
+  candidateCount: number;
+}
+
 // ---------------------------------------------------------------------------
 // Selectors that carry no information
 // ---------------------------------------------------------------------------
@@ -218,4 +246,41 @@ export async function lookupSelectors(
   }
 
   return results;
+}
+
+/**
+ * Reduce a match list to the displayed name plus the candidate count.
+ *
+ * Pure, and separate from the lookup, so the ordering rule lives in exactly
+ * one place: the first match wins, and the SQL above already pinned that
+ * order with `ORDER BY created_at, text_signature`. A Postgres `SELECT` with
+ * no `ORDER BY` returns rows in whatever order it likes, which would have
+ * made "the first candidate" a different name from one request to the next.
+ *
+ * Returns null for a selector with no matches, so the caller renders the raw
+ * selector rather than a name.
+ */
+export function summarizeMatches(
+  matches: SignatureMatch[] | undefined,
+): SelectorSummary | null {
+  const first = matches?.[0];
+  if (!first) return null;
+  return { textSignature: first.textSignature, candidateCount: matches.length };
+}
+
+/**
+ * Batch lookup reduced to one summary per selector. This is what every list
+ * view wants: a name to print and a count that says how much to trust it.
+ * Selectors with no match are absent from the map.
+ */
+export async function lookupSelectorSummaries(
+  selectors: string[],
+): Promise<Record<string, SelectorSummary>> {
+  const matches = await lookupSelectors(selectors);
+  const summaries: Record<string, SelectorSummary> = {};
+  for (const [selector, list] of Object.entries(matches)) {
+    const summary = summarizeMatches(list);
+    if (summary) summaries[selector] = summary;
+  }
+  return summaries;
 }

@@ -62,6 +62,13 @@ export interface RecentTx {
   maxPriorityFeePerGas: string | null;
   methodId: string;
   methodName: string | null;
+  /**
+   * How many signatures the 4byte directories hold for `methodId`. 0 when
+   * nothing resolved, 1 for a single confident match, N > 1 when `methodName`
+   * is the first of several guesses. `MethodName` marks anything above 1 and
+   * fetches the alternatives only when the reader asks for them.
+   */
+  methodCandidates: number;
 }
 
 export interface RecentTxsResult {

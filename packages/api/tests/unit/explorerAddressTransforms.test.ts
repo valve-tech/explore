@@ -73,6 +73,16 @@ describe("buildAddressTransaction", () => {
     assert.equal(buildAddressTransaction(tx({ to: null }), RECEIPT, 1).to, "");
   });
 
+  it("carries the candidate count beside the name, defaulting to 0", () => {
+    // The count is how the row says "this name is one of several" instead of
+    // printing a 4byte guess as a fact.
+    assert.equal(buildAddressTransaction(tx(), RECEIPT, 1).functionCandidates, 0);
+    assert.equal(
+      buildAddressTransaction(tx(), RECEIPT, 1, "razor_balance()", 7).functionCandidates,
+      7,
+    );
+  });
+
   it("carries the caller-resolved functionName, defaulting to ''", () => {
     assert.equal(
       buildAddressTransaction(tx(), RECEIPT, 1, "transfer(address,uint256)").functionName,

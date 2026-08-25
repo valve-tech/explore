@@ -117,6 +117,12 @@ export interface AddressTransaction {
   gasPrice: string;
   isError: string;
   functionName: string;
+  /**
+   * How many signatures the 4byte directories hold for `methodId`. 0 when
+   * nothing resolved, 1 for a single confident match, N > 1 when
+   * `functionName` is the first of several guesses.
+   */
+  functionCandidates: number;
   methodId: string;
   input: string;
   type: string;

@@ -3,6 +3,7 @@ import EntityRow from "../../primitives/EntityRow";
 import { chainById, chainLogoUrl } from "../../../lib/chains";
 import { scanPath } from "../../../lib/scanRoutes";
 import { truncateAddr } from "../format";
+import { MethodName } from "../MethodName";
 import type { MergedActivity } from "../../../api/multichain";
 
 /**
@@ -48,14 +49,28 @@ export default function MergedActivityFeed({ address, activity }: Props) {
         // selector lookup can fail, and a plain native transfer has no
         // selector at all — both leave it "".
         const functionName = row.functionName;
-        const method = typeof functionName === "string" && functionName !== ""
-          ? functionName
-          : "transaction";
+        const named = typeof functionName === "string" && functionName !== "";
+        // `TaggedTx` is an open record, so the count arrives untyped. A row
+        // from a cached response written before the count existed has none —
+        // treat that as "one candidate", which renders the plain name.
+        const candidates =
+          typeof row.functionCandidates === "number" ? row.functionCandidates : 1;
+        const selector = typeof row.methodId === "string" ? row.methodId : "";
         return (
           <EntityRow
             key={`${row.chainId}-${row.hash}`}
             href={scanPath("tx", row.hash, row.chainId)}
-            main={method}
+            main={
+              named ? (
+                <MethodName
+                  label={functionName}
+                  selector={selector}
+                  candidates={candidates}
+                />
+              ) : (
+                "transaction"
+              )
+            }
             sub={`${chain?.name ?? row.chainId} · ${truncateAddr(row.hash)}`}
             right={relativeAge(row.timeStamp)}
           />

@@ -2,6 +2,7 @@ import EntityRow from "../../primitives/EntityRow";
 import { Skeleton } from "../../primitives/Skeleton";
 import { EmptyState } from "../../primitives/EmptyState";
 import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { MethodName } from "../MethodName";
 import { scanPath } from "../../../lib/scanRoutes";
 import { chainSymbol } from "../../../lib/chains";
 import type { RecentTx } from "../../../api/latest";
@@ -83,7 +84,17 @@ export function TxList({
               <MiddleTruncate value={t.hash} tailChars={6} className="max-w-full" />
             </span>
           }
-          sub={t.methodName ? `${t.methodName}()` : t.methodId || "transfer"}
+          sub={
+            t.methodName ? (
+              <MethodName
+                label={`${t.methodName}()`}
+                selector={t.methodId}
+                candidates={t.methodCandidates}
+              />
+            ) : (
+              t.methodId || "transfer"
+            )
+          }
           right={`${formatNative(t.value)} ${symbol}`}
           rightSub={`#${formatBlockNum(t.blockNumber)}`}
         />
