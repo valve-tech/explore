@@ -1,5 +1,65 @@
 # Explore (trace) — Progress
 
+## 2026-08-24 A 4BYTE NAME NOW ADMITS WHEN IT IS A GUESS
+
+Gate green: 3 typechecks silent, lint clean, web **2442** unit tests, api unit
+**693**, sdk **552**.
+
+**The scale, measured against production today.** 4byte.directory holds every
+signature anyone ever registered, so one selector usually carries several. Of
+the transactions that resolve to a name at all: **77% on chain 1** (3,348 of
+4,351 over 40 blocks) and **47% on chain 369** (218 of 463 over 60 blocks)
+have MORE THAN ONE candidate. We printed the first one as fact. Real names we
+were serving: `ijekfhacdgb` for `0x00000012` on chain 1, `rz_16jun22_88961909`
+and `razor_balance` on 369 — gas-token-era names, brute-forced so the selector
+had leading zero bytes.
+
+**`UNRESOLVABLE_SELECTORS` is the wrong tool for these.** Those selectors are
+real and their names are legitimately registered. The set still holds only
+`0x00000000`. Do not grow it to paper over a multi-candidate selector.
+
+`summarizeMatches` / `lookupSelectorSummaries` in `services/signatures.ts`
+return the first candidate plus `candidateCount`. That count is the ONLY thing
+added to the wire — one integer per row, on `RecentTx.methodCandidates` and
+`AddressTransaction.functionCandidates`. The alternatives are fetched per
+selector from `/api/signatures/:selector`, and only when a reader hovers:
+`Tooltip` mounts its `label` lazily, so the query inside it does not exist
+until the bubble opens.
+
+**At 77% the marker cannot shout.** A loud badge on three rows in four is
+noise a reader learns to skip, and then it flags nothing. `MethodName` keeps
+the name and adds a dotted underline plus a footnote-sized count. Verified in
+the browser at 1280 and 375; no horizontal overflow at 375.
+
+**Guard the missing count, not the low one.** `MethodName` tests `> 1`, never
+`<= 1`. TanStack Query persists responses to IndexedDB with
+`staleTime: Infinity`, so a browser hands the component rows with NO count at
+all — and `undefined <= 1` is false, which would have marked every stale row
+as a guess of `undefined` candidates. Seen live before the guard went in.
+
+## 2026-08-24 RECENTS NAME THEIR CHAIN
+
+`RecentEntity` now carries the chain the entry was seen on, and the recents
+rail and the ⌘K palette both build their links through one function,
+`recentEntityView.hrefFor`. The palette used to call `scanPath` itself; it
+does not any more, so the two surfaces cannot drift.
+
+Which kinds get a chain is a rule, not an oversight. A transaction, a contract
+and a block name theirs. An **address stays bare**, because `/address/0x…`
+with no prefix is the documented "every chain" route and an address is valid
+on all of them.
+
+**The legacy decision.** An entry written before this change has no chain and
+there is no way to recover one. It stays unset and links bare — exactly what
+shipped before — so a resolve+redirect still finds the right chain on click.
+A stored `chainId` that is not a positive integer (`null`, `"369"`, NaN) is
+STRIPPED at load, because keeping one would build `/eip155/NaN/tx/0x…`. Both
+paths are pinned by tests in `recentEntities.test.ts`.
+
+The chain is deliberately NOT part of the entry's identity (`idOf`). One
+address is one row whichever chain you reached it from; a revisit on another
+chain overwrites the field, so the link follows the newest visit.
+
 ## Last updated: 2026-08-25 GAS PAYLOAD + EXPLORER HOME REBUILD
 
 Gate green: 3 typechecks silent, lint clean, web **2416 unit tests**, api unit

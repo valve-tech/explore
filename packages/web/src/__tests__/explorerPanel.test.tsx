@@ -170,7 +170,24 @@ describe("<ExplorerPanel /> — view routing", () => {
     expect(
       screen.getByRole("navigation", { name: "Explorer trail" }),
     ).toBeInTheDocument();
-    expect(recordVisit).toHaveBeenCalledWith({ kind: "tx", value: hash });
+    // No chain in the URL yet, so none is recorded — the recents link stays
+    // bare and re-resolves, which is the legacy behaviour.
+    expect(recordVisit).toHaveBeenCalledWith({
+      kind: "tx",
+      value: hash,
+      chainId: undefined,
+    });
+  });
+
+  it("records the page's chain, so the recents link can name it", async () => {
+    const hash = "0x" + "ef".repeat(32);
+    renderAt(`/eip155/369/tx/${hash}`);
+    expect(await screen.findByText(`tx-view:${hash}`)).toBeInTheDocument();
+    expect(recordVisit).toHaveBeenCalledWith({
+      kind: "tx",
+      value: hash,
+      chainId: 369,
+    });
   });
 
   it("renders the tx view, not home, under a chain-scoped prefix", async () => {
@@ -187,7 +204,12 @@ describe("<ExplorerPanel /> — view routing", () => {
   it("renders the all-chain address view at /address/:address (no chain scope)", async () => {
     renderAt(`/address/${WPLS}`);
     expect(await screen.findByText(`multi-chain-view:${WPLS}`)).toBeInTheDocument();
-    expect(recordVisit).toHaveBeenCalledWith({ kind: "address", value: WPLS });
+    // An all-chain page has no one chain to record.
+    expect(recordVisit).toHaveBeenCalledWith({
+      kind: "address",
+      value: WPLS,
+      chainId: undefined,
+    });
     // An address is valid on every chain — no probe is needed to pick one.
     expect(resolveEntity).not.toHaveBeenCalled();
   });
@@ -207,6 +229,11 @@ describe("<ExplorerPanel /> — view routing", () => {
   it("renders the single-chain contract view under a chain-scoped prefix", async () => {
     renderAt(`/eip155/369/token/${WPLS}`);
     expect(await screen.findByText(`contract-view:${WPLS}`)).toBeInTheDocument();
+    expect(recordVisit).toHaveBeenCalledWith({
+      kind: "contract",
+      value: WPLS,
+      chainId: 369,
+    });
   });
 
   it("renders the all-chain block-height view at /block/:id (no chain scope)", async () => {

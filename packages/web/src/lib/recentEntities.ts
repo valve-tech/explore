@@ -17,6 +17,22 @@ export interface RecentEntity {
   label?: string;
   /** For txs: execution status, drives the kind dot colour. */
   status?: "success" | "reverted";
+  /**
+   * The chain the entry was last seen on, so a recents link can name it.
+   *
+   * Optional, for two deliberate reasons. Entries written before this field
+   * existed carry no chain at all, and an all-chain page (a bare
+   * `/address/0x…`) has no single chain to record. Both stay `undefined`, and
+   * `recentEntityView.hrefFor` then builds the chain-less path — the same link
+   * the store produced before, which resolves to the right chain instead of
+   * guessing one.
+   *
+   * It is NOT part of the entry's identity (`idOf`). One address is one row
+   * whichever chain you reached it from, and two rows both reading `#42` with
+   * no chain beside them would be a worse list. A revisit on another chain
+   * overwrites this field, so the link follows the newest visit.
+   */
+  chainId?: number;
   pinned: boolean;
   visits: number;
   lastSeen: number;
@@ -43,10 +59,26 @@ function load(): RecentEntity[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isRecentEntity);
+    return parsed.filter(isRecentEntity).map(withCleanChainId);
   } catch {
     return [];
   }
+}
+
+/**
+ * Drop a stored `chainId` that is not a usable chain id.
+ *
+ * An entry written before the field existed has no `chainId`, which is the
+ * legacy case and links chain-less on purpose. This guards the other shape: a
+ * stored `null`, a string, or a NaN some earlier build could have written.
+ * Keeping one would put a garbage segment in a route
+ * (`/eip155/NaN/tx/0x…`), so it is stripped back to the legacy form.
+ */
+function withCleanChainId(e: RecentEntity): RecentEntity {
+  if (e.chainId === undefined) return e;
+  if (Number.isInteger(e.chainId) && e.chainId > 0) return e;
+  const { chainId: _dropped, ...rest } = e;
+  return rest;
 }
 
 function isRecentEntity(v: unknown): v is RecentEntity {
@@ -104,6 +136,8 @@ export function recordVisit(input: {
   value: string;
   label?: string;
   status?: "success" | "reverted";
+  /** The chain the page was scoped to; omit it on an all-chain page. */
+  chainId?: number;
 }): void {
   const value = canonical(input.value);
   const id = idOf(input.kind, value);
@@ -117,6 +151,7 @@ export function recordVisit(input: {
               ...e,
               label: input.label ?? e.label,
               status: input.status ?? e.status,
+              chainId: input.chainId ?? e.chainId,
               visits: e.visits + 1,
               lastSeen: Date.now(),
             }
@@ -131,6 +166,7 @@ export function recordVisit(input: {
     value,
     label: input.label,
     status: input.status,
+    chainId: input.chainId,
     pinned: false,
     visits: 1,
     lastSeen: Date.now(),
@@ -151,20 +187,26 @@ export function recordVisit(input: {
 }
 
 /**
- * Update an existing entry's label/status without creating one or bumping its
- * visit count. Detail views call this once their richer data loads (e.g. a
- * contract's name), so the palette can search by name. No-op if not present.
+ * Update an existing entry's label, status or chain without creating one or
+ * bumping its visit count. Detail views call this once their richer data
+ * loads — a contract's name, or the chain a chain-less URL resolved to — so
+ * the palette can search by name and the recents link can name the chain.
+ * No-op if the entry is not present.
  */
 export function enrichEntity(
   kind: EntityKind,
   value: string,
-  patch: { label?: string; status?: "success" | "reverted" },
+  patch: { label?: string; status?: "success" | "reverted"; chainId?: number },
 ): void {
   const id = idOf(kind, canonical(value));
   const existing = entities.find((e) => idOf(e.kind, e.value) === id);
   if (!existing) return;
   const merged = { ...existing, ...patch };
-  if (merged.label === existing.label && merged.status === existing.status) {
+  if (
+    merged.label === existing.label &&
+    merged.status === existing.status &&
+    merged.chainId === existing.chainId
+  ) {
     return; // nothing changed — avoid a needless re-render
   }
   commit(

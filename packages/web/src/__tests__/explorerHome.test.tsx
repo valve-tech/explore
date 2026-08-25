@@ -100,6 +100,7 @@ const txsResult: RecentTxsResult = {
       maxPriorityFeePerGas: "1000000000000",
       methodId: "0xa9059cbb",
       methodName: "transfer",
+      methodCandidates: 1,
     },
   ],
 };
@@ -223,6 +224,30 @@ describe("<ExplorerHome />", () => {
     // The tx row shows which block included it — a field that was fetched and
     // rendered nowhere before — rather than an age repeated down the column.
     expect(screen.getByText("#26,804,224")).toBeInTheDocument();
+  });
+
+  it("marks a method name the 4byte directory could not pin down", async () => {
+    mockSummary.mockResolvedValue(summary);
+    mockBlocks.mockResolvedValue({ blocks: [] });
+    // `razor_balance` is a real chain-369 name: gas-token-era, brute-forced so
+    // its selector had leading zero bytes, and one of several registered for
+    // that selector. The row still shows it — it just stops calling it a fact.
+    mockTxs.mockResolvedValue({
+      transactions: [
+        {
+          ...txsResult.transactions[0]!,
+          methodName: "razor_balance",
+          methodId: "0x00000012",
+          methodCandidates: 6,
+        },
+      ],
+    });
+
+    renderWithProviders(<ExplorerHome />);
+    expect(await screen.findByText("razor_balance()")).toBeInTheDocument();
+    expect(
+      screen.getByText(/one of 6 candidate signatures for 0x00000012/),
+    ).toBeInTheDocument();
   });
 
   it("says the feed is live when the queries succeed", async () => {

@@ -63,6 +63,43 @@ describe("MergedActivityFeed", () => {
     expect(links[1]).toHaveAttribute("href", "/eip155/369/tx/0xbbb");
   });
 
+  it("marks a function name that came from several 4byte candidates", () => {
+    renderFeed({
+      rows: [
+        {
+          chainId: 1,
+          hash: "0xaaa",
+          timeStamp: "1700000300",
+          functionName: "ijekfhacdgb()",
+          functionCandidates: 4,
+          methodId: "0x00000012",
+        },
+      ],
+      perChain: [{ chainId: 1, returned: 1 }],
+    });
+    expect(screen.getByText("ijekfhacdgb()")).toBeInTheDocument();
+    expect(
+      screen.getByText(/one of 4 candidate signatures for 0x00000012/),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves a single confident match unmarked", () => {
+    renderFeed({
+      rows: [
+        {
+          chainId: 1,
+          hash: "0xaaa",
+          timeStamp: "1700000300",
+          functionName: "transfer(address,uint256)",
+          functionCandidates: 1,
+          methodId: "0xa9059cbb",
+        },
+      ],
+      perChain: [{ chainId: 1, returned: 1 }],
+    });
+    expect(screen.queryByText(/candidate signatures/)).not.toBeInTheDocument();
+  });
+
   it("names the chain on every row", () => {
     renderFeed();
     // Scope to the row links themselves: the footer names the same two

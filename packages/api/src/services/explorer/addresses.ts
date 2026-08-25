@@ -1,7 +1,7 @@
 import { type Address, type Hex, erc20Abi, formatEther, padHex } from "viem";
 import { chainClient } from "../chains/context.js";
 import { listAppearances, countAppearances } from "../chifra/appearances.js";
-import { lookupSelectors } from "../signatures.js";
+import { lookupSelectorSummaries, type SelectorSummary } from "../signatures.js";
 import { TRANSFER_TOPIC } from "./tokenTransfers/transforms.js";
 import {
   buildAddressTransaction,
@@ -88,10 +88,14 @@ export async function getAddressTransactions(
         .filter((s) => s !== "" && s !== "0x"),
     ),
   ];
-  let names: Record<string, { textSignature: string }[]> = {};
+  // The summary carries the candidate COUNT alongside the name. A 4byte
+  // selector often has several registered signatures, and the row shows the
+  // first — the count is what lets the UI say so instead of printing a guess
+  // as a fact.
+  let names: Record<string, SelectorSummary> = {};
   if (selectors.length > 0) {
     try {
-      names = await lookupSelectors(selectors);
+      names = await lookupSelectorSummaries(selectors);
     } catch {
       // Selector source unreachable — rows render without function names.
     }
@@ -99,9 +103,15 @@ export async function getAddressTransactions(
 
   const transactions: AddressTransaction[] = rows.map((r) => {
     const methodId = r.tx.input.length >= 10 ? r.tx.input.slice(0, 10) : "";
-    const functionName = names[methodId]?.[0]?.textSignature ?? "";
+    const summary = names[methodId];
     return {
-      ...buildAddressTransaction(r.tx, r.receipt, r.timestamp, functionName),
+      ...buildAddressTransaction(
+        r.tx,
+        r.receipt,
+        r.timestamp,
+        summary?.textSignature ?? "",
+        summary?.candidateCount ?? 0,
+      ),
       ...(r.tx ? extractTxTypeAndFees(r.tx) : LEGACY_FALLBACK_FEES),
     };
   });

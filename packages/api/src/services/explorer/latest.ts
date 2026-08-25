@@ -15,7 +15,7 @@ import { formatEther, type PublicClient } from "viem";
 import { chainClient, currentChainId } from "../chains/context.js";
 import { getRpcClient } from "../chains/clients.js";
 import { getChain, DEFAULT_CHAIN_ID } from "../chains/registry.js";
-import { lookupSelectors } from "../signatures.js";
+import { lookupSelectorSummaries } from "../signatures.js";
 
 // NB: spec §4a calls for `ots_getBlockDetails` here, but PulseChain's
 // public RPC currently returns -32601 for it. The wrapper in
@@ -216,6 +216,15 @@ export interface RecentTx {
   maxPriorityFeePerGas: string | null;
   methodId: string;
   methodName: string | null;
+  /**
+   * How many signatures the 4byte directories hold for `methodId`.
+   *
+   * 0 when nothing resolved, 1 for a single confident match, and N > 1 when
+   * `methodName` is the first of several guesses. The UI marks anything above
+   * 1 as a guess. One integer per row — the alternatives are fetched per
+   * selector from `/api/signatures/:selector` only when the reader asks.
+   */
+  methodCandidates: number;
 }
 
 export interface RecentTxsResult {
@@ -287,28 +296,33 @@ export async function getRecentTxs(limit: number = 10): Promise<RecentTxsResult>
             : null,
         methodId,
         methodName: null, // filled below
+        methodCandidates: 0, // filled below
       });
 
       if (txs.length >= n) break;
     }
   }
 
-  // Resolve methodName via the 4byte cache. lookupSelectors dedups +
-  // batches; we keep only the first match per selector for the compact
-  // "methodName" display the home view needs (full signature lookups go
-  // through /api/signatures/:selector).
+  // Resolve methodName via the 4byte cache. lookupSelectorSummaries dedups +
+  // batches, and returns the first candidate WITH the number of candidates it
+  // came from. The count rides along so the row can mark a name as a guess;
+  // the alternatives themselves stay off this response and are fetched per
+  // selector from /api/signatures/:selector when a reader asks for them.
   const selectors = [...new Set(txs.map((t) => t.methodId).filter(Boolean))];
   if (selectors.length > 0) {
-    let matches: Awaited<ReturnType<typeof lookupSelectors>> = {};
+    let summaries: Awaited<ReturnType<typeof lookupSelectorSummaries>> = {};
     try {
-      matches = await lookupSelectors(selectors);
+      summaries = await lookupSelectorSummaries(selectors);
     } catch {
       // Sourcify/4byte unreachable — leave methodNames null. Not fatal.
     }
     for (const t of txs) {
       if (!t.methodId) continue;
-      const first = matches[t.methodId]?.[0]?.textSignature;
-      t.methodName = first ? first.split("(")[0] ?? first : null;
+      const summary = summaries[t.methodId];
+      if (!summary) continue;
+      const sig = summary.textSignature;
+      t.methodName = sig.split("(")[0] ?? sig;
+      t.methodCandidates = summary.candidateCount;
     }
   }
 

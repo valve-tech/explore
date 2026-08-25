@@ -172,6 +172,7 @@ describe("<TransactionsTab /> — pagination + empty", () => {
     gasPrice: "1000000000",
     isError: "0",
     functionName: "transfer(address,uint256)",
+    functionCandidates: 1,
     methodId: "0xa9059cbb",
     input: "0x",
     type: "legacy",

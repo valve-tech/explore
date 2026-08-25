@@ -24,6 +24,14 @@ export interface AddressTransactionBase {
   gasPrice: string;
   isError: string;
   functionName: string;
+  /**
+   * How many signatures the 4byte directories hold for `methodId`.
+   *
+   * 0 when nothing resolved, 1 for a single confident match, and N > 1 when
+   * `functionName` is the first of several guesses. See `SelectorSummary` in
+   * services/signatures.ts for why that is the common case, not the edge one.
+   */
+  functionCandidates: number;
   methodId: string;
   input: string;
 }
@@ -42,15 +50,16 @@ export interface HydratedTx {
 
 /**
  * Build the wire row from a hydrated tx + its receipt + the block
- * timestamp. `functionName` comes from a best-effort selector lookup the
- * caller performs in batch; missing pieces default to empty/zero so the
- * row always renders.
+ * timestamp. `functionName` and `functionCandidates` come from a best-effort
+ * selector lookup the caller performs in batch; missing pieces default to
+ * empty/zero so the row always renders.
  */
 export function buildAddressTransaction(
   tx: HydratedTx,
   receipt: { gasUsed: bigint; status: string } | null,
   timestamp: number | null,
   functionName: string = "",
+  functionCandidates: number = 0,
 ): AddressTransactionBase {
   const methodId = tx.input && tx.input.length >= 10 ? tx.input.slice(0, 10) : "";
   return {
@@ -66,6 +75,7 @@ export function buildAddressTransaction(
     gasPrice: tx.gasPrice != null ? tx.gasPrice.toString() : "0",
     isError: receipt ? (receipt.status === "success" ? "0" : "1") : "0",
     functionName,
+    functionCandidates,
     methodId,
     input: tx.input,
   };
