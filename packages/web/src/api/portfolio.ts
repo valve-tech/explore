@@ -39,12 +39,16 @@ export interface HoldingsResult {
 export async function fetchHoldings(
   address: string,
   chainId: number = DEFAULT_CHAIN_ID,
+  opts: { signal?: AbortSignal } = {},
 ): Promise<HoldingsResult> {
   // apiUrl() makes this work from an IPFS gateway (absolute backend origin);
   // scoped() appends `chainid` only for non-default chains, so the default
   // chain's request stays byte-identical to the single-chain era.
   const url = scoped(`${API_BASE}/portfolio/holdings?address=${address}`, chainId);
-  const res = await fetch(url);
+  // `opts.signal` carries the caller's deadline. The holdings gateway reads an
+  // indexed archive, so it is usually fast — but a stalled connection must not
+  // hold the address page open forever.
+  const res = await fetch(url, { signal: opts.signal });
   if (!res.ok) {
     const text = await res.text();
     let message = text;
