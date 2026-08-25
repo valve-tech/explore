@@ -1,9 +1,26 @@
 # Explore (trace) — Progress
 
-## 2026-08-24 A 4BYTE NAME NOW ADMITS WHEN IT IS A GUESS
+## Last updated: 2026-08-25 CHECKLIST CLEARED + DEPLOYED
 
-Gate green: 3 typechecks silent, lint clean, web **2442** unit tests, api unit
-**693**, sdk **552**.
+Gate green on the merged tree: 3 typechecks silent, lint clean, web **2490**
+unit tests / 290 files, api unit **693**, sdk **552**, **41 e2e**, production
+build clean.
+
+Everything the checklist held is now done except two items that genuinely
+need the user (both named under OPEN). Landed this session, on top of the
+`f002f61` deploy:
+
+- **The address page can no longer spin forever.** Three sections, three
+  deadlines, three rendered states. Verified live: the overview paints at
+  t+1s and a dead transactions read gives up at t+46s with a reason and a
+  Retry, instead of a spinner with no end.
+- **Every route fits a 375px screen.** `viewport.spec.ts`'s `KNOWN_FAILING`
+  set is EMPTY for the first time — 19/19.
+- **A 4byte name admits when it is a guess**, and recents link to the chain
+  they were seen on.
+- **The rail sees Uniswap V3 swaps**, which its `/swap/i` test never could.
+
+### 2026-08-24 A 4BYTE NAME NOW ADMITS WHEN IT IS A GUESS
 
 **The scale, measured against production today.** 4byte.directory holds every
 signature anyone ever registered, so one selector usually carries several. Of
@@ -94,6 +111,27 @@ and **Settings measures whether an endpoint serves history** (`3faa100`).
 two causes are under HARD-WON below — neither is a clip.
 
 ### HARD-WON — DO NOT RE-DERIVE
+
+- **A stale route interception outlives the page that installed it.** After
+  testing the home page's outage state by forcing `**/api/**` to 500, that
+  route stayed armed in the browser context. The next session opened
+  PRODUCTION and saw "not updating - showing data 33m old" plus "Gas oracle
+  unavailable" and nearly filed a deploy regression. The tell: `/health`
+  came back with a `cf-ray` and `server: cloudflare`, while every `/api/*`
+  reply had NO server header, no `cf-ray`, and a 2-byte `{}` body. A reply
+  that never touched the network does not carry the edge's headers — check
+  for them before believing an outage.
+- **A Vite HMR reconnect resets React state and looks like a bug.** The
+  address page's progress counter ran BACKWARD, 1/3 -> 0/3 -> 1/3, about
+  five seconds after load. It correlates exactly with a second
+  `[vite] connecting... connected` in the console: the HMR socket dropped,
+  forced a reload, and remounted the tree. There is no HMR client in a
+  production bundle. Before chasing a reset like this, log the `[vite]`
+  console lines and check the timestamps line up.
+- **`vite preview` is NOT a way to verify an API-backed page.** `server.proxy`
+  is dev-only; preview needs its own `preview.proxy`. Without it every
+  `/api` call 404s and every section fails, so the page you are inspecting
+  is lying to you for a reason that has nothing to do with your change.
 
 - **A "state" object from a package is not a wire format.** Check for a
   `toPublishable` before serializing one wholesale. Ours lived in the relay
