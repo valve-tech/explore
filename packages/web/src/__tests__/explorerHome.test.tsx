@@ -109,6 +109,7 @@ const gasState: GasOracleState = {
   blockNumber: "26804492",
   baseFee: "1000000000000",
   baseFeeTrend: "rising",
+  baseFeeHistory: Array<string>(21).fill("1000000000000"),
   mempool: {
     pendingCount: "1234",
     queuedCount: "0",

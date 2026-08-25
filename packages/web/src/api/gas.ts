@@ -25,6 +25,9 @@ export interface GasOracleState {
   blockNumber: string;
   baseFee: string;
   baseFeeTrend: Trend;
+  /** Last 21 blocks' base fee, oldest first, as wei decimal strings — feeds
+   *  the widget's sparkline. Already on the wire; just missing from this type. */
+  baseFeeHistory: string[];
   mempool: {
     pendingCount: string;
     queuedCount: string;
