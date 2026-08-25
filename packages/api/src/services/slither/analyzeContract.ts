@@ -76,6 +76,24 @@ export async function analyzeContract(
     }
 
     const findings = parseSlitherOutput(stdout);
+    if (findings === null) {
+      // Slither exited cleanly but we cannot read what it said. Publishing
+      // `0 findings, error: null` here would hand the reader a clean bill of
+      // health for a contract nobody analysed. Don't cache it either — the
+      // next run may parse fine.
+      console.error(
+        `[slither] ${address}: output not parsable (${stdout.length} bytes stdout)`,
+      );
+      return {
+        address: address.toLowerCase(),
+        findings: [],
+        detectorCount: 0,
+        durationMs,
+        error: "Slither produced no readable output — findings unknown",
+        analyzedAt: new Date().toISOString(),
+      };
+    }
+
     const result: SlitherResult = {
       address: address.toLowerCase(),
       findings,

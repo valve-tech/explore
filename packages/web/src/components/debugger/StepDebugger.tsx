@@ -248,7 +248,13 @@ export default function StepDebugger({
     setNavError(null);
     try {
       const res = await analyzeContract(contractAddress);
-      if (res.ok && res.analysis) {
+      if (res.ok && res.analysis?.error) {
+        // The API answers 200 with an `error` when the analysis could not be
+        // completed. Its `findings` is then empty because nothing ran, not
+        // because the contract is clean — showing the panel would read as a
+        // clean bill of health.
+        setNavError(res.analysis.error);
+      } else if (res.ok && res.analysis) {
         // Always reveal the panel — its own empty-state message handles the
         // 0-findings case, which used to render nothing and looked like the
         // analysis had silently failed.
