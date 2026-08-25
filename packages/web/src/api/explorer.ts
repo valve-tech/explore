@@ -76,6 +76,13 @@ export interface TransactionDetails {
     errCode: string;
     isError: string;
   }[];
+  /**
+   * False when no trace source answered, so `internalTransactions` being
+   * empty is not a fact about the chain. Optional: a response cached in
+   * IndexedDB before this field existed omits it, and an absent flag means
+   * "available" so an old cache never renders a phantom failure.
+   */
+  internalTransactionsAvailable?: boolean;
   tokenTransfers: {
     from: string;
     to: string;
@@ -87,6 +94,12 @@ export interface TransactionDetails {
     contractAddress: string;
     hash: string;
   }[];
+  /**
+   * False when the node did not answer the receipt read, so `tokenTransfers`
+   * being empty is not a fact about the chain. Optional for the same
+   * cached-response reason as `internalTransactionsAvailable`.
+   */
+  tokenTransfersAvailable?: boolean;
   contractAddress: string | null;
   cumulativeGasUsed: string;
   type: string;

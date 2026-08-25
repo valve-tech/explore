@@ -158,6 +158,36 @@ describe("<InternalTxSection />", () => {
     expect(screen.getByText("CALL")).toBeInTheDocument();
     expect(screen.getByText("12,345")).toBeInTheDocument();
   });
+
+  it("says 'no internal transactions' when the trace came back empty", () => {
+    renderWithProviders(
+      <InternalTxSection internalTransactions={[]} onNavigate={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByText("Internal Transactions"));
+    expect(screen.getByText("No internal transactions")).toBeInTheDocument();
+  });
+
+  /**
+   * The distinguishing case. The row list is empty either way; only
+   * `available` says whether that empty is a fact about the chain. Claiming
+   * "no internal transactions" for a chain with no `debug_*` namespace is the
+   * bug this pins.
+   */
+  it("refuses to claim 'none' when no trace source answered", () => {
+    renderWithProviders(
+      <InternalTxSection
+        internalTransactions={[]}
+        available={false}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(/Could not load internal transactions/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No internal transactions"),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("<TokenTransfersSection />", () => {
@@ -200,5 +230,28 @@ describe("<TokenTransfersSection />", () => {
     );
     fireEvent.click(screen.getByText("Token Transfers"));
     expect(screen.getByText("Unknown")).toBeInTheDocument();
+  });
+
+  it("says 'no token transfers' when the receipt held none", () => {
+    renderWithProviders(
+      <TokenTransfersSection tokenTransfers={[]} onNavigate={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByText("Token Transfers"));
+    expect(screen.getByText("No token transfers")).toBeInTheDocument();
+  });
+
+  /** Same distinguishing case as the internal-call section above. */
+  it("refuses to claim 'none' when the node did not answer", () => {
+    renderWithProviders(
+      <TokenTransfersSection
+        tokenTransfers={[]}
+        available={false}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(/Could not load token transfers/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No token transfers")).not.toBeInTheDocument();
   });
 });

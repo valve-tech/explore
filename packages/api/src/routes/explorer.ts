@@ -11,6 +11,8 @@ import {
   buildTransactionDetails,
   getInternalTransactions,
   getTokenTransfers,
+  type InternalTransactionsResult,
+  type TokenTransfersResult,
   getAddressTransactions,
   getAddressTokens,
   getContractInfo,
@@ -56,6 +58,34 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   ]);
 }
 
+// The tx page's two enrichment sections must never sink the whole detail, so
+// a rejection and a timeout both degrade to an empty list here. Each empty
+// carries `available: false` so the client can say "could not load" instead of
+// printing "none" — a timeout is not a fact about the chain.
+const ENRICHMENT_TIMEOUT_MS = 10_000;
+
+function internalTransactionsOrUnavailable(
+  hash: string,
+): Promise<InternalTransactionsResult> {
+  const unavailable = { transactions: [], available: false };
+  return withTimeout(
+    getInternalTransactions(hash).catch(() => unavailable),
+    ENRICHMENT_TIMEOUT_MS,
+    unavailable,
+  );
+}
+
+function tokenTransfersOrUnavailable(
+  hash: string,
+): Promise<TokenTransfersResult> {
+  const unavailable = { transfers: [], available: false };
+  return withTimeout(
+    getTokenTransfers(hash).catch(() => unavailable),
+    ENRICHMENT_TIMEOUT_MS,
+    unavailable,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/tx/:hash
 // ---------------------------------------------------------------------------
@@ -77,16 +107,17 @@ router.get(
     // RPC can be slow for complex txs — 15s timeout per call. The details
     // fetch keeps its reject semantics (a genuine 404 must surface as 404, not
     // be swallowed into the timeout's null → a misleading 504). The two
-    // enrichment calls are best-effort: a pending tx has no trace/transfers
-    // yet, so a rejection there degrades to [] rather than sinking the detail.
+    // enrichment calls are best-effort — a failure there must not sink the
+    // whole detail — but each one carries an `available` flag so a degraded
+    // section renders as "could not load" rather than "there are none".
     const [details, internalTxs, tokenTransfers] = await Promise.all([
       withTimeout(
         getTransactionDetails(hash, { skipDecode }),
         15_000,
         null as Awaited<ReturnType<typeof getTransactionDetails>> | null,
       ),
-      withTimeout(getInternalTransactions(hash).catch(() => []), 10_000, []),
-      withTimeout(getTokenTransfers(hash).catch(() => []), 10_000, []),
+      internalTransactionsOrUnavailable(hash),
+      tokenTransfersOrUnavailable(hash),
     ]);
 
     if (!details) {
@@ -99,8 +130,10 @@ router.get(
     respond.ok(res, {
       result: {
         ...details,
-        internalTransactions: internalTxs,
-        tokenTransfers,
+        internalTransactions: internalTxs.transactions,
+        internalTransactionsAvailable: internalTxs.available,
+        tokenTransfers: tokenTransfers.transfers,
+        tokenTransfersAvailable: tokenTransfers.available,
       },
     });
   }, "explorer/tx"),
@@ -196,15 +229,17 @@ router.post(
     }
 
     const [internalTxs, tokenTransfers] = await Promise.all([
-      withTimeout(getInternalTransactions(hash), 10_000, []),
-      withTimeout(getTokenTransfers(hash), 10_000, []),
+      internalTransactionsOrUnavailable(hash),
+      tokenTransfersOrUnavailable(hash),
     ]);
 
     respond.ok(res, {
       result: {
         ...details,
-        internalTransactions: internalTxs,
-        tokenTransfers,
+        internalTransactions: internalTxs.transactions,
+        internalTransactionsAvailable: internalTxs.available,
+        tokenTransfers: tokenTransfers.transfers,
+        tokenTransfersAvailable: tokenTransfers.available,
       },
     });
   }, "explorer/tx-from-raw"),

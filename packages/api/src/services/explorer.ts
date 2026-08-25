@@ -13,11 +13,15 @@ export {
 } from "./explorer/transactionDetails.js";
 export {
   getInternalTransactions,
+  isTraceUnavailable,
   type InternalTransaction,
+  type InternalTransactionsResult,
 } from "./explorer/internalTransactions.js";
 export {
   getTokenTransfers,
+  isReceiptMissing,
   type TokenTransfer,
+  type TokenTransfersResult,
 } from "./explorer/tokenTransfers.js";
 export {
   getAddressTransactions,

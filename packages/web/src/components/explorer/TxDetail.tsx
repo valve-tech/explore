@@ -146,15 +146,24 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
           </>
         );
       })()}
-      {tx.internalTransactions.length > 0 && (
+      {/* A section with no rows normally stays hidden — printing "none" for
+          every plain transfer is noise. But a section that FAILED to load
+          must still appear: hiding it lets the reader conclude there were
+          none, which is the same falsehood said more quietly. An absent flag
+          (an older cached response) counts as available. */}
+      {(tx.internalTransactions.length > 0 ||
+        tx.internalTransactionsAvailable === false) && (
         <InternalTxSection
           internalTransactions={tx.internalTransactions}
+          available={tx.internalTransactionsAvailable !== false}
           onNavigate={onNavigate}
         />
       )}
-      {tx.tokenTransfers.length > 0 && (
+      {(tx.tokenTransfers.length > 0 ||
+        tx.tokenTransfersAvailable === false) && (
         <TokenTransfersSection
           tokenTransfers={tx.tokenTransfers}
+          available={tx.tokenTransfersAvailable !== false}
           onNavigate={onNavigate}
         />
       )}
