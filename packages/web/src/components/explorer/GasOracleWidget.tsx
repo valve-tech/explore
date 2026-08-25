@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { fetchGasOracle, type TierName, type Trend } from "../../api/gas";
 import { useActiveChainId } from "../../lib/activeChain";
-import { formatGwei } from "../../lib/format/tokenAmount";
+import { formatGweiDisplay } from "./format";
 import { Tooltip } from "../primitives/Tooltip";
 
 const TIERS: { key: TierName; label: string }[] = [
@@ -46,9 +46,15 @@ function persistTier(tier: TierName): void {
   }
 }
 
-/** wei decimal string → integer gwei with thousands separators (exact). */
+/**
+ * wei decimal string → gwei display string. Delegates to `format.ts`'s
+ * `formatGweiDisplay`, the SAME formatter the explorer stat cards use
+ * (subscript notation below 1 gwei, grouped + 2dp otherwise), so a base fee
+ * never reads as "0 gwei" here while the stat card above shows the real
+ * sub-gwei value.
+ */
 function gwei(wei: string): string {
-  return formatGwei(wei, 0) ?? "—";
+  return formatGweiDisplay(wei);
 }
 
 /**
@@ -73,6 +79,68 @@ function barHeight(tip: number, maxTip: number): number {
   return BAR_MIN_PX + (tip / maxTip) * (BAR_MAX_PX - BAR_MIN_PX);
 }
 
+const SPARK_W = 52;
+const SPARK_H = 14;
+
+/** wei decimal string → finite number, ONLY for sparkline y-positioning
+ *  (pixel geometry, not a displayed amount — same rationale as `gweiNum`). */
+function weiNum(wei: string): number {
+  try {
+    return Number(BigInt(wei));
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Compact inline base-fee sparkline over the oracle's `baseFeeHistory` — the
+ * 21-block window the query already fetches, so this is zero extra network
+ * cost. Plain SVG polyline, no charting library, sized to sit inline in the
+ * one-line strip. Static (no animation), so there's nothing to gate behind
+ * `prefers-reduced-motion`.
+ */
+function BaseFeeSparkline({
+  history,
+  trend,
+}: {
+  history: string[];
+  trend: Trend;
+}) {
+  if (history.length < 2) return null;
+  const values = history.map(weiNum);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const step = SPARK_W / (values.length - 1);
+  const points = values
+    .map((v, i) => {
+      const x = i * step;
+      const y = SPARK_H - ((v - min) / range) * SPARK_H;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      width={SPARK_W}
+      height={SPARK_H}
+      viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+      className="shrink-0"
+      role="img"
+      aria-label="Base fee, last 21 blocks"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke={TREND[trend].color}
+        strokeWidth="1.25"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function GasOracleWidget() {
   const chainId = useActiveChainId();
   const { data, status } = useQuery({
@@ -91,7 +159,7 @@ export function GasOracleWidget() {
   }
 
   return (
-    <div className="card flex items-center gap-row px-3.5 py-1.5 min-h-[34px] text-xs">
+    <div className="card flex flex-wrap items-center gap-row p-2 text-xs">
       <div className="flex items-center gap-tight shrink-0">
         <Icon
           icon="heroicons:fire"
@@ -130,24 +198,23 @@ export function GasOracleWidget() {
             <span className="theme-text-muted">gwei</span>
             <Icon
               icon={TREND[data.baseFeeTrend].icon}
-              className="w-3 h-3"
+              className="w-3 h-3 shrink-0"
               style={{ color: TREND[data.baseFeeTrend].color }}
             />
+            <BaseFeeSparkline history={data.baseFeeHistory} trend={data.baseFeeTrend} />
           </span>
 
           <TierGauge tier={tier} onSelect={selectTier} data={data} />
 
-          <span className="flex-1" />
-
           <span
-            className="font-mono shrink-0 theme-text-muted"
+            className="flex items-baseline gap-tight font-mono shrink-0 theme-text-muted ml-auto"
           >
             <span
               className="tabular-nums theme-text-secondary"
             >
               {Number(data.mempool.pendingCount).toLocaleString()}
-            </span>{" "}
-            pending
+            </span>
+            <span>pending</span>
           </span>
         </>
       )}
@@ -162,6 +229,10 @@ export function GasOracleWidget() {
  *
  * Bars are <button>s so keyboard users get the same select-on-focus behavior
  * as mouse users get on hover — the gauge isn't mouse-only.
+ *
+ * Wraps internally (`flex-wrap`) so a chain with very large gwei figures
+ * (e.g. chain 369) can drop its readout to a second line under the bars
+ * instead of forcing the whole strip to overflow sideways.
  */
 function TierGauge({
   tier,
@@ -178,8 +249,8 @@ function TierGauge({
   const active = data.tiers[tier];
 
   return (
-    <span className="flex items-center gap-inline shrink-0">
-      <span className="flex items-end gap-tight h-[18px]">
+    <span className="flex flex-wrap items-center gap-inline shrink-0">
+      <span className="flex items-end gap-tight h-[18px] shrink-0">
         {TIERS.map((t) => {
           const isActive = t.key === tier;
           const tip = gweiNum(data.tiers[t.key].maxPriorityFeePerGas);
@@ -210,14 +281,14 @@ function TierGauge({
         })}
       </span>
 
-      <span className="flex items-baseline gap-tight">
+      <span className="flex flex-wrap items-baseline gap-tight">
         <span
           className="text-[9px] uppercase tracking-wider font-semibold min-w-[52px] theme-accent"
         >
           {TIERS.find((t) => t.key === tier)?.label}
         </span>
         <span
-          className="font-mono text-sm font-semibold tabular-nums text-right min-w-[20px] theme-text"
+          className="font-mono text-sm font-semibold tabular-nums text-right theme-text"
         >
           {gwei(active.maxPriorityFeePerGas)}
         </span>

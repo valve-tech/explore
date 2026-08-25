@@ -63,6 +63,7 @@ function gasOk(tipOverride?: string): GasOracleState {
     blockNumber: "26804492",
     baseFee: "1000000000000",
     baseFeeTrend: "stable",
+    baseFeeHistory: Array<string>(21).fill("1000000000000"),
     mempool: {
       pendingCount: "0",
       queuedCount: "0",

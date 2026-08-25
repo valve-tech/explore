@@ -1,4 +1,4 @@
-import { formatEther } from "viem";
+import { formatEther, formatUnits } from "viem";
 import { chainSymbol } from "../../lib/chains";
 
 export function truncateAddr(addr: string): string {
@@ -85,4 +85,23 @@ export function formatPLS(valuePLS: string, symbol: string = "PLS"): string {
  */
 export function formatNative(balanceWei: string, chainId: number): string {
   return formatPLS(formatEther(BigInt(balanceWei)), chainSymbol(chainId));
+}
+
+/**
+ * Format an EXACT wei decimal string as gwei for display: subscript
+ * notation for sub-1-gwei magnitudes, grouped + capped to 2 fraction
+ * digits otherwise. String ops only, no float.
+ *
+ * This is the SAME logic the explorer stat cards use for a base fee /
+ * priority fee, pulled out here so every gas readout on the page — the
+ * stat card and the gas oracle strip — agrees on one figure instead of
+ * two different formatters disagreeing about whether a fee is "0 gwei".
+ */
+export function formatGweiDisplay(weiDecimal: string): string {
+  try {
+    const gwei = formatUnits(BigInt(weiDecimal), 9);
+    return subscriptSmallString(gwei) ?? groupDecimalString(gwei, 2);
+  } catch {
+    return weiDecimal;
+  }
 }
