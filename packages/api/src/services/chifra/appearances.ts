@@ -46,6 +46,7 @@ import {
   scheduleIndexWarm,
   WARM_TIMEOUT_MS,
 } from "./warmIndex.js";
+import { guardedIndexRead } from "./heavyGuard.js";
 
 const CHIFRA_BASE = process.env.CHIFRA_BASE_URL || "https://chifra.valve.city";
 
@@ -84,6 +85,10 @@ function warmAppearanceIndex(
   err: unknown,
 ): void {
   if (!isIndexTimeout(err)) return;
+  // A read we skipped for want of a slot taught us nothing about THIS address
+  // — it was queued behind other addresses, not proved slow. Warming on that
+  // would spend two minutes of the daemon on an address that may be tiny.
+  if ((err as { skippedBy?: unknown })?.skippedBy === "at-capacity") return;
   const outcome = scheduleIndexWarm(chain, address, {
     run: (c, a) =>
       warmClient.list({
@@ -104,6 +109,21 @@ function warmAppearanceIndex(
     );
   }
 }
+
+/**
+ * Run one request-bound chifra read under the guard.
+ *
+ * Chifra loads a whole monitor into memory to answer any query on it, and a
+ * client timeout does not cancel that work — so a retry ADDS a read rather
+ * than replacing one. Concurrent reads of a heavy monitor OOM-killed the
+ * daemon on 2026-08-26 at 50.5 GB resident. See `heavyGuard.ts` for the
+ * measurements and the ordering guarantees.
+ */
+const guarded = <T>(
+  chain: string,
+  address: string,
+  run: () => Promise<T>,
+): Promise<T> => guardedIndexRead(chain, address, run, isIndexTimeout);
 
 const APPEARANCE_TTL_MS = 30_000;
 const appearanceCache = new Map<
@@ -133,14 +153,16 @@ export async function listAppearances(
   if (cached && Date.now() - cached.t < APPEARANCE_TTL_MS) return cached.value;
 
   try {
-    const res = await client.list({
-      addrs: [address],
-      chain,
-      reversed: true,
-      // chifra's firstRecord is 0-based (verified against the live daemon).
-      firstRecord: (page - 1) * limit,
-      maxRecords: limit,
-    });
+    const res = await guarded(chain, address, () =>
+      client.list({
+        addrs: [address],
+        chain,
+        reversed: true,
+        // chifra's firstRecord is 0-based (verified against the live daemon).
+        firstRecord: (page - 1) * limit,
+        maxRecords: limit,
+      }),
+    );
 
     // `/list` returns an (appearance | bounds | monitor) union; keep only the
     // appearance rows — those carrying a numeric block + transaction index.
@@ -231,7 +253,9 @@ export async function countAppearances(address: string): Promise<number | null> 
   if (cached && Date.now() - cached.t < APPEARANCE_TTL_MS) return cached.value;
 
   try {
-    const res = await client.list({ addrs: [address], chain, count: true });
+    const res = await guarded(chain, address, () =>
+      client.list({ addrs: [address], chain, count: true }),
+    );
     const row = (res.data ?? []).find(
       (r) =>
         typeof (r as { fileSize?: unknown }).fileSize === "number" ||
