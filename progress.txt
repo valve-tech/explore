@@ -59,6 +59,35 @@ record is block 27,381,192 against head 27,383,871 — **2,679 blocks, roughly
 seven to eight hours stale** — because nothing has called it since the last
 test.
 
+### Reading a heavy monitor OOMs the daemon. This is reachable from production.
+
+At 13:51:09 the kernel OOM-killed `chifra daemon` on the indexer:
+
+```
+Out of memory: Killed process 2915960 (chifra)
+total-vm:95984264kB, anon-rss:52972520kB
+```
+
+**50.5 GB resident, 96 GB virtual, on a 62 GB box.** I triggered it with a
+handful of concurrent WPLS probes. Docker restarted the container 15s later
+and it came back healthy; the four scraper containers, the index and every
+other monitor were untouched, and the index never stopped advancing.
+
+This is not just my accident. `RestartCount` is 4, and the container had
+already restarted ~9h before I touched it while its siblings sat at 2 days.
+The mechanism is reachable from the product: **a user loading a heavy address
+page can OOM the indexer's daemon**, and because a client timeout does not
+cancel the work (below), retries stack instead of replacing each other.
+
+Order of magnitude: WPLS is 224.7M appearances in a 1.8 GB file, and chifra
+needed ~50 GB of RAM to read it. That is ~28x the file size.
+
+The killed process left a 1.8 GB `monitors/staging/` file behind. It was
+record-aligned but written by a dead process, and the next freshen would have
+consolidated it into a 224M-record monitor, so it is moved aside as
+`…mon.bin.orphaned-oom-20260826` rather than trusted. Staging is regenerable
+from the index; the other 72 monitors were untouched.
+
 ### A client timeout does not cancel chifra's work
 
 A killed `--count` request left `chifra daemon` (pid 2915960) writing
