@@ -1,5 +1,90 @@
 # Explore (trace) — Progress
 
+## 2026-08-26 THE HEAVY ADDRESS IS FIXED. WPLS ANSWERS IN 0.5s.
+
+**Shipped and live.** The address page that returned HTTP 524 at 125s now
+answers from production in under a second, with data current to the head
+block.
+
+```
+                    before                  after
+WPLS page 1         HTTP 524 at ~125s       0.54 - 0.87 s
+WPLS deep page      impossible              1.66 s  (page 5,000)
+WPLS total          never returned          224,844,066
+newest row          stale or absent         head block
+small address       1.5 s                   byte-for-byte identical
+```
+
+Three pieces, all deployed:
+
+**1. A memory cap on the chifra daemon** (monorepo `9c7dd0c`). `mem_limit:
+16g` + `memswap_limit: 16g` on `valve-trueblocks`. Chosen from the monitor
+size distribution at 28x: it refuses exactly WPLS (~47 GB) and USDC (~39 GB),
+the two the sidecar serves, and permits every other monitor — there is a real
+cliff after those two. The kernel oom-killer picks its own victim, so an
+unbounded chifra threatened reth and everything else; now the cgroup kills
+chifra alone and docker restarts it.
+
+**2. The appearance sidecar** (monorepo `2d699ac`, `5a3b1c8`). A
+dependency-free ESM service on `node:22-alpine`, source bind-mounted, data
+volume mounted READ-ONLY, capped at 1g, published on 127.0.0.1:8090 and
+routed at `chifra.valve.city/appearances`. 69 tests, green in the container.
+
+**3. The API prefers it** (`bda900f`). `fetchAppearances` returns `null` —
+never an empty list — on any failure, so an unreachable sidecar degrades to
+exactly the old chifra behaviour. A body with even ONE unreadable row is also
+null, because a short page would silently lose a transaction.
+
+### What made it possible
+
+Not speed work. The index was never slow — chifra's read path was. Raw `dd`
+reads the 1.7 GB WPLS monitor in 0.70s cold; chifra takes 44-69s for the same
+bytes, 63-250x slower, because it loads the whole monitor to answer anything.
+
+And the freshness came free. The scrapers write one TSV per block under
+`unchained/<chain>/unripe/`, so the newest ~1,900 blocks are a millisecond
+grep. A monitor is only a derived cache. That is why the sidecar can be both
+instant AND current to the block, which chifra could not be at any size.
+
+### The gap, and why every response admits it
+
+Finalized chunks are binary and the sidecar does not parse them, so a monitor
+lagging the finalized frontier leaves a range readable by nothing here.
+Measured across the live monitors it runs from -1,100 blocks (the monitor is
+AHEAD, so the tiers overlap it) to **539,948 blocks — about 62 days**.
+
+Every response carries `coverage.gap` and `totalIsExact`, and `total` is a
+stated lower bound when a gap exists. Verified live: the 62-day-stale monitor
+returns `totalIsExact: false` with the gap named, while still serving
+head-current rows.
+
+The two sources are reconciled by BLOCK NUMBER, not deduplication. A monitor
+consolidated through block L holds everything at or below L, so tier rows at
+or below L are dropped and what remains above L is exactly what the monitor
+lacks. Exact, and it keeps paging as plain arithmetic.
+
+### Traps worth keeping
+
+- **`chifra chunks index --belongs` is not a gap-closer.** It returns an
+  EMPTY result for a known-positive control (WPLS in a chunk it certainly
+  appears in). Without that control I would have recorded "the gap is empty".
+  Re-run the control before trusting it again.
+- **A client timeout does not cancel chifra's work.** A killed request kept
+  writing for hours. Our 30s abort stops us waiting, not the box working, so
+  retries stack instead of replacing each other.
+- **The API envelope is `{ok, result: {transactions}}`.** Parsing it as
+  `{transactions}` yields a confident "0 rows" against a perfectly healthy
+  endpoint. Cost me a false alarm here, and the same shape mistake earlier.
+- Deep paging is a seek: offset 5,000,000 costs 0.175s on the box.
+
+### Open
+
+Parsing the finalized chunk format would close the gap for good. Until then
+khedra's monitor service (`enabled: false`, "no watchlist yet") is the warmer
+that keeps gaps near zero — but note it can no longer freshen WPLS or USDC
+through chifra, because the 16g cap refuses them by design.
+
+
 ## 2026-08-26 THE INDEX IS PER-BLOCK CURRENT. CHIFRA'S READ PATH IS THE BUG.
 
 **Measured directly on the indexer box (95.217.41.159:2222), read-only.**
