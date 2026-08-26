@@ -47,6 +47,7 @@ import {
   WARM_TIMEOUT_MS,
 } from "./warmIndex.js";
 import { guardedIndexRead } from "./heavyGuard.js";
+import { fetchAppearances } from "./appearanceReader.js";
 
 const CHIFRA_BASE = process.env.CHIFRA_BASE_URL || "https://chifra.valve.city";
 
@@ -152,6 +153,19 @@ export async function listAppearances(
   const cached = appearanceCache.get(cacheKey);
   if (cached && Date.now() - cached.t < APPEARANCE_TTL_MS) return cached.value;
 
+  // The sidecar reads the index files directly and answers in milliseconds,
+  // including for the monitors chifra cannot read at all. It returns null
+  // rather than throwing when it cannot answer, so this falls through to
+  // chifra on any trouble and the behaviour is unchanged.
+  const fromReader = await fetchAppearances(chain, address, page, limit);
+  if (fromReader !== null) {
+    appearanceCache.set(cacheKey, {
+      value: fromReader.appearances,
+      t: Date.now(),
+    });
+    return fromReader.appearances;
+  }
+
   try {
     const res = await guarded(chain, address, () =>
       client.list({
@@ -251,6 +265,15 @@ export async function countAppearances(address: string): Promise<number | null> 
   const cacheKey = `${chain}:${address.toLowerCase()}`;
   const cached = countCache.get(cacheKey);
   if (cached && Date.now() - cached.t < APPEARANCE_TTL_MS) return cached.value;
+
+  // The sidecar derives the count from the monitor's file size — a stat, where
+  // chifra's `--count` reads the whole file and gave up past 300s. One row is
+  // requested because the count rides along with any page.
+  const fromReader = await fetchAppearances(chain, address, 1, 1);
+  if (fromReader !== null) {
+    countCache.set(cacheKey, { value: fromReader.total, t: Date.now() });
+    return fromReader.total;
+  }
 
   try {
     const res = await guarded(chain, address, () =>
