@@ -1,5 +1,106 @@
 # Explore (trace) — Progress
 
+## 2026-08-26 THE INDEX IS PER-BLOCK CURRENT. CHIFRA'S READ PATH IS THE BUG.
+
+**Measured directly on the indexer box (95.217.41.159:2222), read-only.**
+This overturns the 2026-08-25 conclusion below it. That entry is right about
+where the time goes and wrong about why.
+
+**Chifra is 63-250x slower than the disk on the same bytes.** The WPLS
+monitor is 1,798,357,424 bytes. Raw `dd`: **0.70s cold, 0.20s warm**
+(2,449 / 8,736 MB/s). Through chifra: **44-69s** (~37 MB/s). So the 37 MB/s
+was never I/O. It is chifra's per-record loop over 224.7M records. The data
+was never the problem.
+
+Three consecutive WPLS reads cost 69s / 55s / 54s with the file barely
+growing. With nothing to freshen it still cost 54s, so **that cost is the
+return path, not the freshen** — chifra hands back 224.7M appearances to
+give you 25.
+
+**`--count` is worse than a full list.** `chifra list --count` on WPLS ran
+300s and was killed by the client timeout, returning nothing. The count is
+`(filesize - 8) / 8`; `stat` answers it instantly.
+
+**`firstBlock`/`lastBlock` do not bound the work.** They filter output. A
+100-block window on WPLS does not return quickly, while the same window on a
+small monitor takes ~1s. Same finding as `maxRecords`.
+
+### The file format, confirmed
+
+`.mon.bin` is a flat array: 8-byte header, then 8-byte records
+(`blockNumber` uint32, `transactionIndex` uint32, little-endian), ascending.
+`(1798357424 - 8) / 8 = 224,794,677`, exactly the appearance count. A
+seek-read of the count plus the last 25 records takes **0.027s**.
+
+### Four tiers, and the monitor is only a cache
+
+The index is NOT the monitor. TrueBlocks keeps four tiers under
+`unchained/<chain>/`, and coverage is contiguous:
+
+| tier | covers | behind head |
+|---|---|---|
+| `finalized/` | -> 27,382,782 | ~1,090 blocks |
+| `staging/` (one 23MB TSV) | 27,382,783 - 27,383,843 | ~28 blocks |
+| `unripe/` (one TSV per block) | 27,383,844 - 27,383,871 | **0** |
+
+Both TSV tiers are plain `address<TAB>block<TAB>txIndex`. The scrapers write
+`unripe/` **every block**. Grepping all 28 unripe files for WPLS: **0.002s**.
+Grepping the whole staging tier (14,940 hits): **0.012s**.
+
+So per-block accuracy needs no monitor refresh at all. It is a 14ms grep of
+text files that are already on disk. `monitors/*.mon.bin` is a derived cache
+on top of these tiers, nothing more.
+
+**Monitors do not advance on their own** — only a `chifra list` call
+consolidates one. That fact stands. The conclusion drawn from it on
+2026-08-25 (that a seek read would serve stale data) does not: the freshness
+lives in the TSV tiers, not the monitor. Right now the WPLS monitor's last
+record is block 27,381,192 against head 27,383,871 — **2,679 blocks, roughly
+seven to eight hours stale** — because nothing has called it since the last
+test.
+
+### A client timeout does not cancel chifra's work
+
+A killed `--count` request left `chifra daemon` (pid 2915960) writing
+`monitors/staging/0xa1077a…mon.bin` for hours afterwards, past 1.4 GB and
+still growing, holding the fd open. **Our 30s API timeout does not stop the
+daemon**; it only stops us waiting. This is a live source of load on the box
+and it is worth handling before adding any warmer that can queue more of it.
+
+### khedra already has the warmer, switched off
+
+`/valve/docker/khedra.yaml`: `services.monitor.enabled: false`, commented
+"no watchlist yet. Disable until we have a list of addresses to track."
+`sleep: 12`, `batchSize: 500`. Its control API on :8338 reports both
+`scraper` and `monitor` as `paused`. Scraping is done instead by four
+per-chain scraper containers. So task #34 is a watchlist plus a config flag,
+not new software — but note that one WPLS freshen is expensive enough to
+need thought before it goes in a 12-second loop.
+
+### What the read path should be
+
+Newest-first, which is what the address page shows first:
+
+1. **`unripe` + `staging` grep** — last ~1,090 blocks, ~14ms, current to the
+   block. Serves the first page of almost any address.
+2. **monitor seek** — deeper pages, ~27ms, no scan.
+3. **`finalized` chunk reads** — only when the monitor has fallen behind.
+
+The warmer's job is therefore NOT freshness. Freshness is free from tier 1.
+The warmer exists to keep the monitor caught up to the finalized frontier so
+tier 3 stays empty and we never have to decode bloom-filtered chunks
+ourselves. That gap is currently 1,590 blocks and grows without bound.
+
+Tiers 1 and 2 can overlap after a warm, so the merge needs deduplication —
+pin it with a test rather than assuming the ranges stay disjoint.
+
+Box facts: 12 cores, 62 GB RAM, load ~8.5, 49G disk at 39%. Monitor volume:
+pulsechain 73 monitors / 5.1G, mainnet 28 / 3.3G, pulsechain-v4 25 / 81M,
+sepolia 2 / 92K. Volume `valve_tb_data` -> `/var/lib/docker/volumes/valve_tb_data/_data`.
+No `/usr/bin/time`, no `bc` on the box. `chifra monitors` has no `--freshen`
+in this build.
+
+
 ## 2026-08-25 A HEAVY ADDRESS: WHERE THE 30 SECONDS ACTUALLY GO
 
 **Hydration is not the bottleneck. The appearance index is all of it.**
