@@ -1,5 +1,86 @@
 # Explore (trace) — Progress
 
+## 2026-08-27 I CAUSED AN OUTAGE, AND FOUND FOUR REAL BUGS FIXING IT
+
+**Everything is back up.** All four chains answer, the otter pages render, and
+the address page that started this returns rows.
+
+```
+                         before              after
+all four chains          401                 200
+otter address page       blank               25 rows
+Ethereum address page    total 2, rows 0     total 2, rows 2
+```
+
+### The outage was mine
+
+I ran `explore-deploy` off the `thatis-monitor-key` branch without reading what
+its config change did. That branch had rotated `otterBackendKey` to an `op://`
+ref, so `explorer-write-trace-env` composed the RPC URL from the **v2** key and
+wrote it to the explorer box — before the api had seeded it. The commit message
+predicted this failure in so many words, and the runbook's status line said
+"changed in-repo and NOT deployed".
+
+**Never run a deploy off a branch without reading the diff of its deploy
+config.** `sync-code` rsyncs the WORKING TREE, not the index, so uncommitted
+work deploys too — mine and anyone else's.
+
+### Four bugs found while recovering
+
+1. **`sync-code` shipped 789 MB of gitignored build output** to three hosts
+   every deploy (`services/substreams-reference/target` 414 MB,
+   `…/erc20-balance-changes/vendor` 375 MB). It blew the 600s timeout and
+   failed the recovery deploy. rsync walks the tree, not the index.
+2. **chifra logs lack four JSON-RPC fields** (`blockHash`, `blockNumber`,
+   `transactionHash`, `transactionIndex`), so ethers rejected the receipt and
+   ONE token transfer blanked a whole otter page. The `to: "0x0"` bug one field
+   along.
+3. **The test asserted the buggy pass-through.** It checked `logs` came back
+   byte-identical to the input, so it pinned the defect rather than catching
+   it. A test can encode a bug.
+4. **The trace deploy plan had no relay preflight.** The otterscan plan has one
+   and it works; the trace plan consumes the same key and had nothing. That gap
+   is what let me take production down.
+
+### Retiring a system key is not what it looks like
+
+Removing an entry from `SYSTEM_KEYS` does NOT retire the key — it PROMOTES it.
+`SYSTEM_KEY_IDS` is derived from the roster, and `008_key_config_rehydrate`
+uses it as a skip set; drop the entry and the surviving `project_key` row stops
+being skipped, so 008 republishes it to Redis as an ordinary key. It keeps
+authenticating while the source says it is gone. Clearing Redis by hand is
+undone by the next deploy. The fix is `unlinkedAt` on the row. Runbook
+corrected (monorepo `dff0225`).
+
+Found only because the api suite runs against a PERSISTENT local Postgres —
+a fresh-DB suite goes green and proves nothing.
+
+### Verification lessons, all of them mine today
+
+- **A 200 is not evidence.** I called `valve.city/auth/cli` "a real page" on a
+  200 and a byte count. It is an SPA: every path returns 200 + index.html. I
+  had the counter-example in the same session and used it as proof anyway.
+- **The app is a HASH router.** `/auth/cli` renders the landing page;
+  `/#/auth/cli` renders the route. I had a memory saying exactly this and did
+  not apply it.
+- **Do not verify a fix with data you just created.** My own diagnostic
+  `chifra list` created the monitor for the reported address, so the sidecar
+  then answered and the bug looked fixed. Test with something untouched.
+- **`explore-rollback` recreates from the CURRENT image.** After rolling back,
+  `/health` still reported the new SHA. Check `version.shortSha`, not the plan
+  name.
+- **Piping deploy output through `sed`/`tail` buffers it.** Two runs looked
+  silent for minutes. Log to a file and grep the file.
+
+### The tokens report was a misdiagnosis
+
+The tokens tab IS correctly chain-scoped: 369 shows 5 tokens, 943 shows only
+CHIP, and they do not mix. "Dai Stablecoin from Ethereum" is the token's own
+on-chain name. But `Claim 50k $pDAI on dai.free.nf` is a phishing token
+rendered verbatim beside real balances — attacker-controlled text with the
+authority of verified data, same class as the 4byte guess markers. Task #38.
+
+
 ## 2026-08-27 THE RPC KEY IS DEAD, AND IT WAS LEAKING TO THE PUBLIC
 
 Two production problems, one of them a security incident. Both found chasing
