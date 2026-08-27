@@ -1,5 +1,83 @@
 # Explore (trace) — Progress
 
+## 2026-08-27 THE RPC KEY IS DEAD, AND IT WAS LEAKING TO THE PUBLIC
+
+Two production problems, one of them a security incident. Both found chasing
+a user report that Ethereum addresses "do not load anything even though the
+count is 1".
+
+### The key leaked in every error body (FIXED, needs rotation)
+
+Our RPC keys live in the URL **path**, and viem puts the full request URL in
+the message of every transport error. `respond.fail` passed that message
+straight to the client, so any failing endpoint handed a 35-character `vk_`
+key to any unauthenticated caller, on all four chains:
+
+```
+{"ok":false,"error":"HTTP request failed.\n\nStatus: 401\nURL: https://one.valve.city/rpc/vk_…/evm/1
+```
+
+`scrubInternal` only stripped viem's version footer, and the `ApiError` path
+was not scrubbed at all. `lib/redact.ts` now runs at the boundary — ApiError,
+the 500 path, and `console.error`, because a key in a log is still a leak. It
+strips `vk_` tokens, bearer tokens and URL userinfo, then collapses any
+absolute URL's path, which catches key shapes we have not named. Host, status
+and reason survive so the message stays diagnosable. Verified live on all four
+chains: `https://one.valve.city/***`.
+
+**The key still needs rotating.** The fix stops the bleeding; it does not undo
+the exposure.
+
+### Every chain's RPC is 401 (NEEDS THE USER)
+
+The same key is revoked or expired: `Invalid or inactive API key` on all four
+chains, `/health` reports every chain `degraded` with `blocks=0`.
+
+The gateway is FINE — the public `vk_demo` key returns current blocks on
+`evm/1` (0x18a66af) and `evm/369` (0x1a1fe06). So this is our credential, not
+the service.
+
+That is the root cause of both user reports. On Explore, chifra supplies the
+appearance COUNT (so the page says "2") while every RPC hydration call 401s
+and is swallowed by `catch { return null }` — count without rows. On
+Otterscan, the same dead RPC sits behind it, and the ethers
+`check failed (argument="to", value="0x0")` is otterscan choking on a failed
+receipt.
+
+### I shipped a regression, and it was the session's own bug class
+
+The appearance sidecar reports honestly whether it read the whole range —
+`coverage.complete` and `totalIsExact` — because it does not parse the binary
+finalized chunks. **The client ignored both fields.**
+
+An address chifra has never been asked about has NO monitor, so the unread
+range is the entire chain and the sidecar returns an empty list. The address
+page rendered that as "no transactions". Mainnet holds 28 monitors, so nearly
+every address on the chain read as empty. Binance 14 was worse in kind: a
+plausible-looking `total: 50,291,073` that had not read the gap either.
+
+`isCompleteAnswer` now gates both call sites — use the sidecar only when it
+says it read the whole range, otherwise fall through to chifra, which reads
+the chunks and is already bounded by `heavyGuard`. WPLS still reports
+`complete: true`, so the fast path survives.
+
+The lesson is the one this whole session has been about, and I still walked
+into it: **a fast wrong answer is worse than a slow right one**, and a source
+that tells you it is incomplete has to be believed.
+
+### Traps
+
+- **Do not verify a fix with an address you just queried.** My own diagnostic
+  `chifra list` CREATED the monitor for the reported address, so the sidecar
+  then answered correctly and the bug looked fixed. It was not. Test with an
+  address you have never touched.
+- **`explore-rollback` recreates the container from the CURRENT image.** After
+  rolling back, `/health` still reported the new SHA — the code did not
+  revert. Check `version.shortSha` rather than trusting the plan's name.
+- The hook at `~/.claude/hooks/no-secret-to-terminal.py` blocks `op item get`
+  pipelines. It is right to; use the key rather than printing it.
+
+
 ## 2026-08-26 THE HEAVY ADDRESS IS FIXED. WPLS ANSWERS IN 0.5s.
 
 **Shipped and live.** The address page that returned HTTP 524 at 125s now
