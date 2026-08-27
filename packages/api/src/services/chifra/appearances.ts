@@ -47,7 +47,7 @@ import {
   WARM_TIMEOUT_MS,
 } from "./warmIndex.js";
 import { guardedIndexRead } from "./heavyGuard.js";
-import { fetchAppearances } from "./appearanceReader.js";
+import { fetchAppearances, isCompleteAnswer } from "./appearanceReader.js";
 
 const CHIFRA_BASE = process.env.CHIFRA_BASE_URL || "https://chifra.valve.city";
 
@@ -153,12 +153,13 @@ export async function listAppearances(
   const cached = appearanceCache.get(cacheKey);
   if (cached && Date.now() - cached.t < APPEARANCE_TTL_MS) return cached.value;
 
-  // The sidecar reads the index files directly and answers in milliseconds,
-  // including for the monitors chifra cannot read at all. It returns null
-  // rather than throwing when it cannot answer, so this falls through to
-  // chifra on any trouble and the behaviour is unchanged.
+  // The sidecar reads the index files directly and answers in milliseconds —
+  // but ONLY when it read the whole range. An incomplete answer is missing
+  // rows, and an address with no monitor reports zero of them, which the page
+  // would render as "no transactions". See `isCompleteAnswer`. Anything else
+  // falls through to chifra, so the behaviour is unchanged.
   const fromReader = await fetchAppearances(chain, address, page, limit);
-  if (fromReader !== null) {
+  if (fromReader !== null && isCompleteAnswer(fromReader)) {
     appearanceCache.set(cacheKey, {
       value: fromReader.appearances,
       t: Date.now(),
@@ -270,7 +271,7 @@ export async function countAppearances(address: string): Promise<number | null> 
   // chifra's `--count` reads the whole file and gave up past 300s. One row is
   // requested because the count rides along with any page.
   const fromReader = await fetchAppearances(chain, address, 1, 1);
-  if (fromReader !== null) {
+  if (fromReader !== null && isCompleteAnswer(fromReader)) {
     countCache.set(cacheKey, { value: fromReader.total, t: Date.now() });
     return fromReader.total;
   }

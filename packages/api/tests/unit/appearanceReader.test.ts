@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   fetchAppearances,
+  isCompleteAnswer,
   isReaderAppearance,
   parseReaderResult,
   readerUrl,
@@ -159,5 +160,62 @@ describe("fetchAppearances", () => {
       base: BASE,
     });
     assert.equal(r, null);
+  });
+});
+
+/**
+ * The gate that decides fast-versus-wrong. Shipping without it served an empty
+ * list as fact for every address chifra had never been asked about.
+ */
+describe("isCompleteAnswer", () => {
+  const result = (over: Record<string, unknown> = {}) =>
+    parseReaderResult(body(over))!;
+
+  it("accepts an answer that read the whole range", () => {
+    assert.equal(isCompleteAnswer(result()), true);
+  });
+
+  it("rejects an address with no monitor, whose gap is the whole chain", () => {
+    // The live 0x5182…22e2 case on mainnet: chifra had two appearances,
+    // the sidecar had none, and the page said "no transactions".
+    const r = result({
+      appearances: [],
+      total: 0,
+      totalIsExact: false,
+      coverage: {
+        monitorLastBlock: null,
+        gap: { firstBlock: 0, lastBlock: 25846659, blocks: 25846660 },
+        complete: false,
+      },
+    });
+    assert.equal(isCompleteAnswer(r), false);
+  });
+
+  it("rejects a stale monitor even though its total looks plausible", () => {
+    // Binance 14: reports 50,291,073 appearances but has not read the gap.
+    const r = result({
+      total: 50291073,
+      totalIsExact: false,
+      coverage: { monitorLastBlock: 25306821, complete: false },
+    });
+    assert.equal(isCompleteAnswer(r), false);
+  });
+
+  it("rejects when either signal says incomplete", () => {
+    assert.equal(
+      isCompleteAnswer(result({ totalIsExact: false })),
+      false,
+      "an inexact total alone is enough to fall back",
+    );
+    assert.equal(
+      isCompleteAnswer(result({ coverage: { complete: false } })),
+      false,
+    );
+  });
+
+  it("still accepts a genuinely empty history that was fully read", () => {
+    // An address with a monitor, no gap, and nothing in it really has none.
+    const r = result({ appearances: [], total: 0 });
+    assert.equal(isCompleteAnswer(r), true);
   });
 });

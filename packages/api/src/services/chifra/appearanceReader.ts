@@ -108,6 +108,31 @@ export function parseReaderResult(body: unknown): ReaderResult | null {
   };
 }
 
+/**
+ * True when the sidecar read everything this answer needs.
+ *
+ * **This gate is the difference between fast and wrong.** The sidecar does not
+ * parse the binary finalized chunks, so whenever a monitor lags the finalized
+ * frontier the blocks between are unread — and an address chifra has never
+ * been asked about has NO monitor at all, which makes the unread range the
+ * entire chain. In both cases the sidecar answers honestly with
+ * `complete: false`, and in both cases its list is missing rows.
+ *
+ * Shipped without this check on 2026-08-26 and it did exactly that:
+ * 0x5182…22e2 on mainnet returned `total: 0` and an empty list where chifra
+ * had two real appearances, and the address page rendered it as "no
+ * transactions". Mainnet holds 28 monitors, so every other address on the
+ * chain would have read as empty.
+ *
+ * So the rule is narrow on purpose: use the sidecar ONLY when it says it read
+ * the whole range, and fall through to chifra otherwise. Chifra is slower and
+ * reads the chunks, and `heavyGuard` already stops it hurting the box. Being
+ * fast is worth nothing if the answer is a falsehood.
+ */
+export function isCompleteAnswer(result: ReaderResult): boolean {
+  return result.coverage.complete && result.totalIsExact;
+}
+
 /** The sidecar's URL for one page. */
 export function readerUrl(
   chain: string,
