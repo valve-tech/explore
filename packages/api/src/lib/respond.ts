@@ -5,6 +5,7 @@ import type {
   Response,
 } from "express";
 import { ZodError } from "zod";
+import { redactSecrets } from "./redact.js";
 
 /**
  * Domain error carrying its own HTTP status. Throw this from services or
@@ -65,7 +66,7 @@ export const respond = {
     if (err instanceof ApiError) {
       res.status(err.status).json({
         ok: false,
-        error: err.message,
+        error: redactSecrets(err.message),
         ...(err.details ?? {}),
       });
       return;
@@ -91,7 +92,9 @@ export const respond = {
  * the dependency or its version.
  */
 function scrubInternal(message: string): string {
-  return message.replace(/\s*Version:\s*\S+@[\w.-]+\s*$/i, "").trim();
+  return redactSecrets(
+    message.replace(/\s*Version:\s*\S+@[\w.-]+\s*$/i, "").trim(),
+  );
 }
 
 /**
@@ -120,7 +123,10 @@ export function asyncRoute(
       await handler(req, res, next);
     } catch (err) {
       const prefix = tag ? `[${tag}]` : `[${req.method} ${req.path}]`;
-      console.error(`${prefix} ${err instanceof Error ? err.message : err}`, err);
+      // Redacted here too: a key in a log is still a leak.
+      console.error(
+        redactSecrets(`${prefix} ${err instanceof Error ? err.message : String(err)}`),
+      );
       respond.fail(res, err);
     }
   };
