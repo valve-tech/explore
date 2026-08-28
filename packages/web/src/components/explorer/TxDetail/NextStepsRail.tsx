@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import type { TransactionDetails } from "../../../api/explorer";
-import { nextStepsFor, hasFailedTransferFrom } from "./nextSteps";
+import { Tooltip } from "../../primitives/Tooltip";
+import { nextStepsFor, hasFailedTransferFrom, type NextStep } from "./nextSteps";
 
 interface NextStepsRailProps {
   tx: TransactionDetails;
@@ -11,10 +12,17 @@ interface NextStepsRailProps {
 }
 
 /**
- * Reads the transaction's real outcome and suggests what to do next — a
- * revert points at the debugger, a failed `transferFrom` adds an allowance
- * check, a successful swap offers a fork-replay. Renders nothing when
- * `nextStepsFor` has no suggestion it can back with a real link.
+ * Reads the transaction's real outcome and offers what to do next — a revert
+ * points at the debugger, a failed `transferFrom` adds the sender, a
+ * successful swap offers a fork-replay. Renders nothing when `nextStepsFor`
+ * has no suggestion it can back with a real link.
+ *
+ * **One row of buttons, no card and no heading.** This was a titled card of
+ * stacked sentence-length links: four of them ran taller than the transaction
+ * summary they followed, and pushed the logs and the call trace — the things
+ * the reader opened the page for — below the fold. Suggestions are not the
+ * content of a transaction page, so they get the space a toolbar gets. The
+ * button says what it does; the tooltip carries the sentence.
  */
 export function NextStepsRail({ tx, chainId, functionName }: NextStepsRailProps) {
   const steps = nextStepsFor(
@@ -31,52 +39,43 @@ export function NextStepsRail({ tx, chainId, functionName }: NextStepsRailProps)
   if (steps.length === 0) return null;
 
   return (
-    <div className="card p-2 sm:p-4">
-      <div className="text-[10px] uppercase tracking-widest mb-3 theme-text-muted">
-        What to do next
-      </div>
-      <div className="space-y-stack">
-        {steps.map((step) => (
-          <Link
-            key={step.id}
-            to={step.to}
-            className="block p-2 sm:p-4 transition-colors"
-            style={{
-              backgroundColor: step.primary
-                ? "var(--color-accent-muted)"
-                : "var(--color-bg-secondary)",
-              // Outset, never inset. An inset ring eats 1px of the content
-              // box; an outset one costs zero layout width, which is why
-              // this codebase draws every outline that way.
-              boxShadow: step.primary
-                ? "0 0 0 1px var(--color-accent)"
-                : "0 0 0 1px var(--color-border-muted)",
-            }}
-          >
-            <div className="flex items-start gap-inline">
-              <Icon
-                icon={step.icon}
-                className={`w-4 h-4 mt-0.5 shrink-0 ${
-                  step.primary ? "theme-accent" : "theme-text-secondary"
-                }`}
-                aria-hidden
-              />
-              <div className="min-w-0">
-                <div
-                  className={`text-sm font-medium leading-snug mb-1 ${
-                    step.primary ? "theme-accent" : "theme-text"
-                  }`}
-                >
-                  {step.label}
-                </div>
-                <div className="text-xs leading-snug theme-text-muted">
-                  {step.sub}
-                </div>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+    <div className="flex flex-wrap items-center gap-2">
+      {steps.map((step) => (
+        <StepButton key={step.id} step={step} />
+      ))}
     </div>
+  );
+}
+
+function StepButton({ step }: { step: NextStep }) {
+  // The full sentence still reaches assistive tech and the pointer — it moved
+  // out of the layout, it did not get dropped.
+  const explanation = `${step.label} — ${step.sub}`;
+
+  return (
+    <Tooltip label={explanation}>
+      <Link
+        to={step.to}
+        aria-label={explanation}
+        className="flex items-center gap-inline px-2.5 py-1.5 text-xs font-medium transition-colors"
+        style={{
+          backgroundColor: step.primary
+            ? "var(--color-accent-muted)"
+            : "var(--color-bg-secondary)",
+          color: step.primary
+            ? "var(--color-accent)"
+            : "var(--color-text-secondary)",
+          // Outset, never inset. An inset ring eats 1px of the content box; an
+          // outset one costs zero layout width, which is why this codebase
+          // draws every outline that way.
+          boxShadow: step.primary
+            ? "0 0 0 1px var(--color-accent)"
+            : "0 0 0 1px var(--color-border-muted)",
+        }}
+      >
+        <Icon icon={step.icon} className="w-3.5 h-3.5 shrink-0" aria-hidden />
+        {step.short}
+      </Link>
+    </Tooltip>
   );
 }

@@ -45,6 +45,15 @@ export interface NextStepFacts {
 
 export interface NextStep {
   id: string;
+  /**
+   * The two-or-three word name on the button face.
+   *
+   * `label` is a full sentence, which is right for a tooltip and wrong for a
+   * control — four stacked sentence-length cards cost more vertical space than
+   * the transaction summary above them and read as an interruption. The button
+   * says what it does; the tooltip says why.
+   */
+  short: string;
   label: string;
   sub: string;
   icon: string;
@@ -113,6 +122,7 @@ export function nextStepsFor(
   if (facts.status === "reverted") {
     const debug: NextStep = {
       id: "debug",
+      short: "Step through revert",
       primary: true,
       icon: "heroicons:bug-ant",
       label: "Step through the revert in the opcode debugger",
@@ -125,6 +135,7 @@ export function nextStepsFor(
         debug,
         {
           id: "allowance",
+          short: "Open sender",
           icon: "heroicons:shield-check",
           // Deliberately does NOT say "check the allowance": no view in this
           // app shows an ERC-20 allowance, so promising one sends the reader
@@ -136,6 +147,7 @@ export function nextStepsFor(
         },
         {
           id: "resimulate",
+          short: "Re-simulate",
           icon: "heroicons:arrow-path",
           label: "Re-simulate with a state override",
           sub: "Opens the simulator — the call is not carried over yet",
@@ -143,6 +155,7 @@ export function nextStepsFor(
         },
         {
           id: "alert",
+          short: "Add failure alert",
           icon: "heroicons:bell-alert",
           label: "Set up a failure alert for this contract",
           sub: "Catch the next failure before it gets reported",
@@ -155,6 +168,7 @@ export function nextStepsFor(
       debug,
       {
         id: "resimulate",
+        short: "Re-simulate",
         icon: "heroicons:arrow-path",
         label: "Re-simulate with state overrides",
         sub: "Opens the simulator — the call is not carried over yet",
@@ -162,6 +176,7 @@ export function nextStepsFor(
       },
       {
         id: "alert",
+        short: "Add failure alert",
         icon: "heroicons:bell-alert",
         label: "Set up a failure alert for this contract",
         sub: "Get notified the next time this reverts",
@@ -174,6 +189,7 @@ export function nextStepsFor(
     return [
       {
         id: "fork",
+        short: "Fork-replay",
         primary: true,
         icon: "heroicons:beaker",
         label: "Fork-replay at this block to test a variant",
@@ -182,6 +198,7 @@ export function nextStepsFor(
       },
       {
         id: "actions",
+        short: "Wire an action",
         icon: "heroicons:bolt",
         label: "Wire a Web3 Action to react to swaps like this",
         sub: "Trigger alerts or automations off similar activity",

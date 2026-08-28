@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { TransactionDetails } from "../../../api/explorer";
 import { NextStepsRail } from "../TxDetail/NextStepsRail";
@@ -109,5 +109,27 @@ describe("<NextStepsRail />", () => {
     expect(fork).toHaveAttribute("href", `/eip155/369/fork?fromTx=${tx().hash}`);
     const actions = screen.getByRole("link", { name: /wire a web3 action/i });
     expect(actions).toHaveAttribute("href", "/eip155/369/actions");
+  });
+
+  it("puts a short name on the button and the sentence in the tooltip", () => {
+    renderRail({ transaction: tx({ status: "reverted" }) });
+    const link = screen.getByRole("link", {
+      name: /step through the revert in the opcode debugger/i,
+    });
+    // The face is two or three words. The sentence lives in aria-label and,
+    // on hover, in the tooltip — it is not laid out on the page.
+    expect(link).toHaveTextContent("Step through revert");
+    expect(link).not.toHaveTextContent("opcode debugger");
+
+    fireEvent.mouseEnter(link.parentElement!);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      "Find the exact program counter where execution stopped",
+    );
+  });
+
+  it("has no section heading or card — suggestions are a toolbar, not content", () => {
+    const { container } = renderRail({ transaction: tx({ status: "reverted" }) });
+    expect(screen.queryByText(/what to do next/i)).not.toBeInTheDocument();
+    expect(container.querySelector(".card")).toBeNull();
   });
 });

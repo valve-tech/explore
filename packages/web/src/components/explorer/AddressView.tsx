@@ -47,7 +47,8 @@ export default function AddressView({
 }: AddressViewProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const chainId = useActiveChainId();
-  const { info, txs, tokens, page, loadPage, retry } = useAddressWorkspace(address, chainId);
+  const { info, txs, tokens, page, pageSize, loadPage, setPageSize, retry } =
+    useAddressWorkspace(address, chainId);
 
   // The sub-tab lives in `?tab=` — not a path segment (chain scoping owns the
   // path) and not component state (a reload or a shared link must land on the
@@ -140,7 +141,9 @@ export default function AddressView({
             txs={txs.data.transactions}
             page={page}
             total={txs.data.total}
+            pageSize={pageSize}
             onLoadPage={loadPage}
+            onPageSize={setPageSize}
             onNavigate={onNavigate}
           />
         ) : (

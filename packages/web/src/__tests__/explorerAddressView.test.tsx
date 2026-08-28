@@ -195,10 +195,10 @@ describe("<AddressView />", () => {
     mockTxs.mockResolvedValueOnce({ transactions: [tx], total: 42 });
 
     renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />);
-    await screen.findByText("Page 1");
+    await screen.findByText("Page 1 of 2");
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(await screen.findByText("Page 2")).toBeInTheDocument();
+    expect(await screen.findByText("Page 2 of 2")).toBeInTheDocument();
     // Every read carries its own 40s deadline — see the deadline module.
     expect(mockTxs).toHaveBeenCalledWith(
       ADDR,
@@ -239,7 +239,7 @@ describe("<AddressView />", () => {
     mockTxs.mockResolvedValue({ transactions: page1, total: 25 });
 
     renderWithProviders(<AddressView address={ADDR} onNavigate={vi.fn()} />);
-    await screen.findByText("Page 1");
+    await screen.findByText("Page 1 of 1");
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 

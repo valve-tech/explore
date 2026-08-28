@@ -21,6 +21,12 @@ import {
 import { fetchHoldings } from "../../../api/portfolio";
 import { addressSectionSignal } from "./deadline";
 import {
+  loadPageSize,
+  pageAtNewSize,
+  savePageSize,
+  type AddressPageSize,
+} from "./pageSize";
+import {
   LOADING,
   resolveTokensSection,
   settleSection,
@@ -28,8 +34,6 @@ import {
   type TokenSectionData,
   type TxPageData,
 } from "./sectionState";
-
-export const ADDRESS_PAGE_SIZE = 25;
 
 /** The sections a user can retry by name. */
 export type AddressSectionKey = "info" | "transactions" | "tokens";
@@ -40,7 +44,11 @@ export interface AddressWorkspace {
   tokens: SectionState<TokenSectionData>;
   /** The transaction page currently requested (1-based). */
   page: number;
+  /** How many rows that page holds. */
+  pageSize: AddressPageSize;
   loadPage: (page: number) => void;
+  /** Change the page size, keeping the reader's first visible row in view. */
+  setPageSize: (size: AddressPageSize) => void;
   retry: (section: AddressSectionKey) => void;
 }
 
@@ -78,9 +86,19 @@ export function useAddressWorkspace(
   // compared during render. That keeps "a new address starts at page 1" a
   // derivation rather than a reset effect, and it means a late response for the
   // previous address can never paint over the new one.
+  //
+  // The size travels in the same state for the same reason: it is part of what
+  // "which rows am I looking at" means, and a stale size paired with a fresh
+  // page would request a window that never existed.
   const key = scopeKey(address, chainId);
-  const [request, setRequest] = useState({ key, page: 1 });
-  const page = request.key === key ? request.page : 1;
+  const [request, setRequest] = useState(() => ({
+    key,
+    page: 1,
+    size: loadPageSize(),
+  }));
+  const sameScope = request.key === key;
+  const page = sameScope ? request.page : 1;
+  const pageSize = request.size;
 
   // --- Overview (balance + is-this-a-contract) ---------------------------
   useEffect(() => {
@@ -101,7 +119,7 @@ export function useAddressWorkspace(
     let cancelled = false;
     setTxs(LOADING);
     void settleSection(
-      fetchAddressTransactions(address, page, ADDRESS_PAGE_SIZE, chainId, {
+      fetchAddressTransactions(address, page, pageSize, chainId, {
         signal: addressSectionSignal(),
       }),
     ).then((state) => {
@@ -111,7 +129,7 @@ export function useAddressWorkspace(
     return () => {
       cancelled = true;
     };
-  }, [address, chainId, page, attempts.transactions]);
+  }, [address, chainId, page, pageSize, attempts.transactions]);
 
   // --- Token balances (indexed gateway, RPC list as the stand-in) ---------
   useEffect(() => {
@@ -134,7 +152,19 @@ export function useAddressWorkspace(
   }, [address, chainId, attempts.tokens]);
 
   const loadPage = useCallback(
-    (next: number) => setRequest({ key, page: next }),
+    (next: number) =>
+      setRequest((prev) => ({ key, page: next, size: prev.size })),
+    [key],
+  );
+
+  const setPageSize = useCallback(
+    (size: AddressPageSize) => {
+      savePageSize(size);
+      setRequest((prev) => {
+        const from = prev.key === key ? prev.page : 1;
+        return { key, page: pageAtNewSize(from, prev.size, size), size };
+      });
+    },
     [key],
   );
 
@@ -142,5 +172,5 @@ export function useAddressWorkspace(
     setAttempts((prev) => ({ ...prev, [section]: prev[section] + 1 }));
   }, []);
 
-  return { info, txs, tokens, page, loadPage, retry };
+  return { info, txs, tokens, page, pageSize, loadPage, setPageSize, retry };
 }

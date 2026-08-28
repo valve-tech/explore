@@ -189,7 +189,9 @@ describe("<TransactionsTab /> — pagination + empty", () => {
         txs={[]}
         page={1}
         total={0}
+        pageSize={25}
         onLoadPage={vi.fn()}
+        onPageSize={vi.fn()}
         onNavigate={vi.fn()}
       />,
     );
@@ -204,13 +206,50 @@ describe("<TransactionsTab /> — pagination + empty", () => {
         txs={[tx]}
         page={2}
         total={26}
+        pageSize={25}
         onLoadPage={onLoadPage}
+        onPageSize={vi.fn()}
         onNavigate={vi.fn()}
       />,
     );
-    expect(screen.getByText("Page 2")).toBeInTheDocument();
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(onLoadPage).toHaveBeenCalledWith(1);
+  });
+
+  it("states the page count so one page never reads as the whole history", () => {
+    renderWithProviders(
+      <TransactionsTab
+        ownerAddress={tx.from}
+        txs={[tx]}
+        page={1}
+        total={97027}
+        pageSize={25}
+        onLoadPage={vi.fn()}
+        onPageSize={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Page 1 of 3,882")).toBeInTheDocument();
+  });
+
+  it("offers a bigger page and reports the chosen size as a number", () => {
+    const onPageSize = vi.fn();
+    renderWithProviders(
+      <TransactionsTab
+        ownerAddress={tx.from}
+        txs={[tx]}
+        page={1}
+        total={97027}
+        pageSize={25}
+        onLoadPage={vi.fn()}
+        onPageSize={onPageSize}
+        onNavigate={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Rows per page" }));
+    fireEvent.click(screen.getByRole("option", { name: "100 rows" }));
+    expect(onPageSize).toHaveBeenCalledWith(100);
   });
 });
 
