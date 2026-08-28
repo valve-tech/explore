@@ -64,13 +64,44 @@ export function EmptyPanel() {
   );
 }
 
+/**
+ * Sum the gas a bundle is KNOWN to use, and say how much of it is unknown.
+ *
+ * `gasEstimate` is `null` whenever a call reverts before the node produces a
+ * figure. Folding that into the sum as `0n` — which this did — turns a missing
+ * measurement into a confident number: a bundle where three of five
+ * transactions reverted reported the gas of the two that worked, labelled
+ * "total gas", with nothing to say the rest were never counted.
+ *
+ * A total that omits rows is not a total. The count comes back with it so the
+ * caller can mark the figure as a floor rather than state it as a fact.
+ */
+export function summariseBundleGas(results: SimulationResult[]): {
+  known: bigint;
+  unknown: number;
+  isComplete: boolean;
+} {
+  let known = 0n;
+  let unknown = 0;
+  for (const r of results) {
+    if (r.gasEstimate == null) {
+      unknown += 1;
+      continue;
+    }
+    try {
+      known += BigInt(r.gasEstimate);
+    } catch {
+      // A non-numeric estimate is a missing one, not a zero.
+      unknown += 1;
+    }
+  }
+  return { known, unknown, isComplete: unknown === 0 };
+}
+
 export function SummaryBar({ results }: { results: SimulationResult[] }) {
   const succeeded = results.filter((r) => r.success).length;
   const reverted = results.length - succeeded;
-  const totalGas = results.reduce(
-    (sum, r) => sum + (r.gasEstimate != null ? BigInt(r.gasEstimate) : 0n),
-    0n,
-  );
+  const gas = summariseBundleGas(results);
 
   return (
     <div
@@ -95,7 +126,14 @@ export function SummaryBar({ results }: { results: SimulationResult[] }) {
       <span
         className="text-xs theme-mono theme-text-muted"
       >
-        {totalGas.toLocaleString()} total gas
+        {gas.isComplete ? "" : "≥ "}
+        {gas.known.toLocaleString()} total gas
+        {gas.unknown > 0 && (
+          <span className="theme-text-muted">
+            {" "}
+            ({gas.unknown} not measured)
+          </span>
+        )}
       </span>
     </div>
   );

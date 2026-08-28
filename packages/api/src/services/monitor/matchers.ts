@@ -9,6 +9,11 @@ import {
 import { getChain } from "../chains/registry.js";
 import { type MatchData } from "../notifier.js";
 import type { AlertConditions, BlockTransaction } from "./types.js";
+import {
+  isCheckUnhealthy,
+  recordCheckFailure,
+  recordCheckSuccess,
+} from "./health.js";
 
 /**
  * Five matchers, one per alert type. Each returns `MatchData` (which the
@@ -125,6 +130,10 @@ export async function matchBalanceThreshold(
         ? balance > thresholdWei
         : balance < thresholdWei;
 
+    // The check COMPLETED, whether or not it matched. That is the distinction
+    // the health channel exists to keep: "checked, no match" is healthy.
+    recordCheckSuccess("balance_threshold", addr);
+
     if (!triggered) return null;
 
     return {
@@ -136,7 +145,18 @@ export async function matchBalanceThreshold(
       summary: `Address ${addr} balance is ${formatEther(balance)} ${symbol}, which is ${direction} threshold of ${threshold} ${symbol}`,
     };
   } catch (err) {
-    console.warn(`[monitor] balance check failed for ${addr}:`, err);
+    // Still returns null — every caller depends on that — but the failure is
+    // now recorded, so an alert that has stopped working stops looking
+    // identical to one whose threshold was never crossed.
+    recordCheckFailure("balance_threshold", addr, err);
+    if (isCheckUnhealthy("balance_threshold", addr)) {
+      console.error(
+        `[monitor] balance check for ${addr} has failed repeatedly — this alert is NOT firing`,
+        err,
+      );
+    } else {
+      console.warn(`[monitor] balance check failed for ${addr}:`, err);
+    }
     return null;
   }
 }
