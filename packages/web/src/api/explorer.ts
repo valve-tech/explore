@@ -73,8 +73,26 @@ export interface TransactionDetails {
     gas: string;
     gasUsed: string;
     input: string;
+    /**
+     * Return data, `0x` when the call returned nothing. Optional for the same
+     * cached-response reason as the fields below.
+     */
+    output?: string;
     errCode: string;
     isError: string;
+    /**
+     * How deep the call sits under the transaction — 1 for a direct call.
+     * The rows stay flat and in execution order, so depth is what rebuilds
+     * the tree. Optional: a response cached in IndexedDB before this field
+     * existed omits it, and the call tree then renders one flat level.
+     */
+    depth?: number;
+    /** The 4-byte selector, or "" for a plain value send. */
+    methodId?: string;
+    /** Full text signature, e.g. `transfer(address,uint256)`, when known. */
+    methodSignature?: string | null;
+    /** Candidate count. Above 1 means the name is a guess, and is marked. */
+    methodCandidates?: number;
   }[];
   /**
    * False when no trace source answered, so `internalTransactions` being

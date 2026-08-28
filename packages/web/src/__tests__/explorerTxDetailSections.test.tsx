@@ -156,7 +156,7 @@ describe("<InternalTxSection />", () => {
     // defaultOpen=false → expand it.
     fireEvent.click(screen.getByText("Internal Transactions"));
     expect(screen.getByText("CALL")).toBeInTheDocument();
-    expect(screen.getByText("12,345")).toBeInTheDocument();
+    expect(screen.getByText("12,345 gas")).toBeInTheDocument();
   });
 
   it("says 'no internal transactions' when the trace came back empty", () => {

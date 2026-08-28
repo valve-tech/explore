@@ -1,10 +1,15 @@
 import { traceTransaction, type CallFrame } from "../tracer.js";
+import { lookupSelectorSummaries, type SelectorSummary } from "../signatures.js";
 import {
   flattenInternalCalls,
   type InternalTransactionView,
 } from "./internalTransactions/transforms.js";
+import {
+  attachSignatures,
+  type InternalTransactionWithSignature,
+} from "./internalTransactions/signatures.js";
 
-export type InternalTransaction = InternalTransactionView;
+export type InternalTransaction = InternalTransactionWithSignature;
 
 export interface InternalTransactionsResult {
   transactions: InternalTransaction[];
@@ -63,5 +68,29 @@ export async function getInternalTransactions(
 
   if (isTraceUnavailable(root)) return unavailable();
 
-  return { transactions: flattenInternalCalls(root), available: true };
+  const rows = flattenInternalCalls(root);
+
+  // Best-effort function names for the call tree. The lookup is cached and
+  // batched over the page's DISTINCT selectors, so a 200-call trace of a
+  // router costs a handful of them. A failure here costs the names, never the
+  // trace — the tree renders with bare selectors.
+  let summaries: Record<string, SelectorSummary> = {};
+  try {
+    summaries = await lookupSelectorSummaries(selectorsIn(rows));
+  } catch {
+    // Selector source unreachable — rows keep their raw selector.
+  }
+
+  return { transactions: attachSignatures(rows, summaries), available: true };
+}
+
+/** The distinct 4-byte selectors a set of calls uses. */
+function selectorsIn(rows: InternalTransactionView[]): string[] {
+  return [
+    ...new Set(
+      rows
+        .map((r) => (r.input.length >= 10 ? r.input.slice(0, 10) : ""))
+        .filter((s) => s !== ""),
+    ),
+  ];
 }
