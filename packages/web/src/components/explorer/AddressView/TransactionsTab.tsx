@@ -94,13 +94,13 @@ function Pagination({
   onPageSize: (size: AddressPageSize) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 px-3 py-2.5 bs-t-muted">
+    <div className="flex items-center justify-between gap-inline px-3 py-2.5 bs-t-muted">
       <PageButton
         enabled={page > 1}
         onClick={() => onLoadPage(page - 1)}
         label="Previous"
       />
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-inline">
         <span className="num text-xs theme-text-secondary">
           Page {page.toLocaleString()} of {pages.toLocaleString()}
         </span>

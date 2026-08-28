@@ -39,7 +39,7 @@ export function NextStepsRail({ tx, chainId, functionName }: NextStepsRailProps)
   if (steps.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-inline">
       {steps.map((step) => (
         <StepButton key={step.id} step={step} />
       ))}
