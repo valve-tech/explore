@@ -281,7 +281,21 @@ textarea::placeholder {
    as real text so Ctrl+F finds it and copy yields the full string; the leading
    span clips with an ellipsis, the tail stays pinned. Width-responsive. */
 .mt      { display: inline-flex; align-items: baseline; max-width: 100%; min-width: 0; overflow: hidden; vertical-align: bottom; }
-.mt-lead { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/*
+ * The lead is CAPPED, not merely shrinkable.
+ *
+ * `flex: 0 1 auto` + `text-overflow: ellipsis` only clips when the container is
+ * narrower than the text — and a content-sized table column never is: it just
+ * grows. Measured 2026-08-28 on the address table, the Tx Hash cell was 499px
+ * wide with lead scrollWidth == renderedWidth == 446px, so a full 64-character
+ * hash rendered with no ellipsis at all while the column ate the row.
+ *
+ * `max-width` in `ch` caps the lead against the mono advance width, so a hash
+ * reads `0x75529a63…911d` regardless of how much room the column has. It stays
+ * a MAX, so `flex-shrink` still narrows it further on a cramped layout, and the
+ * mobile branch of MiddleTruncate (which wraps instead) is untouched.
+ */
+.mt-lead { flex: 0 1 auto; min-width: 0; max-width: 11ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mt-tail { flex: 0 0 auto; white-space: nowrap; }
 
 /*

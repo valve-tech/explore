@@ -1,0 +1,144 @@
+- generic [ref=f4e4]:
+  - generic [ref=f4e5]:
+    - button "Collapse sidebar" [ref=f4e8]
+    - generic [ref=f4e9]:
+      - button "Go back" [disabled] [ref=f4e11]
+      - button "Recent and pinned history" [ref=f4e13]
+    - generic [ref=f4e14]:
+      - img "Explore" [ref=f4e15]
+      - generic [ref=f4e21]:
+        - heading "Explore" [level=1] [ref=f4e22]
+        - generic [ref=f4e23]:
+          - text: by
+          - link "Valve City" [ref=f4e25] [cursor=pointer]:
+            - /url: https://valve.city
+            - img "Valve City" [ref=f4e26]
+    - button "Paste a tx hash, address, block, or function selector… ⌘K" [ref=f4e35]:
+      - generic [ref=f4e36]: Paste a tx hash, address, block, or function selector…
+      - generic [ref=f4e37]: ⌘K
+    - generic [ref=f4e38]:
+      - button "backend" [ref=f4e41]
+      - button "Connect wallet" [ref=f4e45]
+    - generic [ref=f4e46]: Connected
+  - generic [ref=f4e49]:
+    - complementary [ref=f4e50]:
+      - navigation [ref=f4e51]:
+        - generic [ref=f4e52]:
+          - generic [ref=f4e54]:
+            - generic [ref=f4e55]: Inspect
+            - 'button "Inspect: Look at something that already happened" [ref=f4e137]'
+          - link "Explorer" [ref=f4e57] [cursor=pointer]:
+            - /url: /explorer
+          - link "Mempool" [ref=f4e60] [cursor=pointer]:
+            - /url: /mempool
+          - link "Network Health" [ref=f4e63] [cursor=pointer]:
+            - /url: /network-health
+          - link "Debugger" [ref=f4e66] [cursor=pointer]:
+            - /url: /debugger
+          - link "Storage" [ref=f4e69] [cursor=pointer]:
+            - /url: /storage
+          - link "Contract Diff" [ref=f4e72] [cursor=pointer]:
+            - /url: /diff
+          - link "Verify" [ref=f4e75] [cursor=pointer]:
+            - /url: /verify
+        - generic [ref=f4e77]:
+          - generic [ref=f4e79]:
+            - generic [ref=f4e80]: Simulate
+            - 'button "Simulate: Try something before you broadcast" [ref=f4e155]'
+          - link "Simulate" [ref=f4e82] [cursor=pointer]:
+            - /url: /simulate
+          - link "Fork Sim" [ref=f4e85] [cursor=pointer]:
+            - /url: /fork
+          - link "Build Tx" [ref=f4e88] [cursor=pointer]:
+            - /url: /build
+          - link "Bundle" [ref=f4e91] [cursor=pointer]:
+            - /url: /bundle
+          - link "TestNets" [ref=f4e94] [cursor=pointer]:
+            - /url: /testnets
+        - generic [ref=f4e96]:
+          - generic [ref=f4e98]:
+            - generic [ref=f4e99]: Investigate
+            - 'button "Investigate: Keep a named bucket of things you''re digging into" [ref=f4e171]'
+          - link "Workspaces" [ref=f4e101] [cursor=pointer]:
+            - /url: /workspace
+        - generic [ref=f4e103]:
+          - generic [ref=f4e105]:
+            - generic [ref=f4e106]: Automate
+            - 'button "Automate: Keep something running in the background" [ref=f4e177]'
+          - link "Monitoring" [ref=f4e108] [cursor=pointer]:
+            - /url: /monitoring
+          - link "Actions" [ref=f4e111] [cursor=pointer]:
+            - /url: /actions
+      - generic [ref=f4e113]:
+        - link "Settings" [ref=f4e114] [cursor=pointer]:
+          - /url: /settings
+        - link "UI ✶" [ref=f4e116] [cursor=pointer]:
+          - /url: /ui
+        - link "Drafts ✶" [ref=f4e117] [cursor=pointer]:
+          - /url: /drafts
+    - generic [ref=f4e188]:
+      - navigation "Explorer trail" [ref=f4e189]:
+        - button "Home" [ref=f4e191] [cursor=pointer]
+        - generic [ref=f4e197]:
+          - generic [ref=f4e198]: address
+          - text: 0xA107...9a27
+      - generic [ref=f4e199]:
+        - generic [ref=f4e200]:
+          - generic [ref=f4e201]:
+            - generic [ref=f4e202]:
+              - generic [ref=f4e203]
+              - text: "0xA1077a294dDE1B09bB078844df40758a5D0f9a27"
+              - generic [ref=f4e206]
+            - generic [ref=f4e227]:
+              - generic [ref=f4e228]: Balance
+              - text: 0 ETH
+          - button "View Contract Details" [ref=f4e230] [cursor=pointer]
+        - navigation "Also on" [ref=f4e231]:
+          - generic [ref=f4e233]: Ethereum
+          - link "PulseChain" [ref=f4e234] [cursor=pointer]:
+            - /url: /eip155/369/address/0xA1077a294dDE1B09bB078844df40758a5D0f9a27
+          - link "PulseChain Testnet v4" [ref=f4e235] [cursor=pointer]:
+            - /url: /eip155/943/address/0xA1077a294dDE1B09bB078844df40758a5D0f9a27
+          - link "all →" [ref=f4e236] [cursor=pointer]:
+            - /url: /address/0xA1077a294dDE1B09bB078844df40758a5D0f9a27
+        - navigation "Address sections" [ref=f4e237]:
+          - button "Transactions97016" [ref=f4e238]
+          - button "Token Balances" [ref=f4e239]
+          - button "Source" [ref=f4e240]
+          - button "Storage" [ref=f4e241]
+          - button "Diff" [ref=f4e242]
+          - button "Re-verify" [ref=f4e243]
+        - generic [ref=f4e244]:
+          - table [ref=f4e247]:
+            - rowgroup [ref=f4e248]:
+              - row "Tx Hash Block Age From To Value Gas / Type Status" [ref=f4e249]
+            - rowgroup [ref=f4e259]:
+              - row "0x5015d5ec1d14ded19227572007955da5b65dcf89bb33fb01a0d45dd216ce 8881 25,850,127 57m ago 0x47a1e2249b8855a639cefb57c15e1deaf39f 3695 OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 240,349 tip 2 / cap 2.061 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e260]
+              - row "0x05d5b0d2edba0903c30140316d263ce16ea8332f1caa7b49c627313b02cc 816e 25,850,088 1h ago 0x004b38217d000000001e4f000034a6f30026 bf1c OUT 0x009a8dbad7000f0000009b002d050058ca88 1b57 0.0₁₅232 ETH EIP-1559 509,426 tip 0.005 / cap 0.044 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e304]
+              - row "0x2e52bda08de75aa41a0f5158cd00eb8a150ca3a250324a99bc96ad9645ae 6b91 25,850,057 1h ago 0x2ae4f1b01f06fa0a28bb0c9dbc098ae12b56 aaca OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 257,425 tip 0.005 / cap 0.06 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e348]
+              - row "0xb9468610250d437456d076e2008b548896fdaea4ca9d7dfd9f6434691772 2583 25,849,864 1h ago 0x7556699aa8e6a7c9c69bcfaf9debd05f8192 b063 OUT 0x7f3d4b092559b17f2227699a1f39cd56a90e f749 0 ETH EIP-1559 676,670 tip 0.016 / cap 0.126 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e392]
+              - row "0xdc318b1e718f5ae01451fe51460b7013979d467f0848ae88b007c151fa92 5084 25,849,524 2h ago 0xd0f1f2c9f88efe5d42a38ca1056bd5299d38 6f87 OUT 0x140022b7000081000001094700609300d218 7dab 0 ETH EIP-1559 912,399 tip = cap 0.053 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e436]
+              - row "0xff5e91530d7534a8a4b6e83d08c0d458ae681db698f3612a11398d824fae fc9f 25,849,280 3h ago 0x5f6e9310fb34089442d0f4f36b831ed19f1e c1d3 OUT 0x140022b7000081000001094700609300d218 7dab 0 ETH EIP-1559 731,714 tip = cap 0.089 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e480]
+              - row "0x9316912891491e246e66d59b40231b1b8bee990b8fc3f59ba9145dcde3b7 7bfc 25,848,993 4h ago 0xa8e73a289666d4ca7d16e35e9523f4c249e9 f131 OUT 0x46f6e9bbcce8638b20ebbc83d33a2b5bfa9b 7894 0 ETH EIP-1559 189,859 tip 0.15 / cap 0.354 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e524]
+              - row "0x7bc0f17e4d1afcc66bae3bb0523207c1233795c6ebee880b441e81e55c07 98c5 25,848,980 4h ago 0x14e1cd712d8af37e9ee805706fe6ad05fe68 50d0 OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 240,349 tip 2 / cap 2.277 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e568]
+              - row "0x4cc534bd075cdfc07577c7d41a76aa41ce24ed29df4530d16bf0bee06c6f 6c59 25,848,979 4h ago 0xa8e73a289666d4ca7d16e35e9523f4c249e9 f131 OUT 0x4c82d1fbfe28c977cbb58d8c7ff8fcf9f70a 2cca 0 ETH EIP-1559 153,426 tip 0.15 / cap 0.399 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e612]
+              - row "0xd0bda64219ae96d7ca2f603d3b8552e03c538c6b6fc75ce35e1ab4bcdce1 949a 25,848,965 4h ago 0xa11fabcb1fa15e9d904ee953cec3975788bb cd09 OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 267,476 tip 1 / cap 1.306 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e656]
+              - row "0x77e151a23cb4773f6107243f85c077ffa9c746cb7e0e6428392effab0783 a1ce 25,848,955 4h ago 0xa8e73a289666d4ca7d16e35e9523f4c249e9 f131 OUT 0xa79882a5bcd455c6e582dad43f3f3f2c9c82 64eb 0.002919 ETH EIP-1559 139,610 tip 0.15 / cap 0.393 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e700]
+              - row "0xe4474794e76b944c32ba16d1ccc4a3bd58382d85f1faf3bd91cb6a2fc434 9343 25,848,903 5h ago 0xfc9928f6590d853752824b0b403a6ae36785 e535 OUT 0x81463b0f960f247f704377661ec81c1fd65b 5128 0.0₉1013 ETH EIP-1559 149,350 tip 0.829 / cap 1.202 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e744]
+              - row "0xa0b817f4393719c2b1d76b00509549bc7526ef5a2155f81ba855eaf303bf 22d6 25,848,903 5h ago 0x6359ef876d6f82f669709950bb2c8e19b8e8 2481 OUT 0x6359ef876d6f82f669709950bb2c8e19b8e8 2481 0 ETH EIP-1559 373,626 tip 0.1 / cap 0.433 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e788]
+              - row "0x19e531f9c6c7079cb7740ba7382cb284feb72d111332c9cf076374368a25 d016 25,848,901 5h ago 0xfc9928f6590d853752824b0b403a6ae36785 e535 OUT 0x81463b0f960f247f704377661ec81c1fd65b 5128 0.0₁₀7553 ETH EIP-1559 199,555 tip 0.347 / cap 0.701 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e832]
+              - row "0x863f7137f0af10df0e5f708b6bcfecc05510a5f5b30d61edb1a64443855a a5e8 25,848,901 5h ago 0x6359ef876d6f82f669709950bb2c8e19b8e8 2481 OUT 0x6359ef876d6f82f669709950bb2c8e19b8e8 2481 0 ETH EIP-1559 388,264 tip 0.1 / cap 0.449 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e876]
+              - row "0x0e5a2d5f0aae6ea393e50ea5682109fa9632c2b0550d67e68d9f30c25169 c296 25,848,732 5h ago 0x1a7b47e8bd2abcdbe9b16d4c9084ac5a7459 23e8 OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 240,325 tip 0.6 / cap 0.798 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e920]
+              - row "0x813279a7086a021f3c652284a9939e4ef02be29382231ab6113500a09e56 f5be 25,848,726 5h ago 0x0fd0784a075e3a3e54381353bca6eb6040e0 990e OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 240,325 tip 2 / cap 2.172 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e964]
+              - row "0x0a30bc8e5223208282e686ae56a7eb63760281adbfbad7cdbbb2e686fb50 23cf 25,848,570 6h ago 0x0fd0784a075e3a3e54381353bca6eb6040e0 990e OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 240,325 tip 2 / cap 2.271 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e1008]
+              - row "0x636d976c51f3e138da6960b73c3c7b645031a6aca9a157f7c8e7ab13c42b 98b3 25,848,473 6h ago 0x0fd0784a075e3a3e54381353bca6eb6040e0 990e OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 240,313 tip 2 / cap 2.363 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e1052]
+              - row "0xdefa65775004f2e53200b82963db3dd12f6c9ed7af42a24132e68f7e7318 f6b9 25,848,277 7h ago 0xcebda550ff74f50e2b4941b2824c99aff9bd a3a6 OUT 0xb59f208b1092b0cccfcb040352b09b797151 9c4e 0 ETH EIP-1559 201,653 tip 0.01 / cap 0.589 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e1096]
+              - row "0x71cff8ce455d3803330ea9c390697f661b8893ec47293e38f6657842f4db e284 25,848,275 7h ago 0xcebda550ff74f50e2b4941b2824c99aff9bd a3a6 OUT 0x12d9fe4c9494dc363c6290bfdbb2bd9ed635 8c13 0 ETH EIP-1559 54,230 tip 0.01 / cap 0.596 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e1140]
+              - row "0x5c5bad30cb773793af9ce58bff32b7ea80a96a792aa263bd8ba151b99c7e 016f 25,847,341 10h ago 0x7611429347e2a1ed8003626b0b5262547f61 1767 OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH Legacy 710,277 0.331 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e1184]
+              - row "0xeaec827d41a23fb55c2d6df9eac4c96f9c3a476297b7c81479f13a1044c8 fe09 25,846,183 14h ago 0xcee2cc4ecaa4dfe48c0cdb0b503657ff5247 b279 OUT 0x140022b7000081000001094700609300d218 7dab 0 ETH EIP-1559 744,683 tip = cap 0.05 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e1228]
+              - row "0xe160255fd4dce7b35bb75a916fa176bdd37210f77b4daf0f9689a64e276f 5873 25,845,959 14h ago 0x0fd0784a075e3a3e54381353bca6eb6040e0 990e OUT 0xd0764fae29e0a6a96ff685f71cfc685456d5 636c 0 ETH EIP-1559 226,350 tip 2 / cap 2.173 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e1272]
+              - row "0x38386539a12184b5609252517200cd08caea8a67fb0534a8ccc658f5a37f d17e 25,845,801 15h ago 0xfaa5b0001d4bc0ec920944a705ad9c165bfd 2df6 OUT 0xcb31c5a97eca16d0bfdcd1195a5900371576 9d6a 0.0₁₆63 ETH EIP-1559 719,334 tip 0.016 / cap 0.114 gwei Debug this transaction Simulate a fork from this transaction More actions" [ref=f4e1316]
+          - generic [ref=f4e1360]:
+            - button "Previous" [disabled] [ref=f4e1361]
+            - generic [ref=f4e1362]: Page 1
+            - button "Next" [ref=f4e1363] [cursor=pointer]

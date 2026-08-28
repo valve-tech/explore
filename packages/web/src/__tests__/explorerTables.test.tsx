@@ -94,6 +94,14 @@ describe("TokensTab", () => {
   });
 });
 
+/**
+ * The fee moved from the cell into the `title` on 2026-08-28: at a 167px column
+ * the visible form wrapped to 4-5 lines while every other column was 1, so this
+ * cell alone set every row's height. The tip/cap LOGIC is unchanged and still
+ * worth pinning, so these assert the tooltip instead of the visible text.
+ */
+const titleOf = () => screen.getByTitle(/./).getAttribute("title") ?? "";
+
 describe("TxGasInfo", () => {
   it("shows tip/cap in gwei for EIP-1559", () => {
     renderWithProviders(
@@ -105,9 +113,10 @@ describe("TxGasInfo", () => {
       />,
     );
     expect(screen.getByText("EIP-1559")).toBeInTheDocument();
-    expect(screen.getByText(/gwei/)).toBeInTheDocument();
-    expect(screen.getByText(/tip/)).toBeInTheDocument();
-    expect(screen.getByText(/cap/)).toBeInTheDocument();
+    const title = titleOf();
+    expect(title).toMatch(/gwei/);
+    expect(title).toMatch(/tip/);
+    expect(title).toMatch(/cap/);
   });
 
   it("shows a single gas price for legacy txs", () => {
@@ -120,7 +129,7 @@ describe("TxGasInfo", () => {
       />,
     );
     expect(screen.getByText("Legacy")).toBeInTheDocument();
-    expect(screen.getByText(/gwei/)).toBeInTheDocument();
+    expect(titleOf()).toMatch(/gas price .* gwei/);
   });
 
   it("shows just the type label when no fee fields are present", () => {
@@ -128,7 +137,7 @@ describe("TxGasInfo", () => {
       <TxGasInfo type="eip2930" gasPrice={null} maxFeePerGas={null} maxPriorityFeePerGas={null} />,
     );
     expect(screen.getByText("EIP-2930")).toBeInTheDocument();
-    expect(screen.queryByText(/gwei/)).not.toBeInTheDocument();
+    expect(titleOf()).not.toMatch(/gwei/);
   });
 
   it("collapses an equal tip and cap into a single number", () => {
@@ -140,8 +149,9 @@ describe("TxGasInfo", () => {
         maxPriorityFeePerGas="3000000000000"
       />,
     );
-    expect(screen.getByText(/tip = cap/)).toBeInTheDocument();
-    expect(screen.getByText(/3,000/)).toBeInTheDocument();
+    const title = titleOf();
+    expect(title).toMatch(/tip = cap/);
+    expect(title).toMatch(/3,000/);
   });
 
   it("keeps tip and cap as two numbers when raw wei differs but the 3-decimal display would round to the same string", () => {
@@ -157,9 +167,10 @@ describe("TxGasInfo", () => {
         maxPriorityFeePerGas="3922697967499000"
       />,
     );
-    expect(screen.queryByText(/tip = cap/)).not.toBeInTheDocument();
-    expect(screen.getByText(/tip 3,922,697\.967/)).toBeInTheDocument();
-    expect(screen.getByText(/cap 3,922,697\.967/)).toBeInTheDocument();
+    const title = titleOf();
+    expect(title).not.toMatch(/tip = cap/);
+    expect(title).toMatch(/tip 3,922,697\.967/);
+    expect(title).toMatch(/cap 3,922,697\.967/);
   });
 
   it("de-emphasizes the EIP-1559 chip but keeps the label readable text", () => {

@@ -96,9 +96,31 @@ export function TxGasInfo({
   const tipEqualsCap = sameWei(maxPriorityFeePerGas, maxFeePerGas);
   const isDefaultType = type === "eip1559";
 
+  // ONE LINE, deliberately. This cell used to wrap to 4-5 lines in a 167px
+  // column while every other column was 1 line, so it alone set the height of
+  // every row — measured 2026-08-28 at a 1200px viewport: 87px against 45px.
+  // `break-words` plus three segments of prose ("tip 2 / cap 2.061 gwei") is
+  // more text than the column can hold, so the fee moves to the title and the
+  // cell keeps what the header promises: gas, and the type.
+  const feeText =
+    tip != null || cap != null
+      ? tipEqualsCap
+        ? `tip = cap ${cap} gwei`
+        : [tip != null ? `tip ${tip}` : null, cap != null ? `cap ${cap}` : null]
+            .filter(Boolean)
+            .join(" / ") + " gwei"
+      : legacy != null
+        ? `gas price ${legacy} gwei`
+        : null;
+
+  const title = [typeLabel(type), gas != null ? `${gas} gas` : null, feeText]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <span
-      className={`inline-flex items-center min-w-0 gap-tight font-mono text-[10px] tabular-nums theme-text-muted ${className}`}
+      title={title}
+      className={`inline-flex items-baseline min-w-0 gap-tight font-mono text-[10px] tabular-nums whitespace-nowrap theme-text-muted ${className}`}
     >
       <span
         className={
@@ -109,26 +131,7 @@ export function TxGasInfo({
       >
         {typeLabel(type)}
       </span>
-      {gas != null && (
-        <span className="shrink-0 theme-text" title="Gas used">
-          {gas}
-        </span>
-      )}
-      {tip != null || cap != null ? (
-        <span className="min-w-0 break-words">
-          {tipEqualsCap ? (
-            <>tip = cap {cap} gwei</>
-          ) : (
-            <>
-              {tip != null && <>tip {tip}</>}
-              {tip != null && cap != null && " / "}
-              {cap != null && <>cap {cap}</>} gwei
-            </>
-          )}
-        </span>
-      ) : legacy != null ? (
-        <span className="min-w-0 break-words">{legacy} gwei</span>
-      ) : null}
+      {gas != null && <span className="shrink-0 theme-text">{gas}</span>}
     </span>
   );
 }

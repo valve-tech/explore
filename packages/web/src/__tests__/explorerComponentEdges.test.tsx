@@ -42,8 +42,9 @@ describe("<TxGasInfo /> — tip-only and cap-only branches", () => {
         maxPriorityFeePerGas="1000000000"
       />,
     );
-    expect(screen.getByText(/tip/)).toBeInTheDocument();
-    expect(screen.queryByText(/cap/)).not.toBeInTheDocument();
+    const title = screen.getByTitle(/./).getAttribute("title") ?? "";
+    expect(title).toMatch(/tip/);
+    expect(title).not.toMatch(/cap/);
   });
 
   it("shows only the cap when tip is absent", () => {
@@ -55,8 +56,9 @@ describe("<TxGasInfo /> — tip-only and cap-only branches", () => {
         maxPriorityFeePerGas={null}
       />,
     );
-    expect(screen.getByText(/cap/)).toBeInTheDocument();
-    expect(screen.queryByText(/tip/)).not.toBeInTheDocument();
+    const title = screen.getByTitle(/./).getAttribute("title") ?? "";
+    expect(title).toMatch(/cap/);
+    expect(title).not.toMatch(/tip/);
   });
 
   it("labels blob and 7702 tx-types and falls through for unknown", () => {
