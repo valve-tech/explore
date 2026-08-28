@@ -2,6 +2,7 @@ import type { AddressToken } from "../../../api/explorer";
 import type { AddressNavTarget } from "./TransactionsTab";
 import { MiddleTruncate } from "../../primitives/MiddleTruncate";
 import { DataTable, type Column } from "../../primitives/DataTable";
+import { spamSignalReason, tokenSpamSignals } from "../../../lib/tokenSpam";
 
 export function TokensTab({
   tokens,
@@ -18,7 +19,28 @@ export function TokensTab({
       key: "name",
       header: "Token",
       primary: true,
-      cell: (token) => <span className="theme-text">{token.name || "Unknown"}</span>,
+      cell: (token) => {
+        // Token names are attacker-controlled: anyone can deploy an ERC-20,
+        // name it a lure and airdrop it here. Marked, never hidden — a false
+        // positive that removed a row would take a real balance off the page.
+        const signals = tokenSpamSignals(token.name, token.symbol);
+        if (signals.length === 0) {
+          return <span className="theme-text">{token.name || "Unknown"}</span>;
+        }
+        return (
+          <span className="inline-flex items-baseline gap-tight min-w-0">
+            <span
+              className="px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-semibold shrink-0 theme-tertiary-bg theme-text-secondary"
+              title={spamSignalReason(signals)}
+            >
+              unverified
+            </span>
+            <span className="min-w-0 break-all theme-text-muted" title={spamSignalReason(signals)}>
+              {token.name || "Unknown"}
+            </span>
+          </span>
+        );
+      },
     },
     {
       key: "symbol",
