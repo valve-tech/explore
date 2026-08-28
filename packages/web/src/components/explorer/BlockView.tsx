@@ -183,6 +183,7 @@ export default function BlockView({
           gasPrice={tx.gasPrice}
           maxFeePerGas={tx.maxFeePerGas}
           maxPriorityFeePerGas={tx.maxPriorityFeePerGas}
+          gasUsed={tx.gasUsed}
         />
       ),
     },

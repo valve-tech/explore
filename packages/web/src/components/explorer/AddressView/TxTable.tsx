@@ -81,6 +81,7 @@ export function TxTable({ txs, ownerAddress, onNavigate }: Props) {
           gasPrice={tx.gasPrice}
           maxFeePerGas={tx.maxFeePerGas}
           maxPriorityFeePerGas={tx.maxPriorityFeePerGas}
+          gasUsed={tx.gasUsed}
         />
       ),
     },
