@@ -1,5 +1,87 @@
 # Explore (trace) — Progress
 
+## 2026-08-27 A CALL TREE, A PAGE SIZE, AND TWO AGENTS IN ONE TREE
+
+### Another agent lost two files in this working tree. Read this first.
+
+A second agent was working in `github/trace` at the same time as me. It had
+two finished, UNCOMMITTED files on disk:
+
+  packages/web/src/lib/format/resolution.ts       (toResolutionGroups, 8 tests)
+  packages/web/src/components/primitives/CopyableValue.tsx
+
+I found them untracked, deliberately left them out of my commits, and said so.
+They disappeared from disk at 22:02 while I was working. I did not delete them,
+and I cannot prove who did. They were never staged, so **git holds no object for
+them** — `git fsck`, the reflog, the Vite cache and the dist bundle all come up
+empty. The only surviving copy is that agent's own context.
+
+**One agent per repository at a time.** Disjoint files are not enough: the git
+index, the dev server ports and the working tree are all shared. Port 10100 was
+already taken when I started `npm run dev`, which is the same collision showing
+up as an EADDRINUSE.
+
+### Internal transactions render as a call tree
+
+The section was five columns — Type, From, To, Value, Gas — that never said
+what was being called. Four collapse into one expression per row:
+
+```
+CALL         WPLS.approve(0x98bf…cc02, 3,691,074,…) → true    24,399 gas
+CALL         0x98bf…cc02.swapExactTokensForTokens(…, +3)     101,362 gas
+├─STATICCALL 0x3474…c9ad.getReserves() → 445,033,858,563, …    2,504 gas
+└─CALL       0x3474…c9ad.swap(1,776,662,498, 0, +2)           77,039 gas
+```
+
+**The tree was always in the trace; the wire shape threw it away.**
+`flattenInternalCalls` walked a `CallFrame` tree and emitted a flat list. Each
+row now carries the `depth` it sat at. Depth-first order plus a depth is
+lossless — a row's parent is the nearest earlier row with a smaller depth — and
+the list stays flat, so no existing consumer broke.
+
+**Never infer the nesting from `from` chaining.** A DELEGATECALL keeps the
+caller's address, so parent and child report the same `from`.
+
+**A return type is not derivable from 4byte.** It stores argument types only.
+`decodeReturn` uses a small table of signatures a standard fixes (ERC-20/721,
+the V2 pair) and renders nothing for anything else. `transfer(...) => true` is
+a fact; a guess would not be.
+
+**Measured in the browser, not just in tests.** 21 calls, three depths, both
+swap subtrees drawing identical guides. The first pass drew a guide at depth 1,
+where a direct call renders no connector — two depth-3 rows then looked
+differently indented, and only `getBoundingClientRect` on the guide spans
+showed it. At 375px the tree scrolls in its own box; the page body does not.
+
+**IndexedDB served the pre-change response** and the first render showed raw
+selectors with no names. The API was already correct. Clear `keyval-store`
+before believing a stale-looking page.
+
+### The address page never let you ask for more rows
+
+There is no 250 limit. `routes/explorer.ts` clamps `limit` to **100**, and it
+clamps SILENTLY — `?limit=250` answers 200 with 100 rows. The 250 people
+remember is chifra's daemon `maxRecords`.
+
+Measured against production: 25 rows in 1.3s, 100 rows in 1.6–2.5s. Each row
+costs three RPC reads that viem batches.
+
+The footer now says "Page 1 of 3,882" instead of "Page 1", which is what made
+a six-hour first page read as the whole history of a 97,027-appearance
+contract. Changing the size keeps your place: page 41 of 25 starts at row 1000,
+so it becomes page 11 of 100.
+
+The size lived as two constants, one in the hook and one in the tab. Changing
+either broke the other's "has more" test.
+
+### OPEN
+
+- **Token amounts render at full wei scale**, up to 27 digits, in the call
+  tree. The three-group resolution formatter was the fix — and it is one of the
+  two files that disappeared.
+- The API's silent clamp at 100 is still silent. The etherscan-compat handler
+  passes `offset` straight through and skips the clamp entirely.
+
 ## 2026-08-27 I CAUSED AN OUTAGE, AND FOUND FOUR REAL BUGS FIXING IT
 
 **Everything is back up.** All four chains answer, the otter pages render, and
