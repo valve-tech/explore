@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   fetchAppearances,
   isCompleteAnswer,
+  isTrustworthyPage,
   isReaderAppearance,
   parseReaderResult,
   readerUrl,
@@ -217,5 +218,56 @@ describe("isCompleteAnswer", () => {
     // An address with a monitor, no gap, and nothing in it really has none.
     const r = result({ appearances: [], total: 0 });
     assert.equal(isCompleteAnswer(r), true);
+  });
+});
+
+/**
+ * The refinement that un-broke WPLS. A gap has a POSITION — rows above it come
+ * from the per-block tiers and are exact even when the total is not. Treating
+ * any gap as fatal sent the heaviest addresses back to a chifra read that
+ * cannot finish, which is the failure the sidecar exists to prevent.
+ */
+describe("isTrustworthyPage", () => {
+  const withGap = (rows: number[], gapLast: number) =>
+    parseReaderResult(
+      body({
+        appearances: rows.map((b) => ({ blockNumber: b, transactionIndex: 0 })),
+        totalIsExact: false,
+        coverage: {
+          gap: { firstBlock: 1, lastBlock: gapLast, blocks: gapLast },
+          complete: false,
+        },
+      }),
+    )!;
+
+  it("trusts any page when there is no gap at all", () => {
+    assert.equal(isTrustworthyPage(parseReaderResult(body())!), true);
+  });
+
+  it("trusts a page whose rows all sit ABOVE the gap", () => {
+    // The live WPLS case: gap 27,383,883-27,392,377, page 1 all 27,396,482.
+    assert.equal(isTrustworthyPage(withGap([27396482, 27396482], 27392377)), true);
+  });
+
+  it("refuses a page that reaches INTO the gap", () => {
+    assert.equal(isTrustworthyPage(withGap([27396482, 27390000], 27392377)), false);
+  });
+
+  it("refuses a page sitting entirely below the gap", () => {
+    assert.equal(isTrustworthyPage(withGap([100, 90], 27392377)), false);
+  });
+
+  it("treats the gap's last block as inside the gap, not above it", () => {
+    assert.equal(isTrustworthyPage(withGap([27392377], 27392377)), false);
+    assert.equal(isTrustworthyPage(withGap([27392378], 27392377)), true);
+  });
+
+  it("refuses an EMPTY page when a gap exists — nothing proves the emptiness", () => {
+    assert.equal(isTrustworthyPage(withGap([], 27392377)), false);
+  });
+
+  it("still trusts a genuinely empty page when the index is complete", () => {
+    const r = parseReaderResult(body({ appearances: [], total: 0 }))!;
+    assert.equal(isTrustworthyPage(r), true);
   });
 });

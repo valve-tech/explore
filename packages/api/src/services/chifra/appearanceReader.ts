@@ -133,6 +133,31 @@ export function isCompleteAnswer(result: ReaderResult): boolean {
   return result.coverage.complete && result.totalIsExact;
 }
 
+/**
+ * True when the ROWS on this page are exact, even if the total is not.
+ *
+ * `isCompleteAnswer` is all-or-nothing, and that was too blunt. A gap has a
+ * POSITION: it sits between the monitor's last block and where the readable
+ * tiers begin. Rows above it come from the per-block tiers and are exact
+ * regardless — only rows below it, and the total, are affected.
+ *
+ * Rejecting the whole response for any gap made WPLS unusable again, which is
+ * the exact thing the sidecar was built to fix. Measured 2026-08-27: the gap
+ * ran 27,383,883-27,392,377 while page 1 was entirely block 27,396,482 —
+ * exact data, refused, falling through to a chifra read that cannot complete,
+ * so the page 503'd.
+ *
+ * An empty page is NOT trustworthy when a gap exists: there is nothing to
+ * prove the emptiness with, and "no transactions" is the falsehood this whole
+ * session was about.
+ */
+export function isTrustworthyPage(result: ReaderResult): boolean {
+  const gap = result.coverage.gap;
+  if (gap === null) return true;
+  if (result.appearances.length === 0) return false;
+  return result.appearances.every((a) => a.blockNumber > gap.lastBlock);
+}
+
 /** The sidecar's URL for one page. */
 export function readerUrl(
   chain: string,
