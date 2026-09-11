@@ -164,25 +164,31 @@ function ChainRow({
  * A chain's logo glyph from gib.show. Falls back to a neutral cube
  * icon when the image fails to load — keeps the layout stable for
  * obscure / future chains that gib.show hasn't catalogued yet.
+ *
+ * `label` names the chain for a screen reader. Leave it off where a visible
+ * chain name already sits beside the glyph, so the name is not read twice.
  */
-export function ChainGlyph({ chainId }: { chainId: number }) {
+export function ChainGlyph({ chainId, label }: { chainId: number; label?: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
       <Icon
         icon="heroicons:cube-transparent"
-        className="w-3.5 h-3.5 theme-text-secondary"
+        className="w-3.5 h-3.5 shrink-0 theme-text-secondary"
+        role={label ? "img" : undefined}
+        aria-label={label}
+        aria-hidden={label ? undefined : true}
       />
     );
   }
   return (
     <img
       src={chainLogoUrl(chainId)}
-      alt=""
+      alt={label ?? ""}
       width={14}
       height={14}
       onError={() => setFailed(true)}
-      className="rounded-full"
+      className="size-[14px] shrink-0 rounded-full"
       style={{ objectFit: "cover" }}
     />
   );

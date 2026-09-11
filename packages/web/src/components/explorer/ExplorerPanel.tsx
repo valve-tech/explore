@@ -12,7 +12,9 @@ import { recordVisit } from "../../lib/recentEntities";
 import { useResolvedChainRedirect } from "../../lib/useResolvedChainRedirect";
 import { scanPath } from "../../lib/scanRoutes";
 import { stripChainPrefix } from "../../lib/chainScope";
-import { useChainScope } from "../../lib/activeChain";
+import { useActiveChainId, useChainScope } from "../../lib/activeChain";
+import { chainById } from "../../lib/chains";
+import { ChainGlyph } from "../ChainSelector";
 import { truncateAddr } from "./format";
 import { Tooltip } from "../primitives/Tooltip";
 
@@ -128,6 +130,10 @@ export default function ExplorerPanel() {
   const showAllChains =
     scope.kind === "all" && (view.type === "address" || view.type === "contract");
   const scopedChainId = scope.kind === "one" ? scope.chainId : undefined;
+  // The chain every single-chain view below reads from: the scoped chain, or
+  // DEFAULT_CHAIN_ID for a bare URL. The breadcrumb names it, because the page
+  // otherwise looks identical on every chain.
+  const activeChainId = useActiveChainId();
 
   // The breadcrumb trail rides in history state, so back/forward restore it.
   const trail = useMemo<ExplorerView[]>(
@@ -212,6 +218,7 @@ export default function ExplorerPanel() {
       {view.type !== "none" && (
         <Breadcrumb
           view={view}
+          chainId={activeChainId}
           history={trail}
           onJump={jumpTo}
           onBack={goBack}
@@ -294,11 +301,13 @@ const CRUMB_VISIBLE = 4;
  */
 function Breadcrumb({
   view,
+  chainId,
   history,
   onJump,
   onBack,
 }: {
   view: ExplorerView;
+  chainId: number;
   history: ExplorerView[];
   onJump: (index: number) => void;
   onBack: () => void;
@@ -370,7 +379,7 @@ function Breadcrumb({
               <Icon icon="heroicons:chevron-right" className="w-3.5 h-3.5 theme-text-muted" aria-hidden />
             </>
           )}
-          <CrumbNode node={node} onJump={onJump} />
+          <CrumbNode node={node} chainId={node.current ? chainId : undefined} onJump={onJump} />
         </span>
       ))}
     </nav>
@@ -379,9 +388,12 @@ function Breadcrumb({
 
 function CrumbNode({
   node,
+  chainId,
   onJump,
 }: {
   node: { label: string; kind: string | null; index: number; current: boolean };
+  /** Set on the current node only — every node in one trail shares a chain. */
+  chainId?: number;
   onJump: (index: number) => void;
 }) {
   const content = (
@@ -392,6 +404,9 @@ function CrumbNode({
         >
           {node.kind}
         </span>
+      )}
+      {chainId !== undefined && (
+        <ChainGlyph chainId={chainId} label={chainById(chainId)?.name ?? `Chain ${chainId}`} />
       )}
       {node.label}
     </span>

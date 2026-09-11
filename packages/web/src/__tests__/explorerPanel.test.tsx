@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, Link } from "react-router-dom";
 
@@ -115,6 +115,7 @@ import ExplorerPanel from "../components/explorer/ExplorerPanel";
 import { scanPath } from "../lib/scanRoutes";
 import { useActiveChainId } from "../lib/activeChain";
 import { recordVisit } from "../lib/recentEntities";
+import { chainById, DEFAULT_CHAIN_ID } from "../lib/chains";
 
 const WPLS = "0xA1077a294dDE1B09bB078844df40758a5D0f9a27";
 
@@ -199,6 +200,31 @@ describe("<ExplorerPanel /> — view routing", () => {
     renderAt(`/eip155/369/tx/${hash}`);
     expect(await screen.findByText(`tx-view:${hash}`)).toBeInTheDocument();
     expect(screen.queryByText("home-view")).not.toBeInTheDocument();
+  });
+
+  it("names the page's chain with its icon in the breadcrumb", async () => {
+    // Before this, /eip155/1/tx/… and /eip155/369/tx/… rendered identical
+    // pages; only the URL said which chain the data came from.
+    const hash = "0x" + "12".repeat(32);
+    renderAt(`/eip155/1/tx/${hash}`);
+    await screen.findByText(`tx-view:${hash}`);
+    const trail = screen.getByRole("navigation", { name: "Explorer trail" });
+    expect(within(trail).getByRole("img", { name: "Ethereum" })).toHaveAttribute(
+      "src",
+      "https://gib.show/image/1",
+    );
+  });
+
+  it("shows the default chain's icon when the URL names no chain", async () => {
+    // A bare /tx/… that resolves nowhere reads from DEFAULT_CHAIN_ID, so the
+    // icon must say so rather than stay blank.
+    const hash = "0x" + "34".repeat(32);
+    renderAt(`/tx/${hash}`);
+    await screen.findByText(`tx-view:${hash}`);
+    const trail = screen.getByRole("navigation", { name: "Explorer trail" });
+    expect(
+      within(trail).getByRole("img", { name: chainById(DEFAULT_CHAIN_ID)!.name }),
+    ).toBeInTheDocument();
   });
 
   it("renders the all-chain address view at /address/:address (no chain scope)", async () => {
