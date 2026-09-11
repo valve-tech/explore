@@ -96,9 +96,27 @@ chunk must have exactly as many distinct txids as
 minutes and stops `valve-rescrape-eth` on the first BAD chunk. A bad chunk
 means: delete it and every chunk after it in scratch, then resume.
 
+### The "flapping" is an ~18s gateway deadline, not a flaky node
+
+Through `rpc-proxy`, 2026-09-11 03:45 UTC: 20 concurrent single `trace_block`
+calls gave 19 × 200 and 1 × 502 at 18.1s. Batches of 5–20 heavy blocks
+answered 200 after ~36s, which is two 18s attempts, and a one-element batch
+502'd at 36.1s. The first `trace_block` on a block makes the node re-execute
+it, which can exceed 18s; once warm, the same call answers in under a second.
+That explains the live scraper stuck on 25948788 while a lone curl of the same
+block returns 200 instantly. The empty `[]` results probably come from the
+same timeout path, but that is NOT proven. The gateway belongs to the valve
+side.
+
+Also: scratch `ts.bin` was a fresh IPFS download ending at 23,002,097, so
+chifra backfilled timestamps one block at a time (~11/s) on every pass. It is
+now a COPY (not a link — the scraper appends) of production's, 25,948,787
+records. Backfill lines dropped to zero.
+
 ### OPEN
 
 - Finish the repair: scrape past 25,000,000, swap, patch the monitors.
+- Gateway: raise or bypass the ~18s per-attempt deadline for `trace_block`.
 - The gateway itself: empty `trace_block` results and 502s on mainnet blocks
   23.0M–24.9M. This affects every customer of `one.valve.city`, not just us.
 - The indexer RPC key was printed to a session transcript while reading
