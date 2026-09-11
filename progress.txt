@@ -1,5 +1,92 @@
 # Explore (trace) — Progress
 
+## 2026-09-10 THE MAINNET INDEX IS MISSING TRANSACTIONS FOR 1.94M BLOCKS
+
+Reported: 0x1c2f39e7…d530 shows 1 transaction here and 3 on Etherscan. The
+API, the sidecar and chifra all agree on 1 row. **The index itself is wrong.**
+
+**Damaged range: mainnet blocks 23,003,809 → 24,945,991** (823 finalized
+chunks, roughly late July 2025 → late April 2026). In every sampled block there,
+the chunk holds only 23–77% of the block's transactions. For example, block
+23076665 has 236 transactions and the chunk records 124. Every sampled chunk
+outside that range is complete. PulseChain and PulseChain Testnet v4 are
+complete in every sample, including their own bulk passes on the same days.
+
+How it was measured: parse the chunk (44-byte header, 28-byte address
+records, 8-byte appearances), count distinct txids per block (skip >= 90000,
+the reward sentinels), and compare with `/api/block/N` transaction counts.
+
+**The extractor is not at fault.** `chifra blocks --uniq 23076665` today
+returns all 236 txids, including the reported address. So the chunks were
+written from incomplete data at scrape time.
+
+**The damage matches a write date exactly.** Blocks 0–23,003,808 were written
+2026-04-22 (the initial bulk load) and are clean. 23,003,809–24,943,854 were
+written 2026-04-24 in one catch-up pass. That pass damaged every sample, and
+the first chunk written on 04-25 is damaged too. Chunks from there onward are
+clean, including the catch-up bursts on 08-08, 08-30 and 09-04. The scraper
+container was recreated on 2026-08-08, so no April logs survive. The
+rpc-proxy's comment about 502s "mid-batch" under HTTP/2 is the best candidate
+for the mechanism, but it is NOT proven.
+
+**Every mainnet monitor built from that range is incomplete too.** A monitor
+caches what the chunks said. Re-scraping the chunks does not fix a monitor
+whose header already says "scanned to N". The monitors must be rebuilt.
+
+**Separate, live:** the mainnet scraper has been failing on
+`502 Bad Gateway` at block 25,948,788 since 20:29 today. It loops every ~45s
+and the index sits ~700 blocks behind head. It stalled the same way at
+25,931,228 (1,257 errors) earlier this week.
+
+### The mechanism is proven, and it is still live
+
+`one.valve.city` sometimes answers `trace_block` with `{"result":[]}` — 200,
+36 bytes — for a block with hundreds of transactions. chifra cannot tell that
+from "no traces", so it indexes only the receipt log addresses. Block
+23076665: the chunk dropped 114 txs, and all 112 log-less txs are among them;
+no log-less tx survived. For other blocks in the range the gateway returns a
+Cloudflare 502 after 18s — even for `eth_getBlockTransactionCountByNumber`.
+Today it answered block 23005399 once with `[]` and then 502 five times running.
+
+### Repair: started, then stopped on purpose
+
+Scratch index at `valve_tb_data/_data/rescrape/unchained/mainnet`: the 5,952
+clean chunks and blooms are HARDLINKED there (≤ 23,003,808), plus a copied
+`manifest.json` and its own `ts.bin`. `seed-baseline.txt` beside it holds
+inode/size/mtime for every linked file, to prove later that nothing rewrote a
+production chunk. Container `valve-rescrape-eth` is STOPPED — it scrapes
+through the same `rpc-proxy` → `one.valve.city` path, so it would write the
+same damage again. `TB_SETTINGS_INDEXPATH` / `TB_SETTINGS_CACHEPATH` redirect
+chifra cleanly; verified before starting.
+
+chifra discards a whole 2,000-block pass on any 502, then restarts it. That is
+why the live scraper sits on one block for hours.
+
+Blocked on a trace source. The indexer's own reth is Sepolia. The direct
+mainnet nodes (`direct-{a,b}-evm-1-rpc.valve.city`) answer 403 without
+credentials. Once a source is chosen: point the scratch container at it, scrape
+past 25,000,000 (a snap-to-grid boundary, so the swap lines up), verify EVERY
+block's txid count against `eth_getBlockTransactionCountByNumber`, swap chunks
+and blooms (damaged ones kept as a backup), then patch each mainnet monitor to
+`lastScanned = 23,003,808` with its records above that dropped, so it rescans.
+
+### OPEN
+
+- Choose a mainnet trace source for the repair (see above).
+- The gateway itself: empty `trace_block` results and 502s on mainnet blocks
+  23.0M–24.9M. This affects every customer of `one.valve.city`, not just us.
+- The indexer RPC key was printed to a session transcript while reading
+  `rpc-proxy.Caddyfile`. It needs rotating.
+
+### Shipped the same day
+
+- The breadcrumb shows the chain icon before the entity on every single-chain
+  view (the chain it READS: scoped, or DEFAULT_CHAIN_ID when bare).
+- One time vocabulary in `lib/format/time.ts`: "1y 1mo", calendar months in
+  UTC, `formatSince` for app activity in ms. `<Timestamp>` follows a new
+  Settings → Time choice (relative / UTC date / both); detail pages always
+  show both. Ten duplicated helpers deleted.
+
 ## 2026-08-27 A CALL TREE, A PAGE SIZE, AND TWO AGENTS IN ONE TREE
 
 ### Another agent lost two files in this working tree. Read this first.
