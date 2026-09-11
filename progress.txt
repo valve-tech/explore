@@ -127,9 +127,32 @@ chifra backfilled timestamps one block at a time (~11/s) on every pass. It is
 now a COPY (not a link — the scraper appends) of production's, 25,948,787
 records. Backfill lines dropped to zero.
 
+### Where the re-scrape stands (2026-09-11 04:20 UTC)
+
+Running through the shim with `--block_cnt 2000`: zero scraper errors, the
+shim answered 21 empty-block calls and refused none. The first three new
+chunks (23,003,809–23,009,751) pass the per-block gate. They are denser than
+the damaged ones, as complete data should be: the stretch the old 2,888-block
+chunk covered now needs two chunks, of 1,741 and 2,116 blocks.
+
+Rate ~590 blocks/min, the same at 500- and 2,000-block passes. About 1.99M
+blocks remain, so expect verification past 25,000,000 around
+2026-09-13 12:00 UTC.
+
+The gate watcher now lives ON THE INDEXER, because the laptop killed two local
+background jobs under memory pressure: `~/rescrape-watch.sh`, started with
+`nohup setsid`, log in `~/rescrape-watch.log`, one status line in
+`~/rescrape-watch.status` (RUNNING / BAD / DONE / STOPPED). It stops
+`valve-rescrape-eth` on the first BAD chunk, and again once verification
+passes 25,000,000. After a reboot, restart it by hand; nothing else does.
+
 ### OPEN
 
-- Finish the repair: scrape past 25,000,000, swap, patch the monitors.
+- Finish the repair: when the status reads DONE, swap chunks 23,003,809 →
+  25,000,000 (keep the damaged set as a backup), patch the mainnet monitors,
+  then remove the shim and scratch containers.
+- The live scraper is still stuck on empty block 25948788. Routing it through
+  the shim would unstick it, but that changes production — ask first.
 - Gateway: raise or bypass the ~18s per-attempt deadline for `trace_block`.
 - The gateway itself: empty `trace_block` results and 502s on mainnet blocks
   23.0M–24.9M. This affects every customer of `one.valve.city`, not just us.
