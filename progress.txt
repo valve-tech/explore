@@ -70,9 +70,35 @@ block's txid count against `eth_getBlockTransactionCountByNumber`, swap chunks
 and blooms (damaged ones kept as a backup), then patch each mainnet monitor to
 `lastScanned = 23,003,808` with its records above that dropped, so it rescans.
 
+### Repair restarted 2026-09-11 03:32 UTC, behind a per-block gate
+
+The owner approved the unlimited valve key (`vk_Et-…`). Probing every route
+with it: `one.valve.city/rpc/<key>/evm/1` and `rpc.valve.city/v1/<key>/evm/1`
+work; `rpc.valve.city/rpc/…` and `evm-1-rpc.valve.city` say "API key
+required"; the direct nodes stay 403 even with the key as a bearer.
+
+**The gateway flaps in time windows.** Within minutes, the same `trace_block`
+went 200 → 502 on every route and client → 200 again. It is not the client:
+curl, Python urllib and Python keep-alive all got 151,611 bytes back to back
+once the window passed. Request shape (compact vs spaced JSON) made no
+difference either.
+
+So the scratch scraper stays on `rpc-proxy` (the key never reaches a chifra
+log line — chifra prints its RPC URL at startup), with `--block_cnt 500` so a
+502 wastes 500 blocks, not 2,000. Unverified ripe/staging files from the flaky
+window were deleted first, after proving the seeded chunks unchanged against
+`seed-baseline.txt`.
+
+The gate is `~/rescrape-verify.py` on the indexer: every block in every new
+chunk must have exactly as many distinct txids as
+`eth_getBlockTransactionCountByNumber` says. Passing chunks append to
+`rescrape/verified.txt`, so it resumes. A local watcher runs it every 10
+minutes and stops `valve-rescrape-eth` on the first BAD chunk. A bad chunk
+means: delete it and every chunk after it in scratch, then resume.
+
 ### OPEN
 
-- Choose a mainnet trace source for the repair (see above).
+- Finish the repair: scrape past 25,000,000, swap, patch the monitors.
 - The gateway itself: empty `trace_block` results and 502s on mainnet blocks
   23.0M–24.9M. This affects every customer of `one.valve.city`, not just us.
 - The indexer RPC key was printed to a session transcript while reading
