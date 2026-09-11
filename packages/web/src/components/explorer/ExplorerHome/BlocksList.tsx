@@ -3,7 +3,8 @@ import { Skeleton } from "../../primitives/Skeleton";
 import { EmptyState } from "../../primitives/EmptyState";
 import { scanPath } from "../../../lib/scanRoutes";
 import type { BlockHeader } from "../../../api/latest";
-import { formatBlockNum, gasShare, gasPctLabel, ago } from "./formatters";
+import { formatBlockNum, gasShare, gasPctLabel } from "./formatters";
+import Timestamp from "../../primitives/Timestamp";
 
 /**
  * Recent blocks, one EntityRow each.
@@ -61,7 +62,11 @@ export function BlocksList({
           ariaLabel={`Block ${formatBlockNum(b.number)}`}
           share={gasShare(b.gasUsed, b.gasLimit)}
           main={<span className="theme-mono tabular-nums">#{formatBlockNum(b.number)}</span>}
-          sub={`${ago(b.timestamp)} · ${b.transactionCount} txs`}
+          sub={
+            <>
+              <Timestamp ts={b.timestamp} /> · {b.transactionCount} txs
+            </>
+          }
           right={gasPctLabel(b.gasUsed, b.gasLimit)}
         />
       ))}

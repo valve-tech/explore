@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { useWorkspaces } from "../../hooks/useWorkspaces";
 import type { Workspace } from "../../lib/workspace/types";
 import { Tooltip } from "../primitives/Tooltip";
+import { formatSince } from "../../lib/format/time";
 
 /**
  * Index of named Workspaces. A Workspace is a bucket of heterogeneous items
@@ -155,7 +156,7 @@ function WorkspaceRow({ workspace, onDelete }: { workspace: Workspace; onDelete:
           <div className="text-xs theme-text-secondary">{workspace.description}</div>
         )}
         <div className="text-[11px] mt-1 theme-text-muted">
-          updated {ago(workspace.updatedAt)}
+          updated {formatSince(workspace.updatedAt)}
         </div>
       </Link>
       {confirming ? (
@@ -191,12 +192,4 @@ function Empty({ hint }: { hint: string }) {
       <div className="text-sm max-w-md mx-auto leading-relaxed">{hint}</div>
     </div>
   );
-}
-
-function ago(ms: number): string {
-  const d = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (d < 60) return "just now";
-  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
-  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
-  return `${Math.floor(d / 86400)}d ago`;
 }

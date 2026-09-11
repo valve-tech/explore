@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchBlock } from "../../../api/explorer";
-import { PreviewShell, shortHex, ago } from "./PreviewShell";
+import { PreviewShell, shortHex } from "./PreviewShell";
+import Timestamp from "../../primitives/Timestamp";
 
 /**
  * Compact summary of a block. Confirmed blocks are immutable; `staleTime:
@@ -40,7 +41,11 @@ export function BlockPreview({
         { label: "Miner", value: shortHex(b.miner), mono: true },
         { label: "Gas used", value: gasPct, mono: true },
       ]}
-      footer={`mined ${ago(b.timestamp)}`}
+      footer={
+        <>
+          mined <Timestamp ts={b.timestamp} />
+        </>
+      }
     />
   );
 }

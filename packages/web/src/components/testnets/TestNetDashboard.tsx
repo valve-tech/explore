@@ -4,17 +4,7 @@ import { listForks, getFork, type ForkInfo } from "../../api/testnets";
 import CreateForkDialog from "./CreateForkDialog";
 import ForkControls from "./ForkControls";
 import { ForkChainBadge } from "./ForkChainBadge";
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  const remainMins = minutes % 60;
-  return `${hours}h ${remainMins}m ago`;
-}
+import { formatSince } from "../../lib/format/time";
 
 export default function TestNetDashboard() {
   const [forks, setForks] = useState<ForkInfo[]>([]);
@@ -202,7 +192,7 @@ export default function TestNetDashboard() {
                             </span>
                           )}
                           <span>Port: {fork.port}</span>
-                          <span>{timeAgo(fork.createdAt)}</span>
+                          <span>{formatSince(Date.parse(fork.createdAt))}</span>
                         </div>
                       </div>
                     </div>

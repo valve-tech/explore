@@ -1,17 +1,12 @@
 import { formatGwei as formatGweiExact } from "../../../lib/format/tokenAmount";
+import { formatTimeAs } from "../../../lib/format/time";
 
 export { truncateAddr, formatPLS } from "../format";
 
+/** The tx page's timestamp: UTC date plus age, always both — it has the room. */
 export function formatTimestamp(ts: number | null): string {
   if (!ts) return "Unknown";
-  const d = new Date(ts * 1000);
-  const ago = Math.floor((Date.now() - d.getTime()) / 1000);
-  let agoStr = "";
-  if (ago < 60) agoStr = `${ago}s ago`;
-  else if (ago < 3600) agoStr = `${Math.floor(ago / 60)}m ago`;
-  else if (ago < 86400) agoStr = `${Math.floor(ago / 3600)}h ago`;
-  else agoStr = `${Math.floor(ago / 86400)}d ago`;
-  return `${d.toISOString().replace("T", " ").replace("Z", " UTC")} (${agoStr})`;
+  return formatTimeAs(ts, "both");
 }
 
 export function formatGwei(weiStr: string): string {

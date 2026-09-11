@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchTransaction } from "../../../api/explorer";
-import { PreviewShell, shortHex, ago } from "./PreviewShell";
+import { PreviewShell, shortHex } from "./PreviewShell";
+import Timestamp from "../../primitives/Timestamp";
 
 /**
  * Compact summary of a transaction. Confirmed txs are immutable on chain so
@@ -42,7 +43,13 @@ export function TxPreview({ hash, chainId }: { hash: string; chainId: number }) 
         { label: "Value", value: tx.valuePLS, mono: true },
         { label: "Block", value: Number(tx.blockNumber).toLocaleString(), mono: true },
       ]}
-      footer={tx.timestamp ? `mined ${ago(tx.timestamp)}` : null}
+      footer={
+        tx.timestamp ? (
+          <>
+            mined <Timestamp ts={tx.timestamp} />
+          </>
+        ) : null
+      }
     />
   );
 }

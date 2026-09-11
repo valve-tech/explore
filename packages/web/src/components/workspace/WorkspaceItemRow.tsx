@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import type { WorkspaceItem } from "../../lib/workspace/types";
 import { chainById } from "../../lib/chains";
+import { formatSince } from "../../lib/format/time";
 import { Tooltip } from "../primitives/Tooltip";
 import { AddressPreview } from "./previews/AddressPreview";
 import { TxPreview } from "./previews/TxPreview";
@@ -45,7 +46,7 @@ export function WorkspaceItemRow({
             <div className="font-mono text-xs truncate theme-accent">{item.value}</div>
           </Link>
           <div className="text-[11px] mt-0.5 theme-text-muted">
-            added {ago(item.addedAt)}
+            added {formatSince(item.addedAt)}
             <span> · {chainById(item.chainId)?.name ?? `chain ${item.chainId}`}</span>
           </div>
         </div>
@@ -107,12 +108,4 @@ function colorFor(kind: WorkspaceItem["kind"]): string {
     case "block":
       return "theme-warning";
   }
-}
-
-function ago(ms: number): string {
-  const d = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (d < 60) return "just now";
-  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
-  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
-  return `${Math.floor(d / 86400)}d ago`;
 }

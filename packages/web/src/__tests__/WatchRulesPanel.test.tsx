@@ -158,7 +158,7 @@ describe("<WatchRulesPanel />", () => {
     expect(screen.getByText("Recent activity")).toBeInTheDocument();
     expect(screen.getByText(/Activity moved/)).toBeInTheDocument();
     expect(screen.queryByText("other")).not.toBeInTheDocument();
-    expect(screen.getByText("now")).toBeInTheDocument(); // timeAgo fresh
+    expect(screen.getByText("0s")).toBeInTheDocument(); // formatAge, fresh
   });
 
   it("formats match times across the s/m/h/d branches", () => {

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import EntityRow from "../../primitives/EntityRow";
+import Timestamp from "../../primitives/Timestamp";
 import { chainById, chainLogoUrl } from "../../../lib/chains";
 import { scanPath } from "../../../lib/scanRoutes";
 import { truncateAddr } from "../format";
@@ -72,7 +73,7 @@ export default function MergedActivityFeed({ address, activity }: Props) {
               )
             }
             sub={`${chain?.name ?? row.chainId} · ${truncateAddr(row.hash)}`}
-            right={relativeAge(row.timeStamp)}
+            right={<Timestamp ts={row.timeStamp} />}
           />
         );
       })}
@@ -120,13 +121,4 @@ function ChainIcon({ chainId }: { chainId: number }) {
       className="size-[14px] shrink-0 rounded-full"
     />
   );
-}
-
-/** Unix seconds → a short relative age. Pure, so it is directly testable. */
-export function relativeAge(timeStamp: string, nowMs = Date.now()): string {
-  const seconds = Math.max(0, Math.floor(nowMs / 1000) - Number(timeStamp));
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h`;
-  return `${Math.floor(seconds / 86_400)}d`;
 }

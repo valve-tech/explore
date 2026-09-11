@@ -300,7 +300,7 @@ describe("<ExplorerHome />", () => {
     mockTxs.mockResolvedValue({ transactions: [] });
 
     renderWithProviders(<ExplorerHome />);
-    expect(await screen.findByText(/just now/)).toBeInTheDocument();
+    expect(await screen.findByText(/\d+s ago/)).toBeInTheDocument();
   });
 
   it("falls back to 'transfer' label when a tx has neither method name nor id", async () => {

@@ -6,17 +6,10 @@ import {
   removeDebuggerTx,
   clearDebuggerTxs,
 } from "../../../lib/recentDebuggerTxs";
+import { formatSince } from "../../../lib/format/time";
 
 function short(hash: string): string {
   return `${hash.slice(0, 10)}…${hash.slice(-8)}`;
-}
-
-function ago(ms: number): string {
-  const d = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (d < 60) return "just now";
-  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
-  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
-  return `${Math.floor(d / 86400)}d ago`;
 }
 
 /** Pre-search placeholder. Shown when no tx hash has been submitted yet.
@@ -66,7 +59,7 @@ export function EmptyState() {
                   </span>
                 </Tooltip>
                 <div className="flex items-center gap-row shrink-0">
-                  <span className="text-[11px] theme-text-muted">{ago(t.lastSeen)}</span>
+                  <span className="text-[11px] theme-text-muted">{formatSince(t.lastSeen)}</span>
                   <Tooltip label="Remove">
                     <button
                       onClick={(e) => {

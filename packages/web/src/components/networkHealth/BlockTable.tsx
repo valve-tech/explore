@@ -9,7 +9,8 @@ import { DEFAULT_CHAIN_ID } from "../../lib/chains";
 import { SplitBar } from "./SplitBar";
 import { FeeLadder } from "./FeeLadder";
 import { Tooltip } from "../primitives/Tooltip";
-import { pct, shareOf, timeAgo } from "./format";
+import { pct, shareOf } from "./format";
+import Timestamp from "../primitives/Timestamp";
 
 const COLS = 6;
 
@@ -144,7 +145,7 @@ function BlockRow({
  *  re-renders each second, never the table or the expanded ladder. */
 function Age({ ts }: { ts: number }) {
   const nowSec = useNowSeconds();
-  return <>{timeAgo(ts, nowSec * 1000)}</>;
+  return <Timestamp ts={ts} now={nowSec * 1000} />;
 }
 
 function InversionCell({ rate }: { rate: number | null }) {

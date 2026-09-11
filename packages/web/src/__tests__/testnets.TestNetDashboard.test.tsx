@@ -167,7 +167,7 @@ describe("TestNetDashboard", () => {
     await waitFor(() => expect(listForks).toHaveBeenCalledTimes(2));
   });
 
-  it("formats relative ages across the s / m / h branches", async () => {
+  it("formats fork ages with the shared relative-time helper", async () => {
     listForks.mockResolvedValue([
       { ...FORK, id: "f-s", label: "Seconds fork", createdAt: new Date(Date.now() - 5_000).toISOString() },
       { ...FORK, id: "f-m", label: "Minutes fork", createdAt: new Date(Date.now() - 5 * 60_000).toISOString() },
@@ -175,9 +175,11 @@ describe("TestNetDashboard", () => {
     ]);
     renderWithProviders(<TestNetDashboard />);
     await screen.findByText("Seconds fork");
-    expect(screen.getByText("5s ago")).toBeTruthy();
+    // formatSince: under a minute is "just now"; after that, one unit per
+    // step below a day.
+    expect(screen.getByText("just now")).toBeTruthy();
     expect(screen.getByText("5m ago")).toBeTruthy();
-    expect(screen.getByText("2h 15m ago")).toBeTruthy();
+    expect(screen.getByText("2h ago")).toBeTruthy();
   });
 
   it("removes a destroyed fork from the list", async () => {

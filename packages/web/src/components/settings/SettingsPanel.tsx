@@ -18,6 +18,7 @@ import {
 import { CHAINS } from "../../lib/chains";
 import { BUILD_INFO } from "../../lib/buildInfo";
 import TestnetToggle from "./TestnetToggle";
+import TimeDisplayPicker from "./TimeDisplayPicker";
 
 function Toggle({
   checked,
@@ -69,6 +70,7 @@ export default function SettingsPanel() {
       <RpcEndpointSection />
 
       <TestnetsSection />
+      <TimeDisplaySection />
 
       <NotificationsSection />
 
@@ -257,6 +259,22 @@ function TestnetsSection() {
         label="Show testnets"
         hint="Include PulseChain Testnet v4 and Sepolia in chain-less pages, such as the multichain address view. Hiding them halves the number of chains those pages probe."
         control={<TestnetToggle />}
+      />
+    </Section>
+  );
+}
+
+/**
+ * How chain timestamps render in every table: an age, a UTC date, or both.
+ * See `lib/settings/timeDisplay.ts`.
+ */
+function TimeDisplaySection() {
+  return (
+    <Section title="Time" icon="heroicons:clock">
+      <Row
+        label="Timestamps"
+        hint="How tables show when something happened. The other form stays in the tooltip."
+        control={<TimeDisplayPicker />}
       />
     </Section>
   );

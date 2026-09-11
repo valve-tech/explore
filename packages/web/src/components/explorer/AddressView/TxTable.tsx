@@ -2,7 +2,7 @@ import type { AddressTransaction } from "../../../api/explorer";
 import { formatPLS } from "../format";
 import { useActiveChainId } from "../../../lib/activeChain";
 import { chainSymbol } from "../../../lib/chains";
-import { formatRelativeTimestamp } from "./formatRelative";
+import Timestamp from "../../primitives/Timestamp";
 import type { AddressNavTarget } from "./TransactionsTab";
 import TxRowActions from "../TxRowActions";
 import { ExplorerLink } from "../ExplorerLink";
@@ -45,7 +45,7 @@ export function TxTable({ txs, ownerAddress, onNavigate }: Props) {
       header: "Age",
       cell: (tx) => (
         <span className="text-xs whitespace-nowrap theme-text-secondary">
-          {formatRelativeTimestamp(tx.timeStamp)}
+          <Timestamp ts={tx.timeStamp} />
         </span>
       ),
     },

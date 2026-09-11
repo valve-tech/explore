@@ -6,6 +6,7 @@
 
 import type { RecentEntity } from "./recentEntities";
 import { scanPath } from "./scanRoutes";
+import { formatSince } from "./format/time";
 
 /** Kind dot colour — tx by status, addresses green, contracts purple. */
 export function dotColor(e: RecentEntity): string {
@@ -66,14 +67,6 @@ export function secondaryLabel(e: RecentEntity): string {
   const parts: string[] = [e.kind];
   if (e.kind === "tx" && e.status) parts.push(e.status);
   if (e.visits > 1) parts.push(`${e.visits} visits`);
-  else parts.push(ago(e.lastSeen));
+  else parts.push(formatSince(e.lastSeen));
   return parts.join(" · ");
-}
-
-function ago(ms: number): string {
-  const d = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (d < 60) return "just now";
-  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
-  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
-  return `${Math.floor(d / 86400)}d ago`;
 }

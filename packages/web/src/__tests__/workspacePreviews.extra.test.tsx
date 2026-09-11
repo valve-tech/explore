@@ -5,7 +5,7 @@ import * as explorerApi from "../api/explorer";
 import { AddressPreview } from "../components/workspace/previews/AddressPreview";
 import { TxPreview } from "../components/workspace/previews/TxPreview";
 import { BlockPreview } from "../components/workspace/previews/BlockPreview";
-import { shortHex, ago } from "../components/workspace/previews/PreviewShell";
+import { shortHex } from "../components/workspace/previews/PreviewShell";
 
 /**
  * Supplemental preview tests — cover the lines workspacePreviews.test.tsx
@@ -168,13 +168,5 @@ describe("PreviewShell helpers", () => {
     expect(shortHex(WPLS)).toBe("0xA1077a…0f9a27");
     // short input (<= leading+trailing+1) returns unchanged
     expect(shortHex("0xabcd")).toBe("0xabcd");
-  });
-
-  it("ago formats seconds, minutes, hours, and days", () => {
-    const now = Math.floor(Date.now() / 1000);
-    expect(ago(now - 10)).toBe("10s ago");
-    expect(ago(now - 5 * 60)).toBe("5m ago");
-    expect(ago(now - 3 * 3600)).toBe("3h ago");
-    expect(ago(now - 2 * 86400)).toBe("2d ago");
   });
 });

@@ -9,6 +9,7 @@ import { ruleLabel, type WatchRule } from "../../../lib/watcher/types";
 import { renderWatchSummary } from "../../../lib/watcher/summary";
 import type { Workspace } from "../../../lib/workspace/types";
 import { Tooltip } from "../../primitives/Tooltip";
+import { formatAge } from "../../../lib/format/time";
 import { WatchRuleForm } from "./WatchRuleForm";
 
 /**
@@ -118,7 +119,7 @@ export function WatchRulesPanel({ workspace }: { workspace: Workspace }) {
             {myMatches.map((m) => (
               <li key={m.id} className="text-xs flex items-start gap-inline">
                 <span className="theme-text-muted shrink-0 font-mono text-[11px] mt-0.5">
-                  {timeAgo(m.at)}
+                  {formatAge(m.at / 1000)}
                 </span>
                 {m.txHash ? (
                   <Link
@@ -195,14 +196,3 @@ function RuleRow({
   );
 }
 
-/** Compact relative time — "now", "3m", "2h", "5d". */
-function timeAgo(ts: number): string {
-  const secs = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (secs < 5) return "now";
-  if (secs < 60) return `${secs}s`;
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
-}

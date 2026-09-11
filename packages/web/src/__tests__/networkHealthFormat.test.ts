@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pct, shareOf, nativeAmount, timeAgo, span } from "../components/networkHealth/format";
+import { pct, shareOf, nativeAmount, span } from "../components/networkHealth/format";
 
 /**
  * Pure formatting helpers behind the Network Health UI. The wei sums use real
@@ -36,16 +36,6 @@ describe("networkHealth/format", () => {
     // 57209328955594993478 wei = 57.2093… PLS → 57.21
     expect(nativeAmount("57209328955594993478", "PLS")).toBe("57.21 PLS");
     expect(nativeAmount("0", "ETH")).toMatch(/0 ETH/);
-  });
-
-  it("timeAgo: compact relative time from unix seconds", () => {
-    const now = 1_000_000_000_000; // fixed nowMs
-    const nowSecs = now / 1000;
-    expect(timeAgo(nowSecs - 5, now)).toBe("5s ago");
-    expect(timeAgo(nowSecs - 120, now)).toBe("2m ago");
-    expect(timeAgo(nowSecs - 7200, now)).toBe("2h ago");
-    expect(timeAgo(nowSecs - 2 * 86400, now)).toBe("2d ago");
-    expect(timeAgo(nowSecs + 999, now)).toBe("0s ago"); // future clamps to 0
   });
 
   it("span: compact duration between two timestamps", () => {
