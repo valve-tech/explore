@@ -1,5 +1,31 @@
 # Explore (trace) — Progress
 
+## 2026-09-10 ResolvedAmount wired into amount call sites
+
+Wired `toResolutionGroups` into every dense-table amount cell via a new
+`ResolvedAmount` primitive (`packages/web/src/components/primitives/ResolvedAmount.tsx`).
+It trims a `formatPLS`/`formatAmountDisplay` string to 3 significant groups and
+wraps it in `CopyableValue` (hover shows the full formatted value, click copies).
+When nothing was trimmed, it renders a plain span — no noise tooltip.
+
+Call sites wired:
+- TxTable value column (`AddressView/TxTable.tsx`)
+- BlockView tx value column (`BlockView.tsx`)
+- TxList right column (`ExplorerHome/TxList.tsx`) — `formatNative` + symbol
+- TokenTransfersSection amount column (`TxDetail/TokenTransfersSection.tsx`)
+- TokensTab balance column (`AddressView/TokensTab.tsx`)
+- PortfolioPanel holdings total + native balance list (`workspace/PortfolioPanel.tsx`)
+- FeeLadder tx value (`networkHealth/FeeLadder.tsx`)
+
+NOT wired (detail views, full precision is correct):
+- AddressHeader balance (`AddressView/AddressHeader.tsx`) — the page header
+- OverviewSection value (`TxDetail/OverviewSection.tsx`) — the tx detail page
+
+The `explorerAddressView` test was updated: the indexed-holdings balance
+"5,456.5076" is now visible as "5,456.507" (3 groups), with the full value in
+the CopyableValue aria-label. The non-indexed fixture "5,456.51" (2 integer +
+2 fraction digits) is unchanged — 2+1 ≤ 3, so nothing is trimmed.
+
 ## 2026-09-10 CopyableValue + MiddleTruncate wiring + resolution utility
 
 Landed the two handoff pieces from `trace-handoff/HANDOFF.md`:

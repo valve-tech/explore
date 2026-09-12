@@ -2,6 +2,7 @@ import EntityRow from "../../primitives/EntityRow";
 import { Skeleton } from "../../primitives/Skeleton";
 import { EmptyState } from "../../primitives/EmptyState";
 import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { ResolvedAmount } from "../../primitives/ResolvedAmount";
 import { MethodName } from "../MethodName";
 import { scanPath } from "../../../lib/scanRoutes";
 import { chainSymbol } from "../../../lib/chains";
@@ -95,7 +96,7 @@ export function TxList({
               t.methodId || "transfer"
             )
           }
-          right={`${formatNative(t.value)} ${symbol}`}
+          right={<ResolvedAmount formatted={`${formatNative(t.value)} ${symbol}`} />}
           rightSub={`#${formatBlockNum(t.blockNumber)}`}
         />
       ))}

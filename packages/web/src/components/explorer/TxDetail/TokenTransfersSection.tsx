@@ -2,6 +2,7 @@ import type { TransactionDetails } from "../../../api/explorer";
 import { formatAmountDisplay } from "../../../lib/format/tokenAmount";
 import { SectionCard, type AddressNavigate } from "./primitives";
 import { AddressCell } from "./AddressCell";
+import { ResolvedAmount } from "../../primitives/ResolvedAmount";
 import { DataTable, type Column } from "../../primitives/DataTable";
 
 type TokenTransfer = TransactionDetails["tokenTransfers"][number];
@@ -55,9 +56,11 @@ export function TokenTransfersSection({
       header: "Amount",
       cell: (tt) => (
         <span className="font-mono theme-text">
-          {formatAmountDisplay(tt.value, parseDecimals(tt.tokenDecimal), {
-            symbol: tt.tokenSymbol,
-          })}
+          <ResolvedAmount
+            formatted={formatAmountDisplay(tt.value, parseDecimals(tt.tokenDecimal), {
+              symbol: tt.tokenSymbol,
+            })}
+          />
         </span>
       ),
     },

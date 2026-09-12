@@ -1,6 +1,7 @@
 import type { AddressToken } from "../../../api/explorer";
 import type { AddressNavTarget } from "./TransactionsTab";
 import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { ResolvedAmount } from "../../primitives/ResolvedAmount";
 import { DataTable, type Column } from "../../primitives/DataTable";
 import { spamSignalReason, tokenSpamSignals } from "../../../lib/tokenSpam";
 
@@ -50,7 +51,11 @@ export function TokensTab({
     {
       key: "balance",
       header: "Balance",
-      cell: (token) => <span className="font-mono theme-text">{token.formattedBalance}</span>,
+      cell: (token) => (
+        <span className="font-mono theme-text">
+          <ResolvedAmount formatted={token.formattedBalance} />
+        </span>
+      ),
     },
     {
       key: "contract",

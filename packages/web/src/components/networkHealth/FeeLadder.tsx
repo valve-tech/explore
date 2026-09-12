@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useBlockLadder } from "../../hooks/useNetworkHealth";
 import type { BlockLadder, LadderTx } from "../../api/networkHealth";
 import { formatAmountDisplay } from "../../lib/format/tokenAmount";
+import { ResolvedAmount } from "../primitives/ResolvedAmount";
 import { chainSymbol } from "../../lib/chains";
 import { useActiveChainId } from "../../lib/activeChain";
 import { pct, shareOf } from "./format";
@@ -365,7 +366,7 @@ function TxTooltip({
       >
         <span className="theme-text-muted">value</span>
         <span className="theme-mono theme-text text-right">
-          {formatAmountDisplay(tx.value, 18, { maxFractionDigits: 4, symbol })}
+          <ResolvedAmount formatted={formatAmountDisplay(tx.value, 18, { maxFractionDigits: 4, symbol })} />
         </span>
         <span className="theme-text-muted">type</span>
         <span className="theme-mono text-right" style={{ color: TYPE_COLORS[tx.type] }}>

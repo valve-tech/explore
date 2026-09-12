@@ -10,6 +10,7 @@ import { TxGasInfo } from "./TxGasInfo";
 import { formatTimestamp } from "./BlockView/formatters";
 import { AddToWorkspaceButton } from "../workspace/AddToWorkspaceButton";
 import { MiddleTruncate } from "../primitives/MiddleTruncate";
+import { ResolvedAmount } from "../primitives/ResolvedAmount";
 import { DataTable, type Column } from "../primitives/DataTable";
 
 type BlockTx = BlockDetails["transactions"][number];
@@ -170,7 +171,7 @@ export default function BlockView({
       header: "Value",
       cell: (tx) => (
         <span className="font-mono text-xs whitespace-nowrap theme-text">
-          {formatPLS(tx.valuePLS, chainSymbol(chainId))}
+          <ResolvedAmount formatted={formatPLS(tx.valuePLS, chainSymbol(chainId))} />
         </span>
       ),
     },

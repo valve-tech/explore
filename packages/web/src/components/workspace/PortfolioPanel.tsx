@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import type { Workspace } from "../../lib/workspace/types";
 import { fetchHoldings, type HoldingsResult } from "../../api/portfolio";
 import { formatAmountDisplay } from "../../lib/format/tokenAmount";
+import { ResolvedAmount } from "../primitives/ResolvedAmount";
 import { chainById, DEFAULT_CHAIN_ID } from "../../lib/chains";
 import { TokenImage } from "../primitives/TokenImage";
 import { MiddleTruncate } from "../primitives/MiddleTruncate";
@@ -161,7 +162,7 @@ function HoldingsTable({ rows, chainId }: { rows: AggToken[]; chainId: number })
       align: "right",
       cell: (t) => (
         <div className="text-right font-mono">
-          {formatAmountDisplay(t.total, t.decimals, { maxFractionDigits: 4 })}
+          <ResolvedAmount formatted={formatAmountDisplay(t.total, t.decimals, { maxFractionDigits: 4 })} />
         </div>
       ),
     },
@@ -202,10 +203,10 @@ function NativeList({
             <MiddleTruncate value={addr} className="font-mono theme-text-secondary" />
             <span className="font-mono theme-text-muted">
               {native
-                ? formatAmountDisplay(native.balance, NATIVE_DECIMALS, {
+                ? <ResolvedAmount formatted={formatAmountDisplay(native.balance, NATIVE_DECIMALS, {
                     maxFractionDigits: 4,
                     symbol: native.symbol,
-                  })
+                  })} />
                 : "—"}
             </span>
           </li>

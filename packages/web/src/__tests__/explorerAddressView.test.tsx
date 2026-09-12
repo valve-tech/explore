@@ -174,10 +174,14 @@ describe("<AddressView />", () => {
     await screen.findByText(ADDR);
     fireEvent.click(screen.getByRole("button", { name: /Token Balances/ }));
 
-    // Storage-diff name + formatted-from-raw balance, plus the source caption.
+    // Storage-diff name + formatted-from-raw balance (trimmed to 3 groups by
+    // ResolvedAmount), plus the source caption. The full balance "5,456.5076"
+    // stays in the DOM via CopyableValue's aria-label; the visible text is
+    // trimmed to "5,456.507" (2 integer + 1 fraction group).
     expect(await screen.findByText("Wrapped Pulse")).toBeInTheDocument();
     expect(screen.queryByText("Old Name")).not.toBeInTheDocument();
-    expect(screen.getByText("5,456.5076")).toBeInTheDocument();
+    expect(screen.getByText("5,456.507")).toBeInTheDocument();
+    expect(screen.getByLabelText("5,456.5076 — click to copy")).toBeInTheDocument();
     expect(screen.getByText(/indexed balance-changes archive/i)).toBeInTheDocument();
   });
 

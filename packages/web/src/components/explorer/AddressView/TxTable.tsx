@@ -9,6 +9,7 @@ import { ExplorerLink } from "../ExplorerLink";
 import { TxGasInfo } from "../TxGasInfo";
 import { Tooltip } from "../../primitives/Tooltip";
 import { MiddleTruncate } from "../../primitives/MiddleTruncate";
+import { ResolvedAmount } from "../../primitives/ResolvedAmount";
 import { DataTable, type Column } from "../../primitives/DataTable";
 
 interface Props {
@@ -68,7 +69,7 @@ export function TxTable({ txs, ownerAddress, onNavigate }: Props) {
       header: "Value",
       cell: (tx) => (
         <span className="font-mono text-xs whitespace-nowrap theme-text">
-          {formatPLS(tx.valuePLS, symbol)}
+          <ResolvedAmount formatted={formatPLS(tx.valuePLS, symbol)} />
         </span>
       ),
     },
