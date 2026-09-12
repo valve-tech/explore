@@ -85,9 +85,9 @@ describe("GasProfiler", () => {
 describe("GasTable", () => {
   it("renders one row per flat entry with a searchable address + percentage", () => {
     renderWithProviders(<GasTable flat={gasProfile.flat} />);
-    // MiddleTruncate keeps the full address in the DOM via its `title` attr,
-    // rather than a JS-sliced string that Ctrl+F / copy can't find whole.
-    expect(screen.getByTitle(TOKEN)).toBeInTheDocument();
+    // MiddleTruncate keeps the full address in the DOM (CopyableValue's
+    // aria-label), rather than a JS-sliced string that Ctrl+F / copy can't find.
+    expect(screen.getByLabelText(`${TOKEN} — click to copy`)).toBeInTheDocument();
     expect(screen.getByText("40,000")).toBeInTheDocument();
     expect(screen.getByText("78.4%")).toBeInTheDocument();
     expect(screen.getByText("21.6%")).toBeInTheDocument();

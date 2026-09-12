@@ -81,7 +81,7 @@ export function TxList({
              * past the content pane at 375px instead of taking a second line.
              */
             <span className="theme-mono theme-accent whitespace-normal min-w-0">
-              <MiddleTruncate value={t.hash} tailChars={6} className="max-w-full" />
+              <MiddleTruncate value={t.hash} tailChars={6} copyable={false} className="max-w-full" />
             </span>
           }
           sub={

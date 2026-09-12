@@ -65,7 +65,7 @@ export function TokensTab({
           }
           className="font-mono text-xs hover:underline cursor-pointer theme-accent"
         >
-          <MiddleTruncate value={token.contractAddress} className="font-mono text-xs theme-accent" />
+          <MiddleTruncate value={token.contractAddress} copyable={false} className="font-mono text-xs theme-accent" />
         </button>
       ),
     },

@@ -1,11 +1,24 @@
 import type { ReactElement } from "react";
 import { useIsMobile } from "../../hooks/useMediaQuery";
+import { CopyableValue } from "./CopyableValue";
 
 export interface MiddleTruncateProps {
   value: string;
   tailChars?: number;
   className?: string;
-  title?: string;
+  /**
+   * When true (default, desktop only), hover shows the full value in a themed
+   * tooltip and click copies it — replacing the native `title=` tooltip, which
+   * waits ~1s, cannot be themed, and is invisible to keyboard users.
+   *
+   * Set false when this sits inside an `<a>` or `<button>` that handles its own
+   * navigation: `CopyableValue`'s button does `stopPropagation` + `preventDefault`
+   * (load-bearing — without it, clicking inside a row that is itself a link
+   * navigates away instead of copying), so a link-wrapped copyable can never
+   * navigate by clicking the value. The enclosing link's `title` still shows
+   * the full value on hover when `copyable` is false.
+   */
+  copyable?: boolean;
 }
 
 /**
@@ -21,22 +34,27 @@ export interface MiddleTruncateProps {
  *   - `sm:`+ (desktop): middle-truncate — two adjacent inline spans, the
  *     leading one clips with a CSS ellipsis, the last `tailChars` stay pinned —
  *     so dense tables stay compact.
+ *
+ * When `copyable` is true (default, desktop), the clipped value is wrapped in
+ * `CopyableValue`: hover shows the full value in a themed `Tooltip`, and click
+ * copies it. The full value stays in the DOM text either way.
  */
 export function MiddleTruncate({
   value,
   tailChars = 4,
   className,
-  title,
+  copyable = true,
 }: MiddleTruncateProps): ReactElement {
   const isMobile = useIsMobile();
 
   // Phone: the full value wraps in place. Same DOM text as desktop (searchable),
-  // just no single-line clip — so it flows instead of overflowing.
+  // just no single-line clip — so it flows instead of overflowing. The full
+  // value is already visible, so no tooltip/copy affordance is needed.
   if (isMobile) {
     return (
       <span
         className={`break-all${className ? ` ${className}` : ""}`}
-        title={title ?? value}
+        title={value}
       >
         {value}
       </span>
@@ -45,16 +63,36 @@ export function MiddleTruncate({
 
   const outer = `mt${className ? ` ${className}` : ""}`;
   if (value.length <= tailChars) {
+    if (copyable) {
+      // Short value: nothing is hidden, so skip the interactive affordance —
+      // a tooltip that repeats what is on screen is noise (CopyableValue's
+      // `interactive` contract).
+      return (
+        <CopyableValue value={value} interactive={false} className={outer}>
+          <span className="mt-tail">{value}</span>
+        </CopyableValue>
+      );
+    }
     return (
-      <span className={outer} title={title ?? value}>
+      <span className={outer} title={value}>
         <span className="mt-tail">{value}</span>
       </span>
     );
   }
+  const lead = value.slice(0, -tailChars);
+  const tail = value.slice(-tailChars);
+  if (copyable) {
+    return (
+      <CopyableValue value={value} className={outer}>
+        <span className="mt-lead">{lead}</span>
+        <span className="mt-tail">{tail}</span>
+      </CopyableValue>
+    );
+  }
   return (
-    <span className={outer} title={title ?? value}>
-      <span className="mt-lead">{value.slice(0, -tailChars)}</span>
-      <span className="mt-tail">{value.slice(-tailChars)}</span>
+    <span className={outer} title={value}>
+      <span className="mt-lead">{lead}</span>
+      <span className="mt-tail">{tail}</span>
     </span>
   );
 }

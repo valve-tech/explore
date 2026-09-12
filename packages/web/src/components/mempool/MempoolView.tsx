@@ -210,7 +210,7 @@ export default function MempoolView() {
                       onNavigate={onNavigate}
                       className="font-mono text-xs hover:underline cursor-pointer theme-accent"
                     >
-                      <MiddleTruncate value={tx.hash} className="font-mono text-xs theme-accent" />
+                      <MiddleTruncate value={tx.hash} copyable={false} className="font-mono text-xs theme-accent" />
                     </ExplorerLink>
                   </td>
                   <td className="px-3 py-2">
@@ -219,7 +219,7 @@ export default function MempoolView() {
                       onNavigate={onNavigate}
                       className="font-mono text-xs hover:underline cursor-pointer theme-accent"
                     >
-                      <MiddleTruncate value={tx.from} className="font-mono text-xs theme-accent" />
+                      <MiddleTruncate value={tx.from} copyable={false} className="font-mono text-xs theme-accent" />
                     </ExplorerLink>
                   </td>
                   <td

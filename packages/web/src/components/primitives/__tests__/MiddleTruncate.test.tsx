@@ -17,7 +17,7 @@ function mockViewport(isMobile: boolean) {
 }
 
 // Desktop path: no matchMedia (jsdom default) → useIsMobile false → clip.
-describe("MiddleTruncate — desktop (clip)", () => {
+describe("MiddleTruncate — desktop, copyable (default)", () => {
   it("keeps the FULL value in the DOM (searchable + copyable)", () => {
     const { container } = render(<MiddleTruncate value={ADDR} />);
     // textContent is what Ctrl+F searches and what copy yields — must be intact,
@@ -34,15 +34,37 @@ describe("MiddleTruncate — desktop (clip)", () => {
     expect(lead?.textContent).toBe(ADDR.slice(0, -4));
   });
 
-  it("exposes the full value as the title", () => {
+  it("exposes the full value via CopyableValue's aria-label, not title=", () => {
     const { container } = render(<MiddleTruncate value={ADDR} />);
-    expect(container.querySelector(".mt")?.getAttribute("title")).toBe(ADDR);
+    // copyable=true wraps in CopyableValue: a <button> with aria-label, no title.
+    const btn = container.querySelector("button");
+    expect(btn?.getAttribute("aria-label")).toBe(`${ADDR} — click to copy`);
+    expect(container.querySelector(".mt")?.getAttribute("title")).toBeNull();
   });
 
   it("renders a short value whole with no lead span", () => {
     const { container } = render(<MiddleTruncate value="0x12" tailChars={4} />);
     expect(container.textContent).toBe("0x12");
     expect(container.querySelector(".mt-lead")).toBeNull();
+  });
+});
+
+describe("MiddleTruncate — desktop, copyable={false} (link-wrapped)", () => {
+  it("keeps the FULL value in the DOM and the title attr", () => {
+    const { container } = render(
+      <MiddleTruncate value={ADDR} copyable={false} />,
+    );
+    expect(container.textContent).toBe(ADDR);
+    expect(container.textContent).not.toContain("…");
+    // copyable={false} keeps the native title for link-wrapped contexts.
+    expect(container.querySelector(".mt")?.getAttribute("title")).toBe(ADDR);
+  });
+
+  it("has no button — navigation stays on the enclosing link", () => {
+    const { container } = render(
+      <MiddleTruncate value={ADDR} copyable={false} />,
+    );
+    expect(container.querySelector("button")).toBeNull();
   });
 });
 

@@ -33,7 +33,7 @@ export function MinersPanel({
       primary: true,
       cell: (m) => (
         <Link to={`/address/${m.miner}`} className="theme-accent hover:underline">
-          <MiddleTruncate value={m.miner} className="font-mono theme-accent" />
+          <MiddleTruncate value={m.miner} copyable={false} className="font-mono theme-accent" />
         </Link>
       ),
     },

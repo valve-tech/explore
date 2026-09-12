@@ -192,8 +192,8 @@ describe("<ExplorerHome /> — formatter branches", () => {
     expect(screen.getByText(/30m ago/)).toBeInTheDocument();
     // formatPls catch → the raw "not-wei" string shows in the value column.
     expect(screen.getByText(/not-wei/)).toBeInTheDocument();
-    // Short hash passthrough (<14 chars stays whole) — searchable via
-    // MiddleTruncate's `title` attr, which always carries the full value.
+    // Short hash passthrough (<14 chars stays whole) — TxList's MiddleTruncate
+    // is link-wrapped (copyable={false}), so the full value stays in the title.
     expect(screen.getByTitle("0xshort")).toBeInTheDocument();
   });
 });
@@ -382,8 +382,9 @@ describe("<TokensTab /> — row navigation", () => {
         onNavigate={onNavigate}
       />,
     );
-    // The contract address renders via MiddleTruncate (visually clipped, full
-    // value searchable via its title attribute) inside a button.
+    // The contract address renders via MiddleTruncate (copyable={false}: still
+    // visually clipped, full value searchable via the title attribute) inside
+    // a navigable button.
     fireEvent.click(screen.getByTitle(WPLS));
     expect(onNavigate).toHaveBeenCalledWith({ type: "address", value: WPLS });
     // name "" → "Unknown" fallback rendered.

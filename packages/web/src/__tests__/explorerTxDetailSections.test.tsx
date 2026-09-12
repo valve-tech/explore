@@ -113,9 +113,10 @@ describe("<DecodedInputSection />", () => {
     expect(screen.getByText("to")).toBeInTheDocument();
     expect(screen.getByText("param1")).toBeInTheDocument(); // unnamed arg fallback
 
-    // Address-typed value: rendered via MiddleTruncate, so the FULL address
-    // stays searchable (as the `title` attribute) rather than JS-sliced.
-    expect(screen.getByTitle(TO)).toBeInTheDocument();
+    // Address-typed value: rendered via MiddleTruncate (copyable, desktop), so
+    // the FULL address stays searchable via CopyableValue's aria-label rather
+    // than a JS-sliced string.
+    expect(screen.getByLabelText(`${TO} — click to copy`)).toBeInTheDocument();
 
     // uint256-typed value: rendered exact and unformatted — no thousands
     // separators, no ellipsis, no truncation.

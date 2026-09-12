@@ -114,13 +114,13 @@ describe("<PortfolioPanel />", () => {
       <PortfolioPanel workspace={workspace([{ kind: "address", value: A1 }])} />,
     );
 
-    // MiddleTruncate keeps the full value in the DOM via its `title` attr —
-    // proves the fallback fired and the full address is searchable.
-    await waitFor(() => expect(screen.getByTitle(NO_SYMBOL)).toBeInTheDocument());
+    // MiddleTruncate keeps the full value in the DOM (CopyableValue's
+    // aria-label) — proves the fallback fired and the full address is searchable.
+    await waitFor(() => expect(screen.getByLabelText(`${NO_SYMBOL} — click to copy`)).toBeInTheDocument());
     // The old bug rendered a JS-sliced "0x3333...3333" string INTO the symbol
     // slot (scoped to this token's row — the NativeList below legitimately
     // truncates the wallet address the same way, which isn't the bug here).
-    const row = screen.getByTitle(NO_SYMBOL).closest("tr")!;
+    const row = screen.getByLabelText(`${NO_SYMBOL} — click to copy`).closest("tr")!;
     expect(row).not.toHaveTextContent("0x3333...3333");
   });
 

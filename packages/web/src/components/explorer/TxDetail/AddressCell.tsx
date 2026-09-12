@@ -16,7 +16,7 @@ export function AddressCell({
       onNavigate={onNavigate}
       className="font-mono text-sm hover:underline cursor-pointer theme-accent"
     >
-      <MiddleTruncate value={address} className="font-mono text-sm theme-accent" />
+      <MiddleTruncate value={address} copyable={false} className="font-mono text-sm theme-accent" />
     </ExplorerLink>
   );
 }

@@ -1,5 +1,46 @@
 # Explore (trace) — Progress
 
+## 2026-09-10 CopyableValue + MiddleTruncate wiring + resolution utility
+
+Landed the two handoff pieces from `trace-handoff/HANDOFF.md`:
+
+1. `packages/web/src/lib/format/resolution.ts` — three-group resolution: trims
+   a grouped decimal string to at most 3 significant three-digit groups,
+   counting from the most significant one. String-only (no `Number()`), so
+   values past 2^53 stay exact. 8 tests pass.
+
+2. `packages/web/src/components/primitives/CopyableValue.tsx` — hover shows the
+   full value in a themed `Tooltip`; click copies it. A `<button>`, not a span
+   with onClick (keyboard-accessible). `stopPropagation` + `preventDefault` are
+   load-bearing: these sit inside rows/cards that are themselves links.
+
+Wired `MiddleTruncate` through `CopyableValue` (the highest-value wiring step
+per the handoff). New `copyable` prop (default `true`):
+
+- `copyable={true}` (default, desktop): the clipped value is wrapped in
+  `CopyableValue` — hover shows the full value in a themed `Tooltip`, click
+  copies it. Replaces the native `title=` tooltip (waits ~1s, unthemeable,
+  invisible to keyboard users). The full value stays in the DOM text either way.
+- `copyable={false}`: the `title=` attr stays for contexts where `MiddleTruncate`
+  sits inside an `<a>` or `<button>` that handles navigation (ExplorerLink,
+  EntityRow, MinersPanel's `<Link>`, TokensTab's button). `CopyableValue`'s
+  button does `stopPropagation` + `preventDefault`, which would block
+  navigation; the `title` still shows the full value on hover.
+
+Call sites updated: AddressCell, TxTable (3), BlockView (4), TxList, MempoolView
+(2), TrackedTxPanel, MinersPanel, TokensTab — all link-wrapped, `copyable={false}`.
+GasTable, DecodedInputSection, PortfolioPanel (2) — standalone, default `copyable`.
+
+The `title` prop was removed from `MiddleTruncateProps` — no call site used it.
+
+Tests updated: MiddleTruncate (11, rewritten for the two paths), gasProfiler,
+explorerMopUp, explorerTxDetailSections, PortfolioPanel — all 95 tests in the 10
+touched files pass. Typecheck, lint, build clean. The 295 pre-existing jsdom
+failures (localStorage/fetch) are unchanged on `main`.
+
+Next: wire `resolution.ts` into amount call sites (handoff item #2), then the
+real bugs (#3 token balances, #9 tx tab call signatures).
+
 ## 2026-09-10 THE MAINNET INDEX IS MISSING TRANSACTIONS FOR 1.94M BLOCKS
 
 Reported: 0x1c2f39e7…d530 shows 1 transaction here and 3 on Etherscan. The

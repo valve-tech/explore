@@ -27,7 +27,7 @@ export function TxTable({ txs, ownerAddress, onNavigate }: Props) {
       primary: true,
       cell: (tx) => (
         <LinkButton target={{ type: "tx", value: tx.hash }} onNavigate={onNavigate}>
-          <MiddleTruncate value={tx.hash} className="font-mono text-xs theme-accent" />
+          <MiddleTruncate value={tx.hash} copyable={false} className="font-mono text-xs theme-accent" />
         </LinkButton>
       ),
     },
@@ -54,7 +54,7 @@ export function TxTable({ txs, ownerAddress, onNavigate }: Props) {
       header: "From",
       cell: (tx) => (
         <LinkButton target={{ type: "address", value: tx.from }} onNavigate={onNavigate}>
-          <MiddleTruncate value={tx.from} className="font-mono text-xs theme-accent" />
+          <MiddleTruncate value={tx.from} copyable={false} className="font-mono text-xs theme-accent" />
         </LinkButton>
       ),
     },
@@ -145,7 +145,7 @@ function ToCell({
     <div className="flex items-center gap-1.5 min-w-0">
       <DirectionBadge isIn={isIn} />
       <LinkButton target={{ type: "address", value: tx.to }} onNavigate={onNavigate}>
-        <MiddleTruncate value={tx.to} className="font-mono text-xs theme-accent" />
+        <MiddleTruncate value={tx.to} copyable={false} className="font-mono text-xs theme-accent" />
       </LinkButton>
     </div>
   );

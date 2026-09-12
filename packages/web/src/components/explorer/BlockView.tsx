@@ -113,7 +113,7 @@ export default function BlockView({
           onNavigate={onNavigate}
           className="font-mono text-xs hover:underline cursor-pointer theme-accent"
         >
-          <MiddleTruncate value={tx.hash} className="font-mono text-xs theme-accent" />
+          <MiddleTruncate value={tx.hash} copyable={false} className="font-mono text-xs theme-accent" />
         </ExplorerLink>
       ),
     },
@@ -141,7 +141,7 @@ export default function BlockView({
             onNavigate={onNavigate}
             className="font-mono text-xs hover:underline cursor-pointer theme-accent"
           >
-            <MiddleTruncate value={tx.from} className="font-mono text-xs theme-accent" />
+            <MiddleTruncate value={tx.from} copyable={false} className="font-mono text-xs theme-accent" />
           </ExplorerLink>
         ) : (
           <span className="text-xs theme-text-muted">-</span>
@@ -157,7 +157,7 @@ export default function BlockView({
             onNavigate={onNavigate}
             className="font-mono text-xs hover:underline cursor-pointer theme-accent"
           >
-            <MiddleTruncate value={tx.to} className="font-mono text-xs theme-accent" />
+            <MiddleTruncate value={tx.to} copyable={false} className="font-mono text-xs theme-accent" />
           </ExplorerLink>
         ) : (
           <span className="text-[10px] px-1.5 py-0.5 rounded theme-accent-bg theme-accent">
@@ -264,7 +264,7 @@ export default function BlockView({
             onNavigate={onNavigate}
             className="font-mono text-sm hover:underline cursor-pointer theme-accent"
           >
-            <MiddleTruncate value={block.miner} className="font-mono text-sm theme-accent" />
+            <MiddleTruncate value={block.miner} copyable={false} className="font-mono text-sm theme-accent" />
           </ExplorerLink>
         </InfoRow>
         <InfoRow label="Gas Used / Limit">

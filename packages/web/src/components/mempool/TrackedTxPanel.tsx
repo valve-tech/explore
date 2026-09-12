@@ -158,7 +158,7 @@ function TrackedRow({
         onNavigate={onNavigate}
         className="font-mono text-xs hover:underline cursor-pointer min-w-0 theme-accent"
       >
-        <MiddleTruncate value={tx.hash} className="font-mono text-xs theme-accent" />
+        <MiddleTruncate value={tx.hash} copyable={false} className="font-mono text-xs theme-accent" />
       </ExplorerLink>
 
       {tx.status === "mined" && tx.blockNumber && (
