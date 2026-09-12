@@ -94,7 +94,6 @@ export function TxGasInfo({
   const cap = toGwei(maxFeePerGas);
   const legacy = toGwei(gasPrice);
   const tipEqualsCap = sameWei(maxPriorityFeePerGas, maxFeePerGas);
-  const isDefaultType = type === "eip1559";
 
   // ONE LINE, deliberately. This cell used to wrap to 4-5 lines in a 167px
   // column while every other column was 1 line, so it alone set the height of
@@ -123,11 +122,7 @@ export function TxGasInfo({
       className={`inline-flex items-baseline min-w-0 gap-tight font-mono text-[10px] tabular-nums whitespace-nowrap theme-text-muted ${className}`}
     >
       <span
-        className={
-          isDefaultType
-            ? "shrink-0 theme-text-muted"
-            : "px-1.5 py-0.5 uppercase tracking-wider font-semibold shrink-0 theme-tertiary-bg theme-text-secondary"
-        }
+        className="px-1.5 py-0.5 uppercase tracking-wider font-semibold shrink-0 theme-tertiary-bg theme-text-secondary"
       >
         {typeLabel(type)}
       </span>

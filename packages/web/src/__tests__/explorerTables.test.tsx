@@ -58,6 +58,7 @@ describe("TxTable", () => {
     expect(screen.getByTitle(TO)).toBeInTheDocument(); // to, full value searchable
     expect(screen.getByText("OUT")).toBeInTheDocument(); // owner is the sender
     expect(screen.getByText("EIP-1559")).toBeInTheDocument(); // tx-type label
+    expect(screen.getByText("transfer(address,uint256)()")).toBeInTheDocument(); // method name
   });
 
   it("labels a contract-creation row (no `to`)", () => {
@@ -173,12 +174,12 @@ describe("TxGasInfo", () => {
     expect(title).toMatch(/cap 3,922,697\.967/);
   });
 
-  it("de-emphasizes the EIP-1559 chip but keeps the label readable text", () => {
+  it("badge every tx type the same way, including EIP-1559", () => {
     renderWithProviders(
       <TxGasInfo type="eip1559" gasPrice={null} maxFeePerGas={null} maxPriorityFeePerGas={null} />,
     );
     const chip = screen.getByText("EIP-1559");
-    expect(chip.className).not.toMatch(/theme-tertiary-bg/);
+    expect(chip.className).toMatch(/theme-tertiary-bg/);
   });
 
   it("keeps full chip weight for a legacy transaction, where the type matters", () => {

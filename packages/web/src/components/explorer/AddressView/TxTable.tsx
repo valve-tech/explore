@@ -7,6 +7,7 @@ import type { AddressNavTarget } from "./TransactionsTab";
 import TxRowActions from "../TxRowActions";
 import { ExplorerLink } from "../ExplorerLink";
 import { TxGasInfo } from "../TxGasInfo";
+import { MethodName } from "../MethodName";
 import { Tooltip } from "../../primitives/Tooltip";
 import { MiddleTruncate } from "../../primitives/MiddleTruncate";
 import { ResolvedAmount } from "../../primitives/ResolvedAmount";
@@ -63,6 +64,22 @@ export function TxTable({ txs, ownerAddress, onNavigate }: Props) {
       key: "to",
       header: "To",
       cell: (tx) => <ToCell tx={tx} ownerAddress={ownerAddress} onNavigate={onNavigate} />,
+    },
+    {
+      key: "method",
+      header: "Method",
+      cell: (tx) =>
+        tx.functionName ? (
+          <MethodName
+            label={`${tx.functionName}()`}
+            selector={tx.methodId}
+            candidates={tx.functionCandidates}
+          />
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded theme-success-bg theme-success">
+            Transfer
+          </span>
+        ),
     },
     {
       key: "value",

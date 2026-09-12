@@ -1,5 +1,17 @@
 # Explore (trace) — Progress
 
+## 2026-09-10 Bug #9: method column + EIP-1559 badge
+
+Added a Method column to TxTable (address view transactions tab). Shows the
+function name via `MethodName` (with candidate-count tooltip), or a Transfer
+pill when there is no function name. The BlockView already had this column;
+the address view did not.
+
+Fixed TxGasInfo: EIP-1559 was de-emphasized (plain text, no badge) while
+every other tx type got the `theme-tertiary-bg` badge. EIP-1559 is the
+common type — rendering it without a badge made it read as "no type."
+Removed the `isDefaultType` special case so every type gets the same badge.
+
 ## 2026-09-10 ResolvedAmount wired into amount call sites
 
 Wired `toResolutionGroups` into every dense-table amount cell via a new
