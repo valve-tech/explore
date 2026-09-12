@@ -94,6 +94,13 @@ export function TokensTab({
           Balances from the indexed balance-changes archive (storage-diff truth).
         </div>
       )}
+      {!indexed && tokens.length === 0 && (
+        <div className="px-3 py-1.5 text-[10px] theme-text-muted bs-b-muted">
+          Token balances are not indexed for this chain yet. The indexed
+          balance-changes archive is not configured, and the RPC discovery scan
+          found no recent token activity.
+        </div>
+      )}
       <DataTable
         columns={columns}
         rows={tokens}
