@@ -1,5 +1,21 @@
 # Explore (trace) — Progress
 
+## 2026-09-10 Bug #3: token balances show nothing — investigation
+
+The frontend logic is correct: `resolveTokensSection` tries the indexed
+holdings gateway first, falls back to the RPC token list. Both paths are
+wired and the `TokensTab` renders whichever returns.
+
+The bug is backend/runtime:
+- The holdings gateway returns `indexed: false` when the chain's substreams
+  sink table doesn't exist yet, and empty holdings in that case.
+- The RPC `getAddressTokens` discovers tokens by scanning Transfer events in
+  the address's recent `TOKEN_SCAN_APPEARANCES` (50) appearances. An address
+  that hasn't touched a token recently returns empty.
+
+When both return empty, the section shows "No tokens found" — truthful but
+unhelpful. This needs a running server + live RPC to diagnose further.
+
 ## 2026-09-10 Bug #9: method column + EIP-1559 badge
 
 Added a Method column to TxTable (address view transactions tab). Shows the
