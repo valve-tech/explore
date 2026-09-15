@@ -1,5 +1,25 @@
 # Explore (trace) — Progress
 
+## 2026-09-15 Mainnet re-scrape done; swap not yet made
+
+- The watcher reads DONE (2026-09-13 16:12 UTC). All 1,438 scratch chunks in
+  23,003,809–25,000,000 passed the per-block txid check. It logged zero BAD lines.
+- Block 25,000,000 ends a chunk in both indexes, so the swap boundary is clean.
+  Production holds 864 chunks in that range; scratch holds 1,438 (block_cnt 2000).
+  Scratch also holds two chunks past 25,000,000. Do not copy them.
+- Proof on the reported address: a direct chunk read finds 1 appearance for
+  0x1c2f…d530 in production and 3 in scratch (23076665, 23076683, 23076692).
+  Etherscan shows 3.
+- `unchained/mainnet/manifest.json` lists the old chunk hashes. Rebuild or
+  splice it after the swap.
+- There are 35 mainnet monitors (3.3 GB; USDC alone is 1.5 GB). Do NOT reset
+  lastScanned and let chifra rescan: chifra loads a whole monitor into memory
+  (see the indexer memory note). Instead, rebuild each monitor's records for
+  the range from the scratch chunks and splice them in.
+- The live `valve-scraper-eth` is still stuck, now 36k blocks behind head. It
+  retries from 25,948,759 and fails on block 25,948,788, which is empty (the
+  empty-trie root). This confirms the gateway empty-block 502 theory.
+
 ## 2026-09-10 Bug #3: token balances show nothing — investigation
 
 The frontend logic is correct: `resolveTokensSection` tries the indexed
