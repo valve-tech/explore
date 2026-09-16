@@ -1,5 +1,26 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 The gateway has short incidents; ours saw one on 09-15
+
+The 66 genuine upstream-side aborts are not a slow leak, they are four or five
+brief incidents. The largest: 2026-09-15 12:51:26Z, when 14 connections from
+scraper-pls and 1 from scraper-sepolia were reset in the SAME second, followed
+by resets on `appearances` through 13:05. Three containers, three chains, at
+once — an upstream event, not anything local. It matches a burst of 502s from
+12:50:33Z to 13:11:26Z. Earlier clusters: 2026-09-07 19:00Z (11), 21:00Z (7),
+2026-09-08 08:00Z (9).
+
+So when the explorer looks briefly broken on every chain at once, check for a
+gateway incident before looking at our code. The signature is resets sharing a
+timestamp to the second across unrelated containers.
+
+Also learned, for any future "route around Cloudflare" idea: the indexer has NO
+WireGuard or tun interface. `ip route get` for the Cloudflare edges goes out
+`eno1` via the public gateway, so the box leaves the network to reach our own
+RPC. Putting that call on an internal mesh needs the box joined to the mesh
+first — two decisions, not one. And the rendered Caddyfile injects the RPC key
+into the URI, so an internal hop is not a reason to relax that handling.
+
 ## 2026-09-16 RESOLVED, and it was not a defect: 95% are client cancels
 
 RETRACTS the section below. I read 1,433 "aborting with incomplete response"
