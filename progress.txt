@@ -1,5 +1,50 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 Correction: the 502 was the relay, and the timings were its budgets
+
+I wrote earlier that the gateway's 502 came from Cloudflare over a failed
+origin. Half right, and the useful half is different. From erpc, with file and
+line:
+
+- eRPC NEVER returns 502. `determineResponseStatusCode` (erpc/http_server.go)
+  has branches for 400/401/404/429/503 and returns 200 for every JSON-RPC
+  application error. `ErrEndpointMissingData` is a 200 with an error body, by
+  design.
+- The 502 is valve's RELAY: `proxy-handle-single.ts:287` returns
+  `res.status(502).json(rpcError(id, -32603, 'RPC proxy unavailable'))` after
+  `maxUpstreamAttempts`. My batch measurement proves it — a batch came back
+  HTTP 200 carrying exactly that per-item error object.
+- A SINGLE call returned something else again: text/plain "error code: 502"
+  with a Cf-Ray and no `x-powered-by`, which is Cloudflare's own page, not the
+  relay's JSON. Caddy logged "aborting with incomplete response". So a
+  single-call client gets an unparseable body where a batch client gets a
+  proper JSON-RPC error.
+
+The three timings were the relay's timeout budgets, not the node's work:
+  eth_getBlockTransactionCountByNumber  not slow  3,000ms x 3 = 9,000   (9.1s)
+  eth_getBlockReceipts                  slow      9,000ms x 2 = 18,000  (18.1s)
+  trace_block                           slow      9,000ms x 2 = 18,000  (18.1s)
+`isSlowMethod` counts eth_getBlockReceipts by membership and trace_block by its
+`trace_` prefix.
+
+The sweep itself is generic and shape-based: `networks.go:2250` refuses ANY
+emptyish result whose method is not on `emptyResultAccept`, and
+`util.IsBytesEmptyish` treats null, [], {}, "", 0x and 0x0 as empty.
+`markEmptyAsError` is a second, stronger path that converts empty to an error
+and bypasses the accept list; only `trace_block` is on it. So the accept list IS
+the right lever for the other two — my previous note said otherwise and was
+wrong.
+
+**Emptiness is detected by SHAPE and exempted by NAME.** That is the real
+defect. A correct zero pays the penalty forever on any method nobody listed, and
+`eth_getUncleCountByBlockNumber` answers "0x0" on every post-merge block. erpc
+is filing an upstream issue for a shape-based accept, using our latency table.
+
+Ruled out, so nobody re-treads it: the `upstreamPreForward_stateBoundary` hook
+(its method class excludes ours), the accept/mark-empty defaults, the retry
+executors and the error normalizer — all unchanged across the binary jump. The
+open candidate remains block-availability semantics in that jump.
+
 ## 2026-09-16 What ended the 502: bracketed to erpc's binary roll
 
 Measured, not taken from a deploy log. The shim logs ONLY when the upstream
