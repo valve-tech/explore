@@ -1,5 +1,45 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 The empty-block fault is the gateway, not chifra
+
+Measured, not inferred. Block 25,948,788 holds no transactions:
+- A public mainnet node answers `eth_getBlockTransactionCountByNumber` for it
+  with `0x0` in 0.1s.
+- Through `rpc-proxy` -> `one.valve.city` the same call returns HTTP 502 after
+  9s, and `eth_getBlockReceipts` and `trace_block` after 18s. The response
+  carries `Server: cloudflare` and `Via: 1.1 Caddy`, so Cloudflare fails it.
+  Caddy's own log says "aborting with incomplete response, upstream
+  one.valve.city".
+- The header call for the same block answers in 0.1s, which is why the shim can
+  prove a block empty.
+- chifra has no setting for this. `chifra scrape` takes block_cnt, sleep, touch,
+  run_count, dry_run and verbose. `[chains.mainnet.scrape]` holds appsPerChunk,
+  snapToGrid, firstSnap, unripeDist, `allowMissing = false` and channelCount.
+  `allowMissing` is about chains whose node lacks data, not about a 502.
+
+Hand-computed hex cost an hour AGAIN here: `0x18befd4` is not 25,948,788 and
+the first probe tested the wrong block. Always take the hex from `hex(n)`.
+
+## 2026-09-16 Swap made; shim now serves the live scraper
+
+- 864 damaged chunks and blooms moved to
+  `unchained/mainnet/_damaged_20260916/`, and 1,438 repaired ones hardlinked in.
+  The chunk ranges are contiguous with no gap, ending at block 25,948,015.
+- `manifest.json` spliced: 7,624 -> 8,198 entries, matching the file count. The
+  old one is `manifest.json.damaged-20260916`. The new entries carry empty IPFS
+  hashes, which the weekly `chifra chunks manifest --pin` fills in.
+- The shim is now a real service: `/valve/docker/empty-block-shim.py` plus an
+  `empty-block-shim` service in the compose file. `scraper-eth` points at it.
+  Compose backup: `docker-compose.yml.bak-20260916`.
+- The scraper passed block 25,948,788 at once and is catching up, ~340
+  blocks/min from 36,000 behind. NOTE: the wrapper's first run panics if the
+  shim is not listening yet, then the 60s backoff loop recovers it.
+- Address caches (`cache/mainnet/monitors`) are NOT yet patched, so a repaired
+  address still reads as before. The sidecar answers from the cache, not from
+  the chunks: for 0x1c2f…d530 it returned `monitorRecords: 1` with a coverage
+  gap of 2,871,332 blocks.
+- Backups: `cache/mainnet/monitors_damaged_20260916` (hardlinks, 3.3 GB).
+
 ## 2026-09-15 Mainnet re-scrape done; swap not yet made
 
 - The watcher reads DONE (2026-09-13 16:12 UTC). All 1,438 scratch chunks in
