@@ -1,5 +1,51 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 Verified: eRPC treats a legitimate zero as "no data"
+
+Challenged on this ("0x0 is not empty bytes, 0x would be empty bytes"), so I
+stopped relaying erpc's reading and verified it three ways.
+
+1. UNIT TEST against eRPC's own `util.IsBytesEmptyish` at 3ec22bf8, the commit
+   the fleet runs:
+     "0x0" true   0x0 true   "0x000" true   "0x" true   [] true   null true
+     "0x1" false  "0x2cd" false  "0x1744" false
+   It strips a `0x` prefix, trims leading zeros, and calls what remains empty.
+   So a real zero and absent data are the same value to that function.
+2. SOURCE. `common/defaults.go` exempts the point state reads by hand —
+   eth_call, eth_getBalance, eth_getCode, eth_getStorageAt,
+   eth_getTransactionCount — under the comment "zero value is a real value, not
+   absence." That is upstream acknowledging the conflation and working around
+   it for five methods. It is also why `eth_getTransactionCount` never suffered:
+   a zero nonce measures 105 ms.
+3. CONTROLLED BEFORE/AFTER in production. valve added five methods to the
+   accept list, which gave a natural experiment:
+     uncle count on a FULL block      645ms -> 97ms
+     tx count, empty block            608ms -> 100ms
+     block receipts, empty block      611ms -> 88ms
+     receipt by unknown hash (not added)   644ms -> 635ms
+     block by unknown hash (not added)     644ms -> 631ms
+     tx by index, empty block (not added)  645ms -> 638ms
+     trace_block, empty block              609ms -> 634ms
+   The last row is the tell: trace_block is on `markEmptyAsErrorMethods`, which
+   bypasses the accept list, so listing it changes nothing.
+
+CORRECTION TO THE CAUSE OF THE 502 FIX. valve's journal evidence beats my
+bracket: chain-1 calls over 8s were logging `successfully forwarded` at
+8998-9012ms and stopped dead at each edge's RESTART (01:33:47Z edge-a,
+01:36:14Z edge-b), which ran the old binary and old config. My 01:35:50Z
+synthesis sits between the two restarts, so it could only have hit the
+still-unfixed edge-b. So the cause is a restart clearing accumulated state, and
+the binary roll is demoted to a coincidence. A wedge that returns will not be
+fixed by the new binary.
+
+ALSO: erpc told me our deployed accept list already held those methods and that
+adding them would be a no-op. The before/after above refutes that. Two sessions
+reading the same config reached opposite answers; the measurement settled it.
+
+Filing an upstream issue is NOT approved and has not happened. The draft is at
+`valve-tech/probes/DRAFT-erpc-issue.md`, with the probe inlined rather than
+pointing at an internal path.
+
 ## 2026-09-16 Evidence-quality correction: Caddy logs nothing useful here
 
 `rpc-proxy.Caddyfile.tmpl` sets no `log` directive, so the container emits only
