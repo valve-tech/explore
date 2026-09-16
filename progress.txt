@@ -21,8 +21,20 @@ The probe is kept at `valve-tech/probes/empty-block-502.py` (also
 `/root/empty-block-502.py` on the indexer). Run it from a container on
 docker_default so Caddy injects the key and nothing prints a secret.
 
-The empty block still costs 0.61s where a full block's first call costs 0.1s.
-Unexplained; possibly a sweep that now ends in acceptance.
+The empty block still costs 0.61s where a full block's first call costs 0.1s,
+and a latency test settles what that means: the three methods are NOT on the
+accept list. An accepted empty returns on the first attempt (eth_getLogs -> []
+is 72ms, eth_getCode -> 0x is 72ms). All three empty-block calls land within
+3ms of each other at ~608ms whatever the method, and trace_block on an empty
+block (609ms) is FASTER than on a full one (988ms) — a fixed penalty, not work.
+~608ms is one 500ms retry delay plus two attempts, which matches
+NETWORK_FAILSAFE_BASE.
+
+So the sweep still happens and its ENDING changed: it now returns the empty
+result instead of raising the error that surfaced as a 502. Whatever did that
+is in valve's commit f13ad16 and is not yet identified. The owner has ruled
+that all three go on the accept list anyway, which also removes the 536ms
+penalty.
 
 Ethereum is at head: scraped through 25,987,207, no scraper errors.
 
