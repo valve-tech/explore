@@ -1,5 +1,25 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 A backfill is half the fleet's RPC load — plan for it
+
+Measured from the re-scrape: 1,996,191 blocks in 3,612 minutes = 553
+blocks/min. chifra fetches the block, its receipts and its traces, so 3-4 calls
+per block = 28-37 requests/s sustained for 60 hours. valve's own sample puts
+their WHOLE fleet at 63 requests/s. So one backfill from this box was 45-60% of
+fleet load for two and a half days.
+
+(The calls-per-block figure is an estimate from throughput. The indexer's proxy
+has no access log, so it cannot be counted yet.)
+
+Consequences for the next repair, and there will be one — every chain added or
+damaged range repaired is another 60-hour run:
+- Expect gateway-side alerts to fire. valve's new journal-retention alert is
+  sized for steady state, and a backfill roughly doubles the log volume.
+- Tell them before starting, not during. eRPC writes two `info` lines per
+  proxied call, which is 99.9% of their journal bytes and why valve-prod keeps
+  under 8 hours while this box keeps 28 days on the same 2 GB cap.
+- Throttle if asked. `--block_cnt` on the scraper is the lever.
+
 ## 2026-09-16 The gateway has short incidents; ours saw one on 09-15
 
 The 66 genuine upstream-side aborts are not a slow leak, they are four or five
