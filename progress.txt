@@ -1,5 +1,35 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 The gateway's empty-block 502 stopped, cause unconfirmed
+
+The fault ended between 01:35:50Z and 03:01Z. I did not touch the gateway. The
+valve session had an eRPC config deploy in flight, which is the likely cause,
+but nobody has confirmed the accept-list change was in it. If it was not, the
+fault can return.
+
+Empty block 25948788 through rpc-proxy, three consecutive runs at 03:01Z:
+count 200 in 0.61s ("0x0"), receipts 200 in 0.61s ([]), trace_block 200 in
+0.61s ([]). Earlier the same calls were 502 at 9.1s, 18.1s, 18.1s. A block that
+does not exist now returns null and -32014, not a 502. Caddy logged zero 502s
+in the hour after.
+
+The shim logs every time the upstream fails, so it dates the fault precisely:
+the last five synthesised answers were 01:05:36Z, 01:05:54Z, 01:11:31Z,
+01:11:49Z and 01:35:50Z. Nothing since.
+
+The probe is kept at `valve-tech/probes/empty-block-502.py` (also
+`/root/empty-block-502.py` on the indexer). Run it from a container on
+docker_default so Caddy injects the key and nothing prints a secret.
+
+The empty block still costs 0.61s where a full block's first call costs 0.1s.
+Unexplained; possibly a sweep that now ends in acceptance.
+
+Ethereum is at head: scraped through 25,987,207, no scraper errors.
+
+The gateway work is with the valve session and the eRPC question with the erpc
+session. `valve-empty-block-shim` stays whatever they ship, because it is the
+only layer that checks the block header before believing an empty answer.
+
 ## 2026-09-16 The empty-block fault is the gateway, not chifra
 
 Measured, not inferred. Block 25,948,788 holds no transactions:
