@@ -20,6 +20,23 @@ Measured, not inferred. Block 25,948,788 holds no transactions:
 Hand-computed hex cost an hour AGAIN here: `0x18befd4` is not 25,948,788 and
 the first probe tested the wrong block. Always take the hex from `hex(n)`.
 
+## 2026-09-16 Repair verified end to end
+
+- `0x1c2f…d530` now returns 3 rows from the API (blocks 23076665, 23076683,
+  23076692), which matches Etherscan. The page renders all 3 in a browser.
+- Every mainnet address cache was spliced: 254,664,063 records -> 306,424,369.
+  USDC alone gained 48.3M appearances, and Uniswap 0.78M.
+- The chifra daemon was stopped during the splice, because it rewrites a
+  monitor when it serves a query.
+- TRAP: monitor records are NOT strictly sorted. 19 of the 34 monitors hold
+  out-of-order rows (0xfe2e… has 1,395). A bisect-based patch silently dropped
+  3 rows before I caught it. Select the window by value.
+- The scraper is catching up at ~120 blocks/min through the shim, which has
+  synthesized 4 empty blocks and refused nothing. About 5 hours to reach head.
+- Still on disk, as a rollback path: `unchained/mainnet/_damaged_20260916/`,
+  `cache/mainnet/monitors_damaged_20260916/`, `manifest.json.damaged-20260916`,
+  the scratch index under `rescrape/`, and `rescrape/monitor-patch/*.rng`.
+
 ## 2026-09-16 Swap made; shim now serves the live scraper
 
 - 864 damaged chunks and blooms moved to
