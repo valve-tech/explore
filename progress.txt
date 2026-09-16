@@ -1,5 +1,50 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 What ended the 502: bracketed to erpc's binary roll
+
+Measured, not taken from a deploy log. The shim logs ONLY when the upstream
+fails, so an empty block the scraper crossed with no shim line is one the
+gateway answered by itself. A scan of blocks 25,948,000-25,990,000 for a zero
+transaction count finds exactly four empty blocks; chunk mtimes date the
+scraper's position. All UTC — the indexer's `ls` prints UTC+2, which is a trap.
+
+  25,948,788  synthesized 01:05:36Z, 01:05:54Z  chunk 01:08:40Z  FAILED
+  25,952,297  synthesized 01:11:31Z, 01:11:49Z  chunk 01:12:10Z  FAILED
+  25,966,624  synthesized 01:35:50Z             chunk 01:39:17Z  FAILED
+  25,971,025  no shim line                      chunk 01:46:04Z  ANSWERED
+
+So the fix landed between 01:35:50Z and 01:46:04Z. erpc rolled new eRPC
+BINARIES at 01:41, 01:43 and 01:44Z (f9ca5de0 -> 3ec22bf8, crossing their 0.2.0
+rebase; hooks.go lost ~100 lines including upstreamPreForward_stateBoundary).
+Every config deploy on both sides falls outside the bracket: erpc's at 01:30,
+01:33, 01:35 and 01:53Z, valve's at ~01:54Z. The chunk time is an upper bound,
+so the true success may be earlier, but 01:35:50Z is a hard floor.
+
+MECHANISM CORRECTION from erpc, which changes the fix: `markEmptyAsError`
+BYPASSES `emptyResultAccept`. `trace_block` IS in
+`DefaultMarkEmptyAsErrorMethods()`, so its empty becomes ErrEndpointMissingData
+before the retry policy reads the accept list — adding it to the accept list
+would be a no-op. `eth_getBlockReceipts` and `eth_getBlockTransactionCountByNumber`
+are deliberately NOT in that list, so what produced THEIR 502s is still
+unexplained. valve is holding the change until the mechanism is confirmed from
+the source at the commit the fleet runs.
+
+The penalty follows the RESULT, not the method: an unaccepted empty costs a
+fixed ~645ms whatever the call (uncle count on a full block, a null receipt, an
+unknown block hash), against ~110ms for an accepted one. Every post-merge block
+has zero uncles, so `eth_getUncleCountByBlockNumber` pays it on every call.
+
+THE REAL ANSWER, for later: erpc's fork has an integrity module that verifies
+content instead of voting. `traceBlockGasReconciliation` checks
+`len(traces) == len(block txs)`, which IS the April corruption written as a
+check, and `receiptsRootRecompute` compares returned receipts against the
+header's receiptsRoot. The shim approximates the first by hand. Retire the shim
+in favour of those checks once they run for chain 1 in production, not before.
+
+Probes kept, all secret-free (they run inside a container so Caddy injects the
+key): `valve-tech/probes/empty-block-502.py`, `empty-result-latency.py`,
+`unaccepted-empty-sweep.py`.
+
 ## 2026-09-16 The gateway's empty-block 502 stopped, cause unconfirmed
 
 The fault ended between 01:35:50Z and 03:01Z. I did not touch the gateway. The
