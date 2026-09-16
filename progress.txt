@@ -1,6 +1,35 @@
 # Explore (trace) — Progress
 
-## 2026-09-16 OPEN: 1,433 truncated responses, and our daemon is the top client
+## 2026-09-16 RESOLVED, and it was not a defect: 95% are client cancels
+
+RETRACTS the section below. I read 1,433 "aborting with incomplete response"
+lines as upstream truncation, on the reasoning that sub-0.2s is too fast for a
+client timeout. valve named the hole: a client CANCELLATION is instant, and
+Caddy logs that message from the body-copy path whichever end goes away.
+
+The log's `error` field settles it:
+  1,365  CLIENT cancelled (context canceled)
+     61  UPSTREAM reset (connection reset by peer)
+      5  UPSTREAM ended early (unexpected EOF)
+      2  CLIENT write failed
+`valve-trueblocks` is 1,189 cancels out of 1,189, with zero upstream errors —
+chifra firing speculative parallel requests and cancelling the losers, which is
+the tool working correctly.
+
+The upstream-side population is 66, not 1,433, and it is not a trend: 33 of
+them fell on 2026-09-15, with zero in the seven days before and zero today. The
+"20x growth" was chifra's request volume growing, not a fault growing.
+
+So: no data-integrity angle, and no explorer work needed. The lesson is the one
+worth keeping — an inference that rules out ONE client-side cause is not proof
+of an upstream cause. Ask which field in the log names the actor.
+
+Denominator, for next time: an abort count is not a rate. The access log added
+in valve's 69b6987/330c115 has NOT reached the indexer's rpc-proxy (zero
+"handled request" lines in six hours), so aborts-per-request still cannot be
+computed here.
+
+## SUPERSEDED 2026-09-16 OPEN: 1,433 truncated responses, and our daemon is the top client
 
 Found while collecting the Caddy window for valve. I first reported "20
 incomplete-response lines" from a tail; the real count is 1,433. Read the whole
