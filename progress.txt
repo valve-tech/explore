@@ -1,5 +1,32 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 Evidence-quality correction: Caddy logs nothing useful here
+
+`rpc-proxy.Caddyfile.tmpl` sets no `log` directive, so the container emits only
+`http.log.error` entries and NO access lines. A 5xx that Caddy proxies through
+leaves no trace. Proof: my own measured 9.1s and 18.1s 502s, made through this
+proxy at 00:57-01:05Z, appear nowhere in its log.
+
+So never read the absence of 502 lines there as evidence. Two things I nearly
+mis-sold as evidence, and withdrew:
+- "zero 502s in the hour after the fix" — consistent, but not probative.
+- the last `/eth` error line at 01:38:42Z (0.2s) as a tighter floor — it is a
+  client disconnect, not an empty-block timeout.
+
+What the log DOES hold: 3,346 lines carrying `"status":502` are Caddy's own
+errors (client EOF, connection reset, dial failure), spread across /sepolia
+2048, /eth 615, /plsv4 350, /pls 333. Separately, 20 "aborting with incomplete
+response, upstream one.valve.city" lines, 0.07-1.06s, across chains 1/369/
+11155111, ending 00:38:39Z — too fast to be the empty-block timeouts.
+
+The bracket therefore rests only on the two measurements that do prove
+something: the last shim synthesis at 01:35:50Z, and empty block 25,971,025
+answered with its chunk written at 01:46:04Z.
+
+Redaction trap if we ever add an access log there: the rewritten URI carries the
+RPC key (`/rpc/<key>/evm/1`), so a log format must exclude or scrub the request
+URI. Every artifact I sent was scrubbed and then grepped for `vk_` first.
+
 ## 2026-09-16 Correction: the 502 was the relay, and the timings were its budgets
 
 I wrote earlier that the gateway's 502 came from Cloudflare over a failed
