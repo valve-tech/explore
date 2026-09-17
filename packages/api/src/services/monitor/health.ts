@@ -19,6 +19,8 @@
  */
 
 /** How many consecutive failures before a check counts as broken, not flaky. */
+import { redactSecrets } from "../../lib/redact.js";
+
 export const UNHEALTHY_AFTER_FAILURES = 3;
 
 /** Keep the map bounded — the same FIFO trim the appearance caches use. */
@@ -77,7 +79,10 @@ export function recordCheckFailure(
   const e = entry(key(kind, subject));
   e.consecutiveFailures += 1;
   e.lastFailureAt = now;
-  e.lastError = err instanceof Error ? err.message : String(err);
+  // Redact at capture, not at the endpoint: a viem transport error carries the
+  // keyed RPC URL, and once this string is stored, any future status route that
+  // serves it leaks the key. Scrubbing here means it cannot be stored raw.
+  e.lastError = redactSecrets(err instanceof Error ? err.message : String(err));
 }
 
 /** Record that a check completed — whether or not it matched. */

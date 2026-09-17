@@ -58,6 +58,22 @@ describe("monitor check health", () => {
     assert.equal(typeof h?.lastError, "string");
   });
 
+  it("redacts the RPC key from a viem transport error message", () => {
+    // viem folds the full request URL into a transport error, and that URL
+    // holds the key in its path. lastError is designed to reach a status
+    // endpoint, so it must be scrubbed at capture.
+    recordCheckFailure(
+      "balance_threshold",
+      ADDR,
+      new Error(
+        "HttpRequestError: HTTP request failed.\n" +
+          "URL: https://rpc.valve.city/v1/vk_SECRETKEY0123456789/evm/1",
+      ),
+    );
+    const h = getCheckHealth("balance_threshold", ADDR);
+    assert.equal(h?.lastError?.includes("vk_SECRETKEY0123456789"), false);
+  });
+
   it("survives a non-Error throw", () => {
     recordCheckFailure("balance_threshold", ADDR, "just a string");
     assert.equal(getCheckHealth("balance_threshold", ADDR)?.lastError, "just a string");
