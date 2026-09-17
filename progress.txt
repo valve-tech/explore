@@ -1,5 +1,43 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 SECURITY: the admin key was served to any Web3 Action author
+
+Found while checking whether an older gateway leak (2026-08-25, edge-a) was our
+traffic. It probably was — the explorer drives rpc.valve.city/v1/<key>/evm/N
+continuously with the admin key — but the check turned up a live exposure in
+OUR code. Fixed on main, ae0634f.
+
+The chain:
+- A Web3 Action runs user code against `getChain(chain_id).rpcUrl`, the keyed
+  admin URL.
+- viem writes the full request URL into every transport error message
+  (`URL: https://…/v1/vk_…/evm/1`); this viem version's getUrl does not redact.
+  Confirmed by running it.
+- `childScript.ts` captures the error into stderr/error; `executeAction` stores
+  it via `addLog` into `action_logs` AND returns it. `GET /api/actions/:id/logs`
+  and `/test` serve it through `respond.ok`, which does NOT redact — only the
+  error envelope does.
+- So any authenticated actions user reads the admin key from their own logs by
+  inducing an RPC error (e.g. a getLogs over a huge range times out).
+
+Same class as the 2026-08-27 /api/block/:n leak the `lib/redact.ts` boundary was
+written for; the executor bypassed that boundary. Fix: `redactExecutionOutput`
+applies `redactSecrets` to stdout/stderr/error in `executeAction`, before the DB
+or the response sees them. Unit test in `tests/unit/actionRedactOutput.test.ts`.
+
+ROOT CAUSE, common to all three of tonight's exposures (indexer container log,
+28 key-in-path probe requests, this): ONE over-privileged admin key
+(`vk_Et-…`) sits in every component's RPC URL, and it cannot be rotated. The
+real fix is a scoped read-only key per component (indexer, explorer API). Raised
+with valve.
+
+Two follow-ups I did NOT do, worth a look:
+- The stored `action_logs` rows may already hold the key from before this fix.
+  A migration to scrub existing stdout/stderr would close that. Not written.
+- Any other viem-client-from-keyed-url path that returns an error body raw has
+  the same shape. `respond` covers the ones that throw ApiError; a raw
+  `res.json` of a caught error would not.
+
 ## 2026-09-16 Admin key leak: purged on the indexer, and part of it was mine
 
 The RPC key this box uses is valve's ADMIN key (`vk_Et-…`, 35 chars —
