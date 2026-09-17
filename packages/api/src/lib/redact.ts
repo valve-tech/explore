@@ -36,6 +36,17 @@ const URL_PATH = /(https?:\/\/[^/\s"']+)(\/[^\s"']*)/g;
  * collapsing paths would otherwise leave it in place), then the token shapes,
  * then the path collapse that catches anything key-like we did not name.
  */
+/**
+ * KNOWN LIMIT — this is a blocklist for the BARE-TOKEN case. A high-entropy
+ * credential with no `vk_` prefix and not inside a URL survives untouched. It
+ * does not bite today because our keys are always `vk_`-prefixed or carried in
+ * a URL (viem emits `URL: …`), so the VK_KEY and URL_PATH rules cover every
+ * real exposure. A differently-shaped secret would fail open here. Verified
+ * 2026-09-16 against path / query / userinfo / opaque-path / bare-vk shapes:
+ * all fully redacted, no surviving prefix. Truncation is NOT redaction — the
+ * `looksLikeSecret` backstop catches a `vk_` + 4-char remnant, so a guard built
+ * on it fails on a prefix, unlike a `not.toContain(fullKey)` assertion.
+ */
 export function redactSecrets(text: string): string {
   return text
     .replace(USERINFO, "://***@")
