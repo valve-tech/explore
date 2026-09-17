@@ -7,6 +7,7 @@ import {
 import type { ExecutionResult, TriggerEvent } from "./types.js";
 import { TIMEOUT_MS } from "./childEnv.js";
 import { runInChild } from "./runInChild.js";
+import { redactExecutionOutput } from "./redactOutput.js";
 import { getChain } from "../chains/registry.js";
 
 /**
@@ -45,13 +46,16 @@ export async function executeAction(
 
     const duration = Date.now() - startTime;
     const success = result.error === undefined;
-    const final: ExecutionResult = {
+    // Redact before either destination sees it: viem carries the keyed RPC
+    // URL into a transport error's message, and this object is both stored
+    // by addLog and returned to the action's owner.
+    const final: ExecutionResult = redactExecutionOutput({
       success,
       stdout: result.stdout.join("\n"),
       stderr: result.stderr.join("\n"),
       duration_ms: duration,
       ...(success ? {} : { error: result.error }),
-    };
+    });
 
     await addLog({
       action_id: action.id,
@@ -67,13 +71,15 @@ export async function executeAction(
     const duration = Date.now() - startTime;
     const errorMessage = err instanceof Error ? err.message : String(err);
 
-    const final: ExecutionResult = {
+    // A spawn/parse failure message can quote the child's stdout, which may
+    // hold a viem error carrying the keyed RPC URL. Redact this path too.
+    const final: ExecutionResult = redactExecutionOutput({
       success: false,
       stdout: "",
       stderr: `[fatal] ${errorMessage}`,
       duration_ms: duration,
       error: errorMessage,
-    };
+    });
 
     await addLog({
       action_id: action.id,
