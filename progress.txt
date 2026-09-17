@@ -16,8 +16,9 @@ pattern matches are false positives — `vk_SCRUBBED` markers in the archives,
 and the public `vk_demo` key in `/root/verify.py`.
 
 MINE: on 2026-09-11 at 03:17-03:18Z my previous session sent the admin key in
-URL paths from this box — 34 requests to one.valve.city, rpc.valve.city and
-evm-1-rpc.valve.city — plus 12 as a bearer header to the two direct-evm-1
+URL paths from this box — 28 requests to one.valve.city (10), rpc.valve.city
+(12, six under /rpc/ and six under /v1/) and evm-1-rpc.valve.city (6) — plus
+12 as a bearer header to the two direct-evm-1
 replicas. The 12 key-bearing lines on valve's ingress came from the 401s.
 I read the key into a variable and never echoed it, which kept the terminal
 rule, but a key in a path is still a key, and a server that REJECTS the
