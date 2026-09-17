@@ -1,5 +1,37 @@
 # Explore (trace) — Progress
 
+## 2026-09-16 Admin key leak: purged on the indexer, and part of it was mine
+
+The RPC key this box uses is valve's ADMIN key (`vk_Et-…`, 35 chars —
+`INDEXER_RPC_KEY` is wired to the same 1Password item as `VALVE_KEY`). The
+rendered rpc-proxy Caddyfile puts it in the upstream path, and every cancelled
+request (`aborting with incomplete response`) logged that path: ~1,450 lines
+over 39 days in the container log. The benign reliability signal and the leak
+were the same line class.
+
+Purge, verified 2026-09-16 after valve's `indexer-deploy` recreated the
+container at 23:45:17Z: no container log file on disk carries a key; the live
+log carries 0; and 2 new abort lines since the recreate are clean. Remaining
+pattern matches are false positives — `vk_SCRUBBED` markers in the archives,
+and the public `vk_demo` key in `/root/verify.py`.
+
+MINE: on 2026-09-11 at 03:17-03:18Z my previous session sent the admin key in
+URL paths from this box — 34 requests to one.valve.city, rpc.valve.city and
+evm-1-rpc.valve.city — plus 12 as a bearer header to the two direct-evm-1
+replicas. The 12 key-bearing lines on valve's ingress came from the 401s.
+I read the key into a variable and never echoed it, which kept the terminal
+rule, but a key in a path is still a key, and a server that REJECTS the
+request is the most likely to log it. Handed to valve with the full list.
+
+Rule: probe the gateway through `rpc-proxy` from a container on
+`docker_default`, where Caddy injects the key and no path you write carries it.
+
+STILL THE OWNER'S: the key cannot be rotated without breaking every app that
+holds it; its only live mitigation is a 900 rps ceiling (the write-deny was
+removed 2026-09-09), so it can still send transactions. Recommendation: give
+the indexer its own read-only key, so the admin credential stops travelling
+through this proxy at all.
+
 ## 2026-09-16 A backfill is half the fleet's RPC load — plan for it
 
 Measured from the re-scrape: 1,996,191 blocks in 3,612 minutes = 553
