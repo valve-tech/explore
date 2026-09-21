@@ -1,5 +1,17 @@
 # Explore (trace) — Progress
 
+## 2026-09-21 Filed the eRPC design report upstream
+
+https://github.com/erpc/erpc/issues/1168 (as valvecitydev). Verified against
+upstream main d45cf9d2 first, not the valve fork: the mechanism is live, and
+DefaultEmptyResultAccept still omits the block-count methods. Reframed from the
+draft into the tightest defensible ask — the four count methods
+(eth_getBlockTransactionCountByNumber/ByHash, eth_getUncleCountByNumber/ByHash)
+meet the list's own "zero value is a real value" criterion and are missing —
+with the shape-vs-name design point as the structural fix. Report copy kept at
+docs/incidents/2026-09-21-erpc-empty-shape-report.md. Scrubbed of every internal
+identifier before filing.
+
 ## 2026-09-16 SECURITY: the admin key was served to any Web3 Action author
 
 Found while checking whether an older gateway leak (2026-08-25, edge-a) was our
