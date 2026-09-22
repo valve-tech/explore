@@ -1,5 +1,29 @@
 # Explore (trace) — Progress
 
+## 2026-09-22 Deployed explore.valve.city — prod was ~2 weeks stale
+
+Ran `yarn deploy --env rpc-otterscan --plan explore-deploy` from the monorepo
+against evm-explorer (195.201.169.32), authorised by the owner. Prod was serving
+a build from trace@a275dcf; it now serves ed56149 (current main), verified live:
+`/health` reports version.sha ed56149 built 2026-09-22, the chain-icon breadcrumb
+(gib.show) and the time-display setting are in the served bundle, and the three
+2026-09-16 security fixes plus migration 013 (action_logs scrub) ship in it.
+
+Deploy model, for next time — I got this wrong at first: evm-explorer is in
+LOCAL-BUILD mode, not registry-pull. `/opt/explorer/.env` has
+TRACE_IMAGE=valve-explore-api:local, and `explorer-write-trace-env` will NOT
+overwrite an existing TRACE_IMAGE — so setting TRACE_IMAGE=ghcr... in the deploy
+env does nothing. `explorer-build-trace-image` clones valve-tech/explore, resets
+to origin/main HEAD, and docker-builds on the box. So a deploy ships whatever
+main HEAD is at deploy time; there is no image-tag to pin. The CI-built GHCR
+image (publish-api-image.yml) exists but the box is not switched to registry-pull
+mode yet — switching it is a separate change (edit the box .env TRACE_IMAGE).
+
+Blue/green with a public health gate: builds the idle color, health-checks it on
+its own port, flips Caddy, smokes https://explore.valve.city/health, retires the
+old color but keeps it stopped for `explore-rollback` (one command, instant).
+Deploy key ~/.ssh/valve-explorer, port 2222. Release /opt/releases/20260922202703.
+
 ## 2026-09-21 Filed the eRPC design report upstream
 
 https://github.com/erpc/erpc/issues/1168 (as valvecitydev). Verified against
