@@ -1,19 +1,36 @@
 import { useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 import { useNetworkHealth } from "../hooks/useNetworkHealth";
 import { useActiveChainId } from "../lib/activeChain";
-import { chainById, chainSymbol } from "../lib/chains";
+import { chainById, chainSymbol, DEFAULT_CHAIN_ID } from "../lib/chains";
+import { chainRoutePrefix, parseChainScope } from "../lib/chainScope";
 import { SummaryCards } from "../components/networkHealth/SummaryCards";
 import { LensPanels } from "../components/networkHealth/LensPanels";
 import { PositionHeatmap } from "../components/networkHealth/PositionHeatmap";
 import { MinersPanel } from "../components/networkHealth/MinersPanel";
 import { BlockTable } from "../components/networkHealth/BlockTable";
-import { ChainFlipper } from "../components/networkHealth/ChainFlipper";
+import { ChainMenu } from "../components/networkHealth/ChainMenu";
 import { WindowSelector } from "../components/networkHealth/WindowSelector";
 import { NetworkHealthSkeleton } from "../components/networkHealth/NetworkHealthSkeleton";
 import { shareOf } from "../components/networkHealth/format";
 import { DEFAULT_WINDOW } from "../lib/networkHealthWindow";
 
+/**
+ * Each network has its own path: `/eip155/<id>/network-health`. The bare
+ * `/network-health` names no chain, so it redirects to the default chain's
+ * path. A legacy `?chainid=N` is left for `LegacyChainParamRedirect`.
+ */
 export default function NetworkHealthPage() {
+  const location = useLocation();
+  if (parseChainScope(location.pathname, location.search).kind === "all") {
+    return (
+      <Navigate replace to={`${chainRoutePrefix(DEFAULT_CHAIN_ID)}${location.pathname}${location.search}${location.hash}`} />
+    );
+  }
+  return <NetworkHealthView />;
+}
+
+function NetworkHealthView() {
   const [limit, setLimit] = useState(DEFAULT_WINDOW);
   const chainId = useActiveChainId();
   const chainName = chainById(chainId)?.name ?? `chain ${chainId}`;
@@ -39,7 +56,7 @@ export default function NetworkHealthPage() {
           </div>
           <div className="flex flex-wrap items-center gap-row">
             <WindowSelector value={limit} onChange={setLimit} busy={isFetching} />
-            <ChainFlipper />
+            <ChainMenu />
           </div>
         </div>
         <p className="text-sm theme-text-secondary">

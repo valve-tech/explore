@@ -5,8 +5,8 @@ import { renderWithProviders } from "./_test-utils";
 import type { BlockLadder } from "../api/networkHealth";
 
 /**
- * Network-health cluster: FeeLadder (SVG fee stalactites + tooltip), ChainFlipper
- * (writes ?chainid=N), WindowSelector, NetworkHealthSkeleton, and the
+ * Network-health cluster: FeeLadder (SVG fee stalactites + tooltip), ChainMenu
+ * (one link per chain path), WindowSelector, NetworkHealthSkeleton, and the
  * NetworkHealthPage orchestrator.
  *
  * FeeLadder fixtures mirror REAL PulseChain block 26804492 — baseFeePerGas and
@@ -23,7 +23,7 @@ vi.mock("../hooks/useNetworkHealth", () => ({
 const useNetworkHealthMock = vi.fn();
 
 import { FeeLadder } from "../components/networkHealth/FeeLadder";
-import { ChainFlipper } from "../components/networkHealth/ChainFlipper";
+import { ChainMenu } from "../components/networkHealth/ChainMenu";
 import { WindowSelector } from "../components/networkHealth/WindowSelector";
 import { NetworkHealthSkeleton } from "../components/networkHealth/NetworkHealthSkeleton";
 import NetworkHealthPage from "../pages/NetworkHealthPage";
@@ -221,51 +221,98 @@ function LocationProbe() {
   return <div data-testid="loc">{location.pathname + location.search}</div>;
 }
 
-describe("<ChainFlipper />", () => {
-  it("renders one pill per registered chain", () => {
-    renderWithProviders(<ChainFlipper />);
-    expect(screen.getByText("Ethereum")).toBeInTheDocument();
-    expect(screen.getByText("PulseChain")).toBeInTheDocument();
+describe("<ChainMenu />", () => {
+  const open = () => fireEvent.click(screen.getByRole("button", { name: "Network" }));
+
+  it("shows the current chain on the closed menu, and no select", () => {
+    const { container } = renderWithProviders(<ChainMenu />, {
+      initialEntries: ["/eip155/1/network-health"],
+    });
+    expect(screen.getByRole("button", { name: "Network" })).toHaveTextContent("Ethereum");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(container.querySelector("select")).toBeNull();
   });
 
-  it("writes the chain into the path prefix when a chain is picked", () => {
+  it("opens to four real links, one per chain path, and marks the current one", () => {
+    const { container } = renderWithProviders(<ChainMenu />, {
+      initialEntries: ["/eip155/943/network-health"],
+    });
+    open();
+    const items = screen.getAllByRole("menuitem");
+    expect(items).toHaveLength(4);
+    expect(items.map((a) => a.tagName)).toEqual(["A", "A", "A", "A"]);
+    expect(items.map((a) => a.getAttribute("href"))).toEqual([
+      "/eip155/1/network-health",
+      "/eip155/369/network-health",
+      "/eip155/943/network-health",
+      "/eip155/11155111/network-health",
+    ]);
+    const current = items.filter((a) => a.getAttribute("aria-current") === "page");
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveAttribute("href", "/eip155/943/network-health");
+    expect(container.querySelector("select")).toBeNull();
+  });
+
+  it("navigates to the picked chain's path and closes", () => {
     render(
-      <MemoryRouter initialEntries={["/network-health"]}>
+      <MemoryRouter initialEntries={["/eip155/369/network-health"]}>
         <LocationProbe />
-        <ChainFlipper />
+        <ChainMenu />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByText("Ethereum").closest("button")!);
+    open();
+    fireEvent.click(screen.getByRole("menuitem", { name: /Ethereum/ }));
     expect(screen.getByTestId("loc")).toHaveTextContent("/eip155/1/network-health");
-  });
-
-  it("writes the default chain's prefix too, like every other chain writer", () => {
-    render(
-      <MemoryRouter initialEntries={["/eip155/1/network-health"]}>
-        <LocationProbe />
-        <ChainFlipper />
-      </MemoryRouter>,
-    );
-    fireEvent.click(screen.getByText("PulseChain").closest("button")!);
-    expect(screen.getByTestId("loc")).toHaveTextContent("/eip155/369/network-health");
-  });
-
-  it("lands on the second chain after flipping twice in a row", () => {
-    render(
-      <MemoryRouter initialEntries={["/network-health"]}>
-        <LocationProbe />
-        <ChainFlipper />
-      </MemoryRouter>,
-    );
-    // First flip: default → Ethereum.
-    fireEvent.click(screen.getByText("Ethereum").closest("button")!);
-    expect(screen.getByTestId("loc")).toHaveTextContent("/eip155/1/network-health");
-
-    // Second flip: Ethereum → Sepolia. If the writer still targets a bare
-    // `?chainid=` query param, the path keeps saying "1" here — the exact
-    // regression this test exists to catch.
-    fireEvent.click(screen.getByText("Sepolia").closest("button")!);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    open();
+    fireEvent.click(screen.getByRole("menuitem", { name: /Sepolia/ }));
     expect(screen.getByTestId("loc")).toHaveTextContent("/eip155/11155111/network-health");
+  });
+});
+
+describe("network-health routing", () => {
+  beforeEach(() =>
+    useNetworkHealthMock.mockReturnValue({
+      data: undefined,
+      isPending: true,
+      isError: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    }),
+  );
+  afterEach(() => useNetworkHealthMock.mockReset());
+
+  function at(path: string) {
+    renderWithProviders(
+      <>
+        <LocationProbe />
+        <NetworkHealthPage />
+      </>,
+      { initialEntries: [path] },
+    );
+  }
+
+  it.each([
+    [1, "Ethereum"],
+    [369, "PulseChain"],
+    [943, "PulseChain Testnet v4"],
+    [11155111, "Sepolia"],
+  ])("/eip155/%i/network-health renders that network", (id, name) => {
+    at(`/eip155/${id}/network-health`);
+    expect(screen.getByTestId("loc")).toHaveTextContent(`/eip155/${id}/network-health`);
+    expect(screen.getByRole("button", { name: "Network" })).toHaveTextContent(name);
+  });
+
+  it("redirects the bare path to the default chain's path", () => {
+    at("/network-health");
+    expect(screen.getByTestId("loc")).toHaveTextContent(/^\/eip155\/369\/network-health$/);
+    expect(screen.getByRole("button", { name: "Network" })).toHaveTextContent("PulseChain");
+  });
+
+  it("does not redirect a legacy ?chainid link; that rewrite belongs elsewhere", () => {
+    at("/network-health?chainid=1");
+    expect(screen.getByTestId("loc")).toHaveTextContent("/network-health?chainid=1");
+    expect(screen.getByRole("button", { name: "Network" })).toHaveTextContent("Ethereum");
   });
 });
 
