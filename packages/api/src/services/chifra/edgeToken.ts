@@ -4,6 +4,9 @@
  * X-Valve-Chifra-Token. Every chifra call sends it when CHIFRA_TOKEN is set:
  * one rule for every route, so a new SDK call cannot forget it. With no
  * CHIFRA_TOKEN the request is unchanged.
+ *
+ * With a token, a redirect is an error. fetch keeps custom headers on a
+ * cross-origin redirect, so a redirect could carry the token to another host.
  */
 export const CHIFRA_TOKEN_HEADER = "X-Valve-Chifra-Token";
 
@@ -14,5 +17,5 @@ export function withChifraToken(
   if (!token) return { ...init };
   const headers = new Headers(init?.headers);
   headers.set(CHIFRA_TOKEN_HEADER, token);
-  return { ...init, headers };
+  return { ...init, headers, redirect: "error" };
 }

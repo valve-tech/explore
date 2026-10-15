@@ -15,6 +15,10 @@ describe("withChifraToken", () => {
     assert.equal(h.get("Accept"), "application/json");
     assert.equal(out.method, "GET");
   });
+  it("refuses redirects when it sends the token, so no other host gets it", () => {
+    assert.equal(withChifraToken({ redirect: "follow" }, "tokenTOKENtokenTOKENtokenTOKEN1234").redirect, "error");
+    assert.equal(withChifraToken({}, "").redirect, undefined);
+  });
   it("changes nothing without a token", () => {
     const out = withChifraToken({ headers: { Accept: "x" } }, "");
     assert.equal(new Headers(out.headers).get(CHIFRA_TOKEN_HEADER), null);
