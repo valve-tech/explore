@@ -40,6 +40,7 @@
  */
 
 import { createTrueblocksClient } from "@valve-tech/trueblocks-sdk";
+import { withChifraToken } from "./edgeToken.js";
 import { currentChain } from "../chains/context.js";
 import {
   isIndexTimeout,
@@ -67,7 +68,7 @@ function makeClient(timeoutMs: number) {
   return createTrueblocksClient({
     baseUrl: CHIFRA_BASE,
     fetch: (input, init) =>
-      fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) }),
+      fetch(input, { ...withChifraToken(init), signal: AbortSignal.timeout(timeoutMs) }),
   });
 }
 

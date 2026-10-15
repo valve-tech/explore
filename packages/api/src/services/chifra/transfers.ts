@@ -18,6 +18,7 @@
  */
 
 import { createTrueblocksClient } from "@valve-tech/trueblocks-sdk";
+import { withChifraToken } from "./edgeToken.js";
 import { readCache, writeCache } from "./cache.js";
 import { currentChain } from "../chains/context.js";
 
@@ -41,7 +42,7 @@ const CHIFRA_TIMEOUT_MS = 30_000;
 const client = createTrueblocksClient({
   baseUrl: CHIFRA_BASE,
   fetch: (input, init) =>
-    fetch(input, { ...init, signal: AbortSignal.timeout(CHIFRA_TIMEOUT_MS) }),
+    fetch(input, { ...withChifraToken(init), signal: AbortSignal.timeout(CHIFRA_TIMEOUT_MS) }),
 });
 
 /** Retry a chifra call up to `attempts` times on any failure (transient 5xx). */
