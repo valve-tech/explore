@@ -115,6 +115,17 @@ describe("fetchTokenTransfers", () => {
       `/api/chifra/transfers?token=${WPLS}&window=30d&chainid=1`,
     );
   });
+
+  it("threads a page cursor", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      okRes({
+        ok: true,
+        result: { records: [], firstBlock: 0, lastBlock: 0, truncated: false, nextCursor: null },
+      }),
+    );
+    await fetchTokenTransfers(WPLS, "7d", 369, 27812000);
+    expect(String(fetchSpy.mock.calls[0]![0])).toContain(`window=7d&cursor=27812000`);
+  });
 });
 
 describe("fetchContractInfo", () => {

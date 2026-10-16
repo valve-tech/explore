@@ -503,17 +503,26 @@ export interface ChifraTransferWindow {
   firstBlock: number;
   lastBlock: number;
   truncated: boolean;
+  /** The block to read the next older page from. Null or absent: no more. */
+  nextCursor?: number | null;
+  /** True when the server's time budget cut this page short. */
+  partial?: boolean;
 }
 export type ChifraWindow = "24h" | "7d" | "30d";
 
-/** A token's normalized transfer history over a window (chifra-backed). */
+/**
+ * One page of a token's transfer history in a window, newest first. Pass the
+ * previous page's `nextCursor` as `cursor` to read the next older page.
+ */
 export async function fetchTokenTransfers(
   token: string,
   window: ChifraWindow = "24h",
   chainId: number = DEFAULT_CHAIN_ID,
+  cursor?: number,
 ): Promise<ChifraTransferWindow> {
+  const page = cursor === undefined ? "" : `&cursor=${cursor}`;
   return apiFetch<ChifraTransferWindow>(
-    scoped(`${API_BASE}/chifra/transfers?token=${token}&window=${window}`, chainId),
+    scoped(`${API_BASE}/chifra/transfers?token=${token}&window=${window}${page}`, chainId),
   );
 }
 

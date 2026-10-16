@@ -131,3 +131,32 @@ describe("useTokenTransfers", () => {
     expect(result.current.error).toBe("Failed to load transfers");
   });
 });
+
+describe("useTokenTransfers paging", () => {
+  it("loadMore reads the next cursor page before it widens the window", async () => {
+    isRpcOverridden.mockReturnValue(false);
+    const page1 = { ...WIN, firstBlock: 26804100, nextCursor: 26804099, truncated: true };
+    const page2 = {
+      ...WIN,
+      records: [{ ...WIN.records[0]!, blockNumber: 26804050, txHash: "0xbeef" }],
+      firstBlock: 26804000,
+      lastBlock: 26804099,
+      nextCursor: null,
+    };
+    fetchTokenTransfers.mockImplementation((_t, _w, _c, cursor?: number) =>
+      Promise.resolve(cursor === undefined ? page1 : page2),
+    );
+
+    const { result } = renderHook(() => useTokenTransfers(WPLS), { wrapper: Providers });
+    await waitFor(() => expect(result.current.status).toBe("success"));
+    expect(result.current.hasMorePages).toBe(true);
+
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.records).toHaveLength(2));
+    expect(fetchTokenTransfers).toHaveBeenLastCalledWith(WPLS, "24h", 369, 26804099);
+    expect(result.current.window).toBe("24h");
+    expect(result.current.fromBlock).toBe(26804000);
+    expect(result.current.headBlock).toBe(26804224);
+    expect(result.current.hasMorePages).toBe(false);
+  });
+});

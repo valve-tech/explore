@@ -1,7 +1,7 @@
 /**
  * Routes backing token charting — see docs/CHARTING.md.
  *
- *   GET /api/chifra/transfers?token&window  — normalized transfer history
+ *   GET /api/chifra/transfers?token&window&cursor&limit — one page of transfer history
  *
  * Service implementation lives in services/chifra/.
  */
@@ -9,7 +9,11 @@
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { ApiError, asyncRoute, respond } from "../lib/respond.js";
-import { getTokenTransfers } from "../services/chifra/index.js";
+import {
+  getTokenTransfers,
+  TransfersUnavailableError,
+  MAX_PAGE_LIMIT,
+} from "../services/chifra/index.js";
 
 const router = Router();
 
@@ -25,6 +29,9 @@ const transfersQuery = z.object({
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, "token must be a 0x-prefixed address"),
   window: z.enum(["24h", "7d", "30d"]).default("24h"),
+  /** Block to page down from: the `nextCursor` of the previous page. */
+  cursor: z.coerce.number().int().nonnegative().optional(),
+  limit: z.coerce.number().int().min(1).max(MAX_PAGE_LIMIT).optional(),
 });
 
 router.get(
@@ -34,12 +41,22 @@ router.get(
     if (!parsed.success) {
       throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid query");
     }
-    const { token, window } = parsed.data;
-    const result = await getTokenTransfers(token, WINDOW_SECONDS[window]!);
-    if (result === null) {
-      throw new ApiError(502, "chifra upstream unavailable or returned no data");
+    const { token, window, cursor, limit } = parsed.data;
+    try {
+      const result = await getTokenTransfers(token, {
+        windowSeconds: WINDOW_SECONDS[window]!,
+        cursor,
+        limit,
+      });
+      respond.ok(res, { result });
+    } catch (err) {
+      if (err instanceof TransfersUnavailableError) {
+        throw new ApiError(503, `transfers unavailable, try again: ${err.message}`, {
+          retryable: true,
+        });
+      }
+      throw err;
     }
-    respond.ok(res, { result });
   }, "chifra/transfers"),
 );
 

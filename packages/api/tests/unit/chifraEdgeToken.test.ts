@@ -23,8 +23,8 @@ describe("withChifraToken", () => {
     const out = withChifraToken({ headers: { Accept: "x" } }, "");
     assert.equal(new Headers(out.headers).get(CHIFRA_TOKEN_HEADER), null);
   });
-  it("both chifra clients wrap their fetch with it (fails on the old shape)", () => {
-    for (const f of ["appearances.ts", "transfers.ts"]) {
+  it("the chifra client wraps its fetch with it (fails on the old shape)", () => {
+    for (const f of ["appearances.ts"]) {
       const src = readFileSync(new URL(`../../src/services/chifra/${f}`, import.meta.url), "utf8");
       assert.match(src, /fetch\(input, \{ \.\.\.withChifraToken\(init\), signal:/, f);
       assert.doesNotMatch(src, /fetch\(input, \{ \.\.\.init, signal:/, f);

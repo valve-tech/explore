@@ -18,10 +18,11 @@ interface CacheEntry<T> {
 
 const cache = new Map<string, CacheEntry<unknown>>();
 
-export function readCache<T>(key: string): T | null {
+/** `ttlMs` lets a caller keep a shorter life than the 1h default. */
+export function readCache<T>(key: string, ttlMs: number = CHIFRA_CACHE_TTL_MS): T | null {
   const entry = cache.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.t > CHIFRA_CACHE_TTL_MS) {
+  if (Date.now() - entry.t > ttlMs) {
     cache.delete(key);
     return null;
   }

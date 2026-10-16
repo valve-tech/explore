@@ -16,6 +16,7 @@ export function TransferChart({ address }: Props) {
     fromBlock,
     headBlock,
     window,
+    hasMorePages,
     loadingMore,
     loadMore,
     canLoadMore,
@@ -48,7 +49,7 @@ export function TransferChart({ address }: Props) {
           Transfers
         </span>
         <span className="text-xs theme-text-muted">
-          last {window}
+          {hasMorePages ? `newest of last ${window}` : `last ${window}`}
         </span>
       </div>
 
@@ -105,7 +106,7 @@ export function TransferChart({ address }: Props) {
                 icon={loadingMore ? "heroicons:arrow-path" : "heroicons:plus"}
                 className={`w-3 h-3 ${loadingMore ? "animate-spin" : ""}`}
               />
-              {loadingMore ? "Loading…" : "Widen window"}
+              {loadingMore ? "Loading…" : hasMorePages ? "Load more" : "Widen window"}
             </button>
           )}
         </div>

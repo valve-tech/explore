@@ -1,62 +1,48 @@
 /**
- * Token transfer history via chifra, normalized for charting.
+ * A token's Transfer history, one bounded page at a time.
  *
- * Uses @valve-tech/trueblocks-sdk (a typed client to the chifra daemon) for
- * two calls:
- *   - `when`        — map a unix timestamp to the block at that time, so a
- *                     time window becomes an exact block range (no
- *                     blocks-per-second estimate that drifts).
- *   - `export.logs` — raw logs for txs the token appears in. chifra's
- *                     `transfers` accounting mode and `articulate` both
- *                     require node features this deployment lacks (archive
- *                     accounting / Etherscan key), so we pull raw logs and
- *                     decode the standard ERC-20/721 Transfer event ourselves.
+ * This read no longer goes through chifra. chifra loads a whole monitor into
+ * memory to answer any query on it, and `firstBlock`/`lastBlock`/`maxRecords`
+ * do not bound that work (see ./heavyGuard.ts). Measured 2026-10-16 on chain
+ * 369 for WPLS (0xA107...9a27): `/export` over a 100-block range and
+ * `/list --count` both ran past 60s and returned nothing.
  *
- * Results are wrapped in the in-memory TTL cache (see ./cache.ts) keyed by
- * (token, firstBlock, lastBlock) so repeat window requests don't re-walk
- * chifra.
+ * The node answers the same question with `eth_getLogs` (address + Transfer
+ * topic). The same day, through the server RPC: 50 blocks in 73ms (1,187
+ * logs), 200 blocks in 229ms (7,960 logs). A 1,000-block range exceeds the
+ * upstream's 20,000-result cap, so this module walks back from a cursor in
+ * small chunks, halves a chunk the node calls too large, and stops at a record
+ * limit, the window floor or a time budget. Each page returns the cursor for
+ * the next one.
+ *
+ * The route path stays /api/chifra/transfers so existing clients keep working.
  */
 
-import { createTrueblocksClient } from "@valve-tech/trueblocks-sdk";
-import { withChifraToken } from "./edgeToken.js";
+import { chainClient, currentChainId } from "../chains/context.js";
 import { readCache, writeCache } from "./cache.js";
-import { currentChain } from "../chains/context.js";
-
-const CHIFRA_BASE = process.env.CHIFRA_BASE_URL || "https://chifra.valve.city";
 
 /** keccak256("Transfer(address,address,uint256)") */
 const TRANSFER_TOPIC =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
-/** Cap on records pulled from chifra per window. Bounds latency + memory. */
-const MAX_RECORDS = 10_000;
+/** Default and largest record count for one page. */
+export const DEFAULT_PAGE_LIMIT = 1_000;
+export const MAX_PAGE_LIMIT = 5_000;
 
 /**
- * chifra cold-cache walks (especially for high-record tokens like HEX) can
- * take 10s+, and `/when` occasionally returns a transient 500. Bound each
- * request at 30s and retry transient failures so one flake doesn't fail the
- * whole window. The SDK has no built-in timeout, so we inject one via fetch.
+ * Time one page may spend on the node. The browser gives up at 40s and the
+ * edge sooner, so a page must answer well inside that. When the budget runs
+ * out, the page returns what it has, with `partial: true` and a cursor.
  */
-const CHIFRA_TIMEOUT_MS = 30_000;
+export const PAGE_BUDGET_MS = 10_000;
 
-const client = createTrueblocksClient({
-  baseUrl: CHIFRA_BASE,
-  fetch: (input, init) =>
-    fetch(input, { ...withChifraToken(init), signal: AbortSignal.timeout(CHIFRA_TIMEOUT_MS) }),
-});
+/** First chunk size, and the bounds for adapting it. */
+const INITIAL_SPAN = 200;
+const MAX_SPAN = 20_000;
 
-/** Retry a chifra call up to `attempts` times on any failure (transient 5xx). */
-async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
-  let lastErr: unknown;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-  throw lastErr;
-}
+/** Cache life: the head page moves every block; an older page does not. */
+export const HEAD_PAGE_TTL_MS = 15_000;
+export const CURSOR_PAGE_TTL_MS = 5 * 60_000;
 
 export interface TransferRecord {
   blockNumber: number;
@@ -73,11 +59,96 @@ export interface TransferRecord {
 }
 
 export interface TransferWindow {
+  /** Newest first. */
   records: TransferRecord[];
+  /** Lowest block this page read. */
   firstBlock: number;
+  /** Highest block this page read (the cursor, or the head). */
   lastBlock: number;
-  /** True when the window hit MAX_RECORDS and older transfers were dropped. */
+  /** True when older transfers in the window remain (`nextCursor` is set). */
   truncated: boolean;
+  /** Pass as `cursor` to read the next older page. Null at the window floor. */
+  nextCursor: number | null;
+  /** True when the time budget stopped the page early. */
+  partial: boolean;
+}
+
+/** The page could not read anything. The caller should retry. */
+export class TransfersUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TransfersUnavailableError";
+  }
+}
+
+export interface RawLog {
+  address?: string;
+  topics?: string[];
+  data?: string;
+  blockNumber?: string;
+  blockTimestamp?: string;
+  transactionHash?: string;
+  logIndex?: string;
+}
+
+export interface TransferDeps {
+  head: () => Promise<number>;
+  getLogs: (token: string, fromBlock: number, toBlock: number) => Promise<RawLog[]>;
+  blockTimestamp: (block: number) => Promise<number>;
+  now: () => number;
+  budgetMs: number;
+  /** Cache scope. Defaults to the active chain id. */
+  chainKey: string;
+}
+
+export interface TransferQuery {
+  windowSeconds: number;
+  cursor?: number;
+  limit?: number;
+}
+
+function defaultDeps(): TransferDeps {
+  const client = chainClient();
+  return {
+    head: async () => Number(await client.getBlockNumber()),
+    getLogs: (token, fromBlock, toBlock) =>
+      client.request({
+        method: "eth_getLogs",
+        params: [
+          {
+            address: token as `0x${string}`,
+            topics: [TRANSFER_TOPIC],
+            fromBlock: `0x${fromBlock.toString(16)}`,
+            toBlock: `0x${toBlock.toString(16)}`,
+          },
+        ],
+      }) as unknown as Promise<RawLog[]>,
+    blockTimestamp: async (block) =>
+      Number((await client.getBlock({ blockNumber: BigInt(block) })).timestamp),
+    now: () => Date.now(),
+    budgetMs: PAGE_BUDGET_MS,
+    chainKey: String(currentChainId()),
+  };
+}
+
+/** True when the node refused a range as too large, so a smaller one may pass. */
+export function isRangeTooLarge(err: unknown): boolean {
+  const e = err as { message?: unknown; details?: unknown; shortMessage?: unknown } | null;
+  const text = [e?.message, e?.details, e?.shortMessage]
+    .filter((s) => typeof s === "string")
+    .join(" ");
+  return /max allowed range|max results|too large|too many|block range|limit exceeded|-32005/i.test(
+    text,
+  );
+}
+
+function hexNum(hex: string | undefined): number {
+  if (!hex) return 0;
+  try {
+    return Number(BigInt(hex));
+  } catch {
+    return 0;
+  }
 }
 
 /** A padded 32-byte topic carries an address in its low 20 bytes. */
@@ -85,95 +156,149 @@ function topicToAddress(topic: string): string {
   return "0x" + topic.slice(-40);
 }
 
-/**
- * Pull a numeric `blockNumber` out of a `when` response. The verb returns a
- * union (count | message | namedBlock | timestamp); only the block-bearing
- * variants have the field, so narrow before reading.
- */
-function blockNumberOf(entry: unknown): number | null {
-  if (entry && typeof entry === "object" && "blockNumber" in entry) {
-    const n = (entry as { blockNumber?: unknown }).blockNumber;
-    if (typeof n === "number") return n;
+function decode(log: RawLog, timestamp: number): TransferRecord {
+  const topics = log.topics ?? [];
+  // 3 topics: ERC-20 (value in data). 4 topics: ERC-721 (tokenId in topic 3).
+  const isErc721 = topics.length === 4;
+  let value = "0";
+  try {
+    value = isErc721 ? "1" : BigInt(log.data && log.data !== "0x" ? log.data : "0x0").toString();
+  } catch {
+    value = "0";
   }
-  return null;
+  return {
+    blockNumber: hexNum(log.blockNumber),
+    blockTimestamp: timestamp,
+    txHash: log.transactionHash ?? "",
+    logIndex: hexNum(log.logIndex),
+    from: topics[1] ? topicToAddress(topics[1]) : "",
+    to: topics[2] ? topicToAddress(topics[2]) : "",
+    value,
+    variant: isErc721 ? "erc721" : "erc20",
+    ...(isErc721 && topics[3] ? { tokenId: BigInt(topics[3]).toString() } : {}),
+  };
 }
 
-/** Resolve a unix timestamp (seconds) to the block mined at/just before it. */
-async function blockAtTimestamp(unixSeconds: number): Promise<number | null> {
-  const res = await withRetry(() =>
-    client.when({ blocks: [String(unixSeconds)], chain: currentChain().chifraChain }),
-  );
-  return blockNumberOf(res.data?.[0]);
-}
-
-/** Current chain head block number. */
-async function headBlock(): Promise<number | null> {
-  const res = await withRetry(() =>
-    client.when({ blocks: ["latest"], chain: currentChain().chifraChain }),
-  );
-  return blockNumberOf(res.data?.[0]);
+/** Reject after `ms`, so one slow call cannot spend the whole budget. */
+function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("transfer page deadline")), Math.max(0, ms));
+  });
+  return Promise.race([p, deadline]).finally(() => clearTimeout(timer));
 }
 
 /**
- * Fetch + normalize token transfers within a time window (seconds back from
- * now). Returns newest-first. `null` on upstream failure.
+ * Read one page of a token's transfers, newest first, from `cursor` (or the
+ * head) back toward `now - windowSeconds`. Throws TransfersUnavailableError
+ * when the page could read no block at all.
  */
 export async function getTokenTransfers(
   token: string,
-  windowSeconds: number,
-): Promise<TransferWindow | null> {
-  const now = Math.floor(Date.now() / 1000);
-  const [head, start] = await Promise.all([
-    headBlock(),
-    blockAtTimestamp(now - windowSeconds),
-  ]);
-  if (head === null || start === null) return null;
-
-  const chain = currentChain().chifraChain;
+  query: TransferQuery,
+  deps: TransferDeps = defaultDeps(),
+): Promise<TransferWindow> {
   const addr = token.toLowerCase();
-  const cacheKey = `transfers:${chain}:${addr}:${start}-${head}`;
-  const cached = readCache<TransferWindow>(cacheKey);
+  const limit = Math.min(Math.max(1, query.limit ?? DEFAULT_PAGE_LIMIT), MAX_PAGE_LIMIT);
+  const cacheKey = `transfers:${deps.chainKey}:${addr}:${query.windowSeconds}:${query.cursor ?? "head"}:${limit}`;
+  const ttl = query.cursor === undefined ? HEAD_PAGE_TTL_MS : CURSOR_PAGE_TTL_MS;
+  const cached = readCache<TransferWindow>(cacheKey, ttl);
   if (cached) return cached;
 
-  const res = await client.export.logs({
-    addrs: [addr],
-    firstBlock: start,
-    lastBlock: head,
-    reversed: true,
-    maxRecords: MAX_RECORDS,
-    chain,
-  });
-  if (!res.data) return null;
+  const started = deps.now();
+  const remaining = () => deps.budgetMs - (deps.now() - started);
+
+  let top: number;
+  try {
+    top = query.cursor ?? (await withDeadline(deps.head(), remaining()));
+  } catch (err) {
+    throw new TransfersUnavailableError(
+      `could not read the chain head: ${(err as Error)?.message ?? String(err)}`,
+    );
+  }
+  const floorTs = Math.floor(deps.now() / 1000) - query.windowSeconds;
 
   const records: TransferRecord[] = [];
-  for (const log of res.data) {
-    const topics = (log.topics ?? []) as string[];
-    if (topics[0]?.toLowerCase() !== TRANSFER_TOPIC) continue;
-    if ((log.address ?? "").toLowerCase() !== addr) continue;
+  let to = top;
+  let span = INITIAL_SPAN;
+  let reachedFloor = false;
+  let partial = false;
+  let scannedAny = false;
+  let lastError: unknown = null;
 
-    // 3 topics → ERC-20 (value in data); 4 topics → ERC-721 (tokenId in topic[3])
-    const isErc721 = topics.length === 4;
-    records.push({
-      blockNumber: log.blockNumber ?? 0,
-      blockTimestamp: log.timestamp ?? 0,
-      txHash: log.transactionHash ?? "",
-      logIndex: log.logIndex ?? 0,
-      from: topics[1] ? topicToAddress(topics[1]) : "",
-      to: topics[2] ? topicToAddress(topics[2]) : "",
-      value: isErc721 ? "1" : BigInt(log.data || "0x0").toString(),
-      variant: isErc721 ? "erc721" : "erc20",
-      ...(isErc721 && topics[3]
-        ? { tokenId: BigInt(topics[3]).toString() }
-        : {}),
-    });
+  while (records.length < limit && to >= 0 && !reachedFloor) {
+    if (remaining() <= 0) {
+      partial = true;
+      break;
+    }
+    const from = Math.max(0, to - span + 1);
+    let logs: RawLog[];
+    try {
+      logs = await withDeadline(deps.getLogs(addr, from, to), remaining());
+    } catch (err) {
+      if (isRangeTooLarge(err) && span > 1) {
+        span = Math.max(1, Math.floor(span / 2));
+        continue;
+      }
+      lastError = err;
+      partial = true;
+      break;
+    }
+
+    // Newest first: by block, then by log index.
+    logs.sort(
+      (a, b) =>
+        hexNum(b.blockNumber) - hexNum(a.blockNumber) || hexNum(b.logIndex) - hexNum(a.logIndex),
+    );
+    const tsByBlock = new Map<number, number>();
+    for (const log of logs) {
+      const block = hexNum(log.blockNumber);
+      let ts = log.blockTimestamp ? hexNum(log.blockTimestamp) : tsByBlock.get(block);
+      if (ts === undefined) {
+        try {
+          ts = await withDeadline(deps.blockTimestamp(block), remaining());
+        } catch {
+          ts = 0;
+        }
+      }
+      tsByBlock.set(block, ts);
+      if (ts > 0 && ts < floorTs) {
+        reachedFloor = true;
+        continue;
+      }
+      records.push(decode(log, ts));
+    }
+
+    // The chunk's own first block tells if the window floor lies inside it,
+    // also when the chunk held no logs.
+    if (!reachedFloor) {
+      try {
+        const fromTs = await withDeadline(deps.blockTimestamp(from), remaining());
+        if (fromTs < floorTs) reachedFloor = true;
+      } catch {
+        // Unknown. Keep walking; the next chunk checks again.
+      }
+    }
+
+    scannedAny = true;
+    to = from - 1;
+    if (logs.length < limit / 4) span = Math.min(span * 2, MAX_SPAN);
   }
 
+  if (!scannedAny) {
+    const why = lastError ? (lastError as Error)?.message ?? String(lastError) : "time budget spent";
+    throw new TransfersUnavailableError(`could not read transfer logs: ${why}`);
+  }
+
+  const nextCursor = reachedFloor || to < 0 ? null : to;
   const out: TransferWindow = {
     records,
-    firstBlock: start,
-    lastBlock: head,
-    truncated: res.data.length >= MAX_RECORDS,
+    firstBlock: to + 1,
+    lastBlock: top,
+    truncated: nextCursor !== null,
+    nextCursor,
+    partial,
   };
-  writeCache(cacheKey, out);
+  if (!partial) writeCache(cacheKey, out);
   return out;
 }
