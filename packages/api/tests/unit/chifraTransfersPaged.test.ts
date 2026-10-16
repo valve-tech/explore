@@ -64,9 +64,10 @@ beforeEach(() => invalidateChifraCache());
 
 describe("getTokenTransfers (paged eth_getLogs)", () => {
   it("bounds the page: stops at the record limit, never reads the whole window", async () => {
-    const { deps, calls } = chain(20);
+    const { deps, calls } = chain(37);
     const page = await getTokenTransfers(TOKEN, { windowSeconds: 30 * 86400, limit: 1000 }, deps);
-    assert.ok(page.records.length >= 1000 && page.records.length < 1000 + 200 * 20 + 1);
+    assert.ok(page.records.length >= 1000);
+    assert.ok(page.records.length <= 1500, `a 1000-record page held ${page.records.length}`);
     const lowest = Math.min(...calls.map((c) => c[0]));
     assert.ok(HEAD - lowest < 1000, `read ${HEAD - lowest} blocks for one page`);
     assert.equal(page.lastBlock, HEAD);

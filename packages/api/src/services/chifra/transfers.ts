@@ -36,8 +36,13 @@ export const MAX_PAGE_LIMIT = 5_000;
  */
 export const PAGE_BUDGET_MS = 10_000;
 
-/** First chunk size, and the bounds for adapting it. */
-const INITIAL_SPAN = 200;
+/**
+ * First chunk size, and the cap for adapting it. The first chunk is small
+ * because WPLS carries about 37 transfers per block: a 200-block first chunk
+ * returned 7,492 records for a 1,000-record page. A sparse token doubles its
+ * way up to MAX_SPAN in a few fast calls.
+ */
+const INITIAL_SPAN = 10;
 const MAX_SPAN = 20_000;
 
 /** Cache life: the head page moves every block; an older page does not. */
