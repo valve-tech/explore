@@ -2,15 +2,15 @@
 
 ## 2026-09-22 Deployed explore.valve.city — prod was ~2 weeks stale
 
-Ran `yarn deploy --env rpc-otterscan --plan explore-deploy` from the monorepo
-against evm-explorer (195.201.169.32), authorised by the owner. Prod was serving
+Ran the monorepo's explorer deploy
+against the explorer host, authorised by the owner. Prod was serving
 a build from trace@a275dcf; it now serves ed56149 (current main), verified live:
 `/health` reports version.sha ed56149 built 2026-09-22, the chain-icon breadcrumb
 (gib.show) and the time-display setting are in the served bundle, and the three
 2026-09-16 security fixes plus migration 013 (action_logs scrub) ship in it.
 
-Deploy model, for next time — I got this wrong at first: evm-explorer is in
-LOCAL-BUILD mode, not registry-pull. `/opt/explorer/.env` has
+Deploy model, for next time — I got this wrong at first: the explorer host is in
+LOCAL-BUILD mode, not registry-pull. The box `.env` has
 TRACE_IMAGE=valve-explore-api:local, and `explorer-write-trace-env` will NOT
 overwrite an existing TRACE_IMAGE — so setting TRACE_IMAGE=ghcr... in the deploy
 env does nothing. `explorer-build-trace-image` clones valve-tech/explore, resets
@@ -22,7 +22,7 @@ mode yet — switching it is a separate change (edit the box .env TRACE_IMAGE).
 Blue/green with a public health gate: builds the idle color, health-checks it on
 its own port, flips Caddy, smokes https://explore.valve.city/health, retires the
 old color but keeps it stopped for `explore-rollback` (one command, instant).
-Deploy key ~/.ssh/valve-explorer, port 2222. Release /opt/releases/20260922202703.
+Deploy details live in the private ops repo.
 
 ## 2026-09-21 Filed the eRPC design report upstream
 
@@ -38,7 +38,7 @@ identifier before filing.
 
 ## 2026-09-16 SECURITY: the admin key was served to any Web3 Action author
 
-Found while checking whether an older gateway leak (2026-08-25, edge-a) was our
+Found while checking whether an older gateway leak (2026-08-25, on one edge) was our
 traffic. It probably was — the explorer drives rpc.valve.city/v1/<key>/evm/N
 continuously with the admin key — but the check turned up a live exposure in
 OUR code. Fixed on main, ae0634f.
@@ -63,7 +63,7 @@ or the response sees them. Unit test in `tests/unit/actionRedactOutput.test.ts`.
 
 ROOT CAUSE, common to all three of tonight's exposures (indexer container log,
 28 key-in-path probe requests, this): ONE over-privileged admin key
-(`vk_Et-…`) sits in every component's RPC URL, and it cannot be rotated. The
+ sits in every component's RPC URL, and it cannot be rotated. The
 real fix is a scoped read-only key per component (indexer, explorer API). Raised
 with valve.
 
@@ -76,30 +76,30 @@ Two follow-ups I did NOT do, worth a look:
 
 ## 2026-09-16 Admin key leak: purged on the indexer, and part of it was mine
 
-The RPC key this box uses is valve's ADMIN key (`vk_Et-…`, 35 chars —
-`INDEXER_RPC_KEY` is wired to the same 1Password item as `VALVE_KEY`). The
+The RPC key this box uses is valve's ADMIN key (the indexer's RPC key
+and the admin key are the same 1Password item). The
 rendered rpc-proxy Caddyfile puts it in the upstream path, and every cancelled
 request (`aborting with incomplete response`) logged that path: ~1,450 lines
 over 39 days in the container log. The benign reliability signal and the leak
 were the same line class.
 
-Purge, verified 2026-09-16 after valve's `indexer-deploy` recreated the
+Purge, verified 2026-09-16 after valve's indexer deploy recreated the
 container at 23:45:17Z: no container log file on disk carries a key; the live
 log carries 0; and 2 new abort lines since the recreate are clean. Remaining
 pattern matches are false positives — `vk_SCRUBBED` markers in the archives,
-and the public `vk_demo` key in `/root/verify.py`.
+and the public `vk_demo` key in a probe script on the box.
 
 MINE: on 2026-09-11 at 03:17-03:18Z my previous session sent the admin key in
 URL paths from this box — 28 requests to one.valve.city (10), rpc.valve.city
 (12, six under /rpc/ and six under /v1/) and evm-1-rpc.valve.city (6) — plus
-12 as a bearer header to the two direct-evm-1
+12 as a bearer header to the two direct mainnet
 replicas. The 12 key-bearing lines on valve's ingress came from the 401s.
 I read the key into a variable and never echoed it, which kept the terminal
 rule, but a key in a path is still a key, and a server that REJECTS the
 request is the most likely to log it. Handed to valve with the full list.
 
 Rule: probe the gateway through `rpc-proxy` from a container on
-`docker_default`, where Caddy injects the key and no path you write carries it.
+the gateway's Docker network, where Caddy injects the key and no path you write carries it.
 
 STILL THE OWNER'S: the key cannot be rotated without breaking every app that
 holds it; its only live mitigation is a 900 rps ceiling (the write-deny was
@@ -123,7 +123,7 @@ damaged range repaired is another 60-hour run:
 - Expect gateway-side alerts to fire. valve's new journal-retention alert is
   sized for steady state, and a backfill roughly doubles the log volume.
 - Tell them before starting, not during. eRPC writes two `info` lines per
-  proxied call, which is 99.9% of their journal bytes and why valve-prod keeps
+  proxied call, which is 99.9% of their journal bytes and why the gateway host keeps
   under 8 hours while this box keeps 28 days on the same 2 GB cap.
 - Throttle if asked. `--block_cnt` on the scraper is the lever.
 
@@ -237,10 +237,10 @@ stopped relaying erpc's reading and verified it three ways.
 
 CORRECTION TO THE CAUSE OF THE 502 FIX. valve's journal evidence beats my
 bracket: chain-1 calls over 8s were logging `successfully forwarded` at
-8998-9012ms and stopped dead at each edge's RESTART (01:33:47Z edge-a,
-01:36:14Z edge-b), which ran the old binary and old config. My 01:35:50Z
+8998-9012ms and stopped dead at each edge's RESTART (01:33:47Z on the first edge,
+01:36:14Z on the second), which ran the old binary and old config. My 01:35:50Z
 synthesis sits between the two restarts, so it could only have hit the
-still-unfixed edge-b. So the cause is a restart clearing accumulated state, and
+still-unfixed second edge. So the cause is a restart clearing accumulated state, and
 the binary roll is demoted to a coincidence. A wedge that returns will not be
 fixed by the new binary.
 
@@ -386,9 +386,8 @@ The shim logs every time the upstream fails, so it dates the fault precisely:
 the last five synthesised answers were 01:05:36Z, 01:05:54Z, 01:11:31Z,
 01:11:49Z and 01:35:50Z. Nothing since.
 
-The probe is kept at `valve-tech/probes/empty-block-502.py` (also
-`/root/empty-block-502.py` on the indexer). Run it from a container on
-docker_default so Caddy injects the key and nothing prints a secret.
+The probe is kept at `valve-tech/probes/empty-block-502.py`. Run it from a container on
+the gateway's Docker network so Caddy injects the key and nothing prints a secret.
 
 The empty block still costs 0.61s where a full block's first call costs 0.1s,
 and a latency test settles what that means: the three methods are NOT on the
@@ -456,9 +455,8 @@ the first probe tested the wrong block. Always take the hex from `hex(n)`.
 - `manifest.json` spliced: 7,624 -> 8,198 entries, matching the file count. The
   old one is `manifest.json.damaged-20260916`. The new entries carry empty IPFS
   hashes, which the weekly `chifra chunks manifest --pin` fills in.
-- The shim is now a real service: `/valve/docker/empty-block-shim.py` plus an
-  `empty-block-shim` service in the compose file. `scraper-eth` points at it.
-  Compose backup: `docker-compose.yml.bak-20260916`.
+- The shim is now a real service: a script plus a
+  service in the indexer's compose file, and the mainnet scraper points at it.
 - The scraper passed block 25,948,788 at once and is catching up, ~340
   blocks/min from 36,000 behind. NOTE: the wrapper's first run panics if the
   shim is not listening yet, then the 60s backoff loop recovers it.
@@ -633,7 +631,7 @@ Today it answered block 23005399 once with `[]` and then 502 five times running.
 
 ### Repair: started, then stopped on purpose
 
-Scratch index at `valve_tb_data/_data/rescrape/unchained/mainnet`: the 5,952
+Scratch index at a scratch volume on the indexer: the 5,952
 clean chunks and blooms are HARDLINKED there (≤ 23,003,808), plus a copied
 `manifest.json` and its own `ts.bin`. `seed-baseline.txt` beside it holds
 inode/size/mtime for every linked file, to prove later that nothing rewrote a
@@ -646,7 +644,7 @@ chifra discards a whole 2,000-block pass on any 502, then restarts it. That is
 why the live scraper sits on one block for hours.
 
 Blocked on a trace source. The indexer's own reth is Sepolia. The direct
-mainnet nodes (`direct-{a,b}-evm-1-rpc.valve.city`) answer 403 without
+mainnet nodes (the two direct mainnet nodes) answer 403 without
 credentials. Once a source is chosen: point the scratch container at it, scrape
 past 25,000,000 (a snap-to-grid boundary, so the swap lines up), verify EVERY
 block's txid count against `eth_getBlockTransactionCountByNumber`, swap chunks
@@ -655,7 +653,7 @@ and blooms (damaged ones kept as a backup), then patch each mainnet monitor to
 
 ### Repair restarted 2026-09-11 03:32 UTC, behind a per-block gate
 
-The owner approved the unlimited valve key (`vk_Et-…`). Probing every route
+The owner approved the unlimited valve key. Probing every route
 with it: `one.valve.city/rpc/<key>/evm/1` and `rpc.valve.city/v1/<key>/evm/1`
 work; `rpc.valve.city/rpc/…` and `evm-1-rpc.valve.city` say "API key
 required"; the direct nodes stay 403 even with the key as a bearer.
@@ -672,7 +670,7 @@ log line — chifra prints its RPC URL at startup), with `--block_cnt 500` so a
 window were deleted first, after proving the seeded chunks unchanged against
 `seed-baseline.txt`.
 
-The gate is `~/rescrape-verify.py` on the indexer: every block in every new
+The gate is a verify script on the indexer: every block in every new
 chunk must have exactly as many distinct txids as
 `eth_getBlockTransactionCountByNumber` says. Passing chunks append to
 `rescrape/verified.txt`, so it resumes. A local watcher runs it every 10
@@ -698,8 +696,7 @@ range holds on the order of 2,000. Each one stalls chifra forever: that is
 why the live scraper has sat on 25948788 since 2026-09-10 20:29.
 
 The fix belongs to the valve gateway. Until then the re-scrape goes through
-`valve-rescrape-shim` (python:3.12-alpine on docker_default, source at
-`~/rescrape-shim.py` on the indexer). It forwards to `rpc-proxy`; when an item
+`valve-rescrape-shim` (python:3.12-alpine on the gateway's Docker network). It forwards to `rpc-proxy`; when an item
 fails, it answers 0 / [] ONLY if the block header proves the block empty. It
 also turns an empty trace/receipt list for a NON-empty block into an error,
 which blocks the April failure mode at scrape time. The gate reads through the
@@ -848,7 +845,7 @@ Ethereum address page    total 2, rows 0     total 2, rows 2
 ### The outage was mine
 
 I ran `explore-deploy` off the `thatis-monitor-key` branch without reading what
-its config change did. That branch had rotated `otterBackendKey` to an `op://`
+its config change did. That branch had rotated `otterBackendKey` to a 1Password
 ref, so `explorer-write-trace-env` composed the RPC URL from the **v2** key and
 wrote it to the explorer box — before the api had seeded it. The commit message
 predicted this failure in so many words, and the runbook's status line said
@@ -1019,7 +1016,7 @@ chifra alone and docker restarts it.
 
 **2. The appearance sidecar** (monorepo `2d699ac`, `5a3b1c8`). A
 dependency-free ESM service on `node:22-alpine`, source bind-mounted, data
-volume mounted READ-ONLY, capped at 1g, published on 127.0.0.1:8090 and
+volume mounted READ-ONLY, capped at 1g, published on loopback and
 routed at `chifra.valve.city/appearances`. 69 tests, green in the container.
 
 **3. The API prefers it** (`bda900f`). `fetchAppearances` returns `null` —
@@ -1079,7 +1076,7 @@ through chifra, because the 16g cap refuses them by design.
 
 ## 2026-08-26 THE INDEX IS PER-BLOCK CURRENT. CHIFRA'S READ PATH IS THE BUG.
 
-**Measured directly on the indexer box (95.217.41.159:2222), read-only.**
+**Measured directly on the indexer box, read-only.**
 This overturns the 2026-08-25 conclusion below it. That entry is right about
 where the time goes and wrong about why.
 
@@ -1175,9 +1172,9 @@ and it is worth handling before adding any warmer that can queue more of it.
 
 ### khedra already has the warmer, switched off
 
-`/valve/docker/khedra.yaml`: `services.monitor.enabled: false`, commented
+khedra's config: `services.monitor.enabled: false`, commented
 "no watchlist yet. Disable until we have a list of addresses to track."
-`sleep: 12`, `batchSize: 500`. Its control API on :8338 reports both
+`sleep: 12`, `batchSize: 500`. Its control API reports both
 `scraper` and `monitor` as `paused`. Scraping is done instead by four
 per-chain scraper containers. So task #34 is a watchlist plus a config flag,
 not new software — but note that one WPLS freshen is expensive enough to
@@ -1200,10 +1197,10 @@ ourselves. That gap is currently 1,590 blocks and grows without bound.
 Tiers 1 and 2 can overlap after a warm, so the merge needs deduplication —
 pin it with a test rather than assuming the ranges stay disjoint.
 
-Box facts: 12 cores, 62 GB RAM, load ~8.5, 49G disk at 39%. Monitor volume:
+Monitor volume:
 pulsechain 73 monitors / 5.1G, mainnet 28 / 3.3G, pulsechain-v4 25 / 81M,
-sepolia 2 / 92K. Volume `valve_tb_data` -> `/var/lib/docker/volumes/valve_tb_data/_data`.
-No `/usr/bin/time`, no `bc` on the box. `chifra monitors` has no `--freshen`
+sepolia 2 / 92K.
+No `time` binary and no `bc` on the box. `chifra monitors` has no `--freshen`
 in this build.
 
 
@@ -1604,9 +1601,9 @@ two causes are under HARD-WON below — neither is a clip.
 
 ### DEPLOY
 
-`yarn deploy --env rpc-otterscan --plan explore-deploy` from the monorepo.
-`TRACE_HOLDINGS_GRAPHQL_SECRET` is EMPTY in the monorepo `.env` and must come
-from `op://valve/valve_hasura_secret/password` on the command line each time;
+Run the monorepo's explorer deploy.
+The holdings GraphQL secret is EMPTY in the monorepo `.env` and must come
+from its 1Password item on the command line each time;
 the other five `TRACE_*` vars are populated and bun autoloads them. Blue/green;
 rollback is `--plan explore-rollback`. Pushing selects the build.
 
