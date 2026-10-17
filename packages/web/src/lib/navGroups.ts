@@ -124,12 +124,6 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: "heroicons:bell-alert",
         desc: "Alert on addresses, events, balances, and failures.",
       },
-      {
-        to: "/actions",
-        label: "Actions",
-        icon: "heroicons:bolt",
-        desc: "Serverless Web3 functions on chain triggers.",
-      },
     ],
   },
 ];

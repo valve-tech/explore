@@ -26,7 +26,6 @@ const MempoolView = lazy(() => import("./components/mempool/MempoolView"));
 const NetworkHealthPage = lazy(() => import("./pages/NetworkHealthPage"));
 const NetworkHealthBlockPage = lazy(() => import("./pages/NetworkHealthBlockPage"));
 const DebuggerView = lazy(() => import("./components/debugger/DebuggerView"));
-const ActionsDashboard = lazy(() => import("./components/actions/ActionsDashboard"));
 const ForkSimulator = lazy(() => import("./components/ForkSimulator"));
 const TransactionBuilder = lazy(() => import("./components/TransactionBuilder"));
 const ContractDiff = lazy(() => import("./components/ContractDiff"));
@@ -64,7 +63,6 @@ function AppRoutes() {
       <Route path="/debugger" element={<DebuggerView />} />
       <Route path="/debugger/:txHash/:tab" element={<DebuggerView />} />
       <Route path="/debugger/:txHash" element={<DebuggerView />} />
-      <Route path="/actions" element={<ActionsDashboard />} />
       <Route path="/storage" element={<StorageLayoutViewer />} />
       <Route path="/verify" element={<VerifyContract />} />
       <Route path="/diff" element={<ContractDiff />} />

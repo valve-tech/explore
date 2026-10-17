@@ -1,4 +1,4 @@
-import { type Log, formatEther } from "viem";
+import { type Log } from "viem";
 import { DEFAULT_CHAIN_ID } from "../chains/registry.js";
 import { getRpcClient } from "../chains/clients.js";
 import {
@@ -7,8 +7,6 @@ import {
   type AlertRow,
 } from "../db.js";
 import { dispatch, type MatchData } from "../notifier.js";
-import { processBlock as processActionsBlock } from "../actionScheduler.js";
-import { getEnabledBlockEventActions } from "../actionsDb.js";
 import { broadcast } from "../wsServer.js";
 import type { AlertConditions, BlockTransaction } from "./types.js";
 import {
@@ -30,23 +28,17 @@ const cooldownMap = new Map<number, number>();
 /**
  * Fetch a block + its logs from `chainId`'s RPC, normalize the
  * transactions, and run every enabled alert FOR THAT CHAIN against the
- * data. The block also flows into the action scheduler for that chain's
- * block/event-triggered actions, so alerts and actions fire from the same
- * fetched data.
+ * data.
  *
  * The zero-watchers early return (no block fetch at all) is preserved from
- * the single-chain era — a chain with neither enabled alerts nor enabled
- * block/event actions costs no RPC calls.
+ * the single-chain era — a chain with no enabled alerts costs no RPC calls.
  */
 export async function processBlock(
   blockNumber: bigint,
   chainId: number = DEFAULT_CHAIN_ID,
 ): Promise<void> {
-  const [alerts, actions] = await Promise.all([
-    getEnabledAlerts(chainId),
-    getEnabledBlockEventActions(chainId),
-  ]);
-  if (alerts.length === 0 && actions.length === 0) return;
+  const alerts = await getEnabledAlerts(chainId);
+  if (alerts.length === 0) return;
 
   const client = getRpcClient(chainId);
 
@@ -86,30 +78,6 @@ export async function processBlock(
     }
 
     await matchAlerts(alerts, txs, logs, blockNumber, chainId);
-
-    if (actions.length > 0) {
-      // Feed normalized block data to this chain's block/event actions.
-      const actionTxs = txs.map((tx) => ({
-        hash: tx.hash,
-        from: tx.from,
-        to: tx.to,
-        value: formatEther(tx.value),
-        input: tx.input,
-      }));
-      const actionLogs = logs.map((l) => ({
-        address: l.address,
-        topics: [...l.topics] as string[],
-        data: l.data,
-        transactionHash: l.transactionHash ?? null,
-      }));
-      await processActionsBlock(
-        Number(blockNumber),
-        actionTxs,
-        actionLogs,
-        chainId,
-        actions,
-      );
-    }
   } catch (err) {
     console.error(
       `[monitor] chain ${chainId}: error processing block ${blockNumber}:`,

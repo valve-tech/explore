@@ -65,7 +65,6 @@ vi.mock("../components/explorer/ExplorerPanel", () => lazyPage("explorer"));
 vi.mock("../components/mempool/MempoolView", () => lazyPage("mempool"));
 vi.mock("../pages/NetworkHealthPage", () => lazyPage("network-health"));
 vi.mock("../components/debugger/DebuggerView", () => lazyPage("debugger"));
-vi.mock("../components/actions/ActionsDashboard", () => lazyPage("actions"));
 vi.mock("../components/StorageLayoutViewer", () => lazyPage("storage"));
 vi.mock("../components/VerifyContract", () => lazyPage("verify"));
 vi.mock("../components/ContractDiff", () => lazyPage("diff"));
@@ -120,7 +119,6 @@ describe("App routing", () => {
     ["/mempool", "page:mempool"],
     ["/network-health", "page:network-health"],
     ["/debugger", "page:debugger"],
-    ["/actions", "page:actions"],
     ["/storage", "page:storage"],
     ["/verify", "page:verify"],
     ["/diff", "page:diff"],

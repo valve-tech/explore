@@ -50,8 +50,7 @@ describe("TxDetail progressive decode", () => {
 
     // Decode swaps in. Matched on "swap(" (the rendered function signature)
     // rather than bare "swap" — the next-steps rail's own swap suggestion
-    // also renders the word "swap" once decode resolves, in copy like "Wire
-    // a Web3 Action to react to swaps like this".
+    // also renders the word "swap" once decode resolves.
     resolveDecode({ decodedInput: { functionName: "swap", args: [] }, decodedLogs: [] });
     await waitFor(() => expect(screen.getByText(/swap\(/)).toBeInTheDocument());
   });

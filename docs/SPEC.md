@@ -12,7 +12,7 @@ Explore (by Valve City) — a Tenderly.co equivalent, originally targeting Pulse
 | 4 | [Virtual TestNets](features/04-virtual-testnets.md) | DONE | Forked PulseChain sandboxes for dev/test |
 | 5 | [Smart Contract Debugger](features/05-debugger.md) | DONE | Opcode-level EVM debugger with gas profiler |
 | 6 | [Enhanced Node RPC](features/06-enhanced-rpc.md) | DONE | JSON-RPC proxy with custom methods |
-| 7 | [Web3 Actions](features/07-web3-actions.md) | DONE | Serverless functions triggered by on-chain events |
+| 7 | [Web3 Actions](features/07-web3-actions.md) | REMOVED | Removed 2026-10-17: it ran caller-supplied code with no auth |
 
 ## Architecture
 
@@ -50,7 +50,7 @@ Explore (by Valve City) — a Tenderly.co equivalent, originally targeting Pulse
 - **Reth archive node**: Debug/trace APIs, deep simulation, gas profiling
 - **BlockScout API** (api.scan.pulsechain.com): ABIs, verified source, internal txs, token data
 - **Anvil/Hardhat**: Powers Virtual TestNet fork feature
-- **PostgreSQL**: Persistent storage for alerts, actions, user data
+- **PostgreSQL**: Persistent storage for alerts and user data (the `actions` and `action_logs` tables remain, unused)
 - **Redis**: Caching, pub/sub for real-time features, job queues
 
 ## Tech Stack

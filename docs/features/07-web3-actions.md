@@ -1,6 +1,11 @@
 # Feature 7: Web3 Actions (Serverless Functions)
 
-**Status: TODO**
+**Status: REMOVED (2026-10-17)**
+
+The feature ran caller-supplied JavaScript with no auth and open network
+access. The routes, executor, scheduler, web pages and tests are deleted.
+The `actions` and `action_logs` tables stay in the database, unread, as
+evidence. The text below is the old design, kept for history only.
 
 ## Overview
 Serverless JavaScript/TypeScript functions that execute in response to on-chain events, new blocks, cron schedules, or inbound webhooks. Each function runs in a sandboxed environment with a pre-configured PulseChain RPC client.

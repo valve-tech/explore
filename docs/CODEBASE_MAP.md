@@ -11,7 +11,7 @@ total_tokens: 360223
 
 ## System Overview
 
-**Explore** (by Valve City, deployed at https://explore.valve.city) — a multichain Tenderly-equivalent (launch set: Ethereum 1, PulseChain 369, PulseChain Testnet 943). Seven developer tools — simulation, exploration, debugging, monitoring, testnets, enhanced RPC, and serverless actions — delivered as a TypeScript monorepo with Express backend, React frontend, and a published `@valve-tech/trace-sdk` npm package.
+**Explore** (by Valve City, deployed at https://explore.valve.city) — a multichain Tenderly-equivalent (launch set: Ethereum 1, PulseChain 369, PulseChain Testnet 943). Six developer tools — simulation, exploration, debugging, monitoring, testnets and enhanced RPC — delivered (Web3 Actions were removed on 2026-10-17) as a TypeScript monorepo with Express backend, React frontend, and a published `@valve-tech/trace-sdk` npm package.
 
 ```mermaid
 graph TB
@@ -23,7 +23,6 @@ graph TB
         MonUI[Alert Dashboard]
         TestUI[TestNet Dashboard]
         RpcUI[RPC Dashboard]
-        ActUI[Actions Dashboard]
         StorageUI[Storage Layout Viewer]
         DiffUI[Contract Diff]
     end
@@ -47,8 +46,6 @@ graph TB
         Fork[forkManager + forkClient + spawnAnvil]
         Mon[monitor/]
         Notif[notifier/]
-        ActExec[actionExecutor/]
-        ActSched[actionScheduler]
         Sigs[signatures]
         Source[sourceCode/ + sourceMap/]
         Solc[solcCompiler/]
@@ -74,7 +71,7 @@ graph TB
 
     App --> SDK
     App --> Routes
-    Routes --> Sim & Exp & Trace & Fork & Mon & ActExec & RpcProxy & Source & Sigs & Solc & Slither & Keys
+    Routes --> Sim & Exp & Trace & Fork & Mon & RpcProxy & Source & Sigs & Solc & Slither & Keys
     Sim --> Dec & PulseRPC & PG
     Dec --> BlockScout & AbiCache
     Exp --> PulseRPC & BlockScout & Dec
@@ -83,8 +80,6 @@ graph TB
     Fork --> Anvil
     Mon --> PulseRPC & PG & Notif & WS
     Notif --> Webhooks
-    ActExec --> PulseRPC & PG
-    ActSched --> ActExec & PG
     RpcProxy --> Sim & Dec & PulseRPC & RpcAna
     RpcAna --> RpcBuf
     Source --> BlockScout & Sourcify & PG
@@ -113,8 +108,7 @@ explore/
 │   │   │   └── services/     # Business logic (most split into per-responsibility subdirs)
 │   │   ├── migrations/       # Numbered .sql files applied at boot under advisory lock
 │   │   └── tests/
-│   │       ├── integration.test.ts        # 32 e2e tests (requires live server)
-│   │       └── actionExecutor.smoke.ts    # Sandbox permission tests (no DB needed)
+│   │       └── integration.test.ts        # e2e tests (requires live server)
 │   ├── sdk/                  # @valve-tech/trace-sdk — published npm package
 │   │   ├── src/
 │   │   │   ├── index.ts      # Root barrel
@@ -174,7 +168,6 @@ Single source of truth for PulseChain network constants. Consumed directly via T
 | `routes/debugger.ts` | `GET /api/debug/tx/:hash/{trace,opcodes,gas-profile}`, `POST /api/debug/trace` | Call trace + opcode trace + gas profile (cache → debug RPC → anvil fallback chain) |
 | `routes/token.ts` (in `routes/explorer.ts`) | `GET /api/token/:addr/meta` | ERC-20/721 decimals/symbol/name, cached (server-side; replaced the client-side viem read) |
 | `routes/alerts.ts` (+ `alerts/{schemas,serialize}.ts`) | CRUD `/api/alerts` + history + test | Monitoring alert rules |
-| `routes/actions.ts` (+ `actions/{schemas,serialize}.ts`) | CRUD `/api/actions` + test + logs + `POST /api/actions/webhooks/:id` | Serverless action management + inbound webhooks |
 | `routes/testnets.ts` | CRUD `/api/testnets` + snapshot/revert/fund/mine/time-travel/rpc | Anvil fork lifecycle |
 | `routes/source.ts` | `GET /api/source/:address`, `POST :address/map`, `GET :address/storage-layout`, `POST :address/analyze` | Verified source code + source map + Slither analysis |
 | `routes/signatures.ts` | `GET /api/signatures/:selector`, `POST /api/signatures/batch` | 4byte selector lookup (cached + external) |
@@ -200,9 +193,6 @@ Single source of truth for PulseChain network constants. Consumed directly via T
 | `services/explorer/` | RPC + chifra aggregation (tx, internal txs from debug trace, token transfers from receipt logs, address history via chifra appearances, contracts via Sourcify, blocks) | `getTransactionDetails`, `getContractInfo`, `getBlockDetails`, ... |
 | `services/monitor/` | Block poller (3s `setInterval`, re-entry guarded, ≤5 blocks catch-up per tick) + 5 alert matchers | `startMonitor`, `stopMonitor`, `processBlock` |
 | `services/notifier/` | Webhook/Discord/Slack/Telegram dispatch with per-channel failure isolation | `dispatch` |
-| `services/actionExecutor/` | Sandboxed action execution via Node child process with `--permission --allow-fs-read=<repo>`; storage merge-back | `executeAction` |
-| `services/actionScheduler.ts` | Periodic (`setInterval`) + block + event + webhook action scheduling | `initScheduler`, `processBlock`, `registerAction`, `unregisterAction` |
-| `services/actionsDb.ts` | Actions + action_logs + per-action JSONB storage CRUD | `createAction`, `addLog`, `getActionStorage`, `setActionStorage`, ... |
 | `services/apiKeys.ts` | 32-byte hex key generation, SHA-256 hashing; `validateApiKey` uses `UPDATE … RETURNING` for atomic `last_used_at` | `createApiKey`, `validateApiKey`, ... |
 | `services/signatures.ts` | 4byte lookup: Postgres `signature_cache` → Sourcify 4byte API → 4byte.directory; 1h negative cache | `lookupSelector`, `lookupSelectors` |
 | `services/sourceCode/` | Verified source fetch: cache → Sourcify → BlockScout fallback; negative cache for unverified addresses | `getVerifiedSource` |
@@ -219,7 +209,7 @@ Five sequential `.sql` files in `packages/api/migrations/`, applied at boot unde
 
 | File | Tables |
 |------|--------|
-| `001-initial.sql` | `alerts` (JSONB conditions/notifications, TIMESTAMPTZ, alert-type enum), `alert_history`, `actions` (trigger-type enum, JSONB config/secrets/storage), `action_logs` |
+| `001-initial.sql` | `alerts` (JSONB conditions/notifications, TIMESTAMPTZ, alert-type enum), `alert_history`, `actions` (trigger-type enum, JSONB config/secrets/storage), `action_logs` — both unused since the feature was removed on 2026-10-17, kept as evidence |
 | `002-verified-sources.sql` | `verified_sources` (unique on `LOWER(address)`, full BlockScout/Sourcify payload + `source_map`), `slither_results` |
 | `003-api-keys.sql` | `api_keys` (SHA-256 `key_hash` unique, per-key `rate_limit`) |
 | `004-trace-cache.sql` | `trace_cache` (unique on `(tx_hash, trace_type)`) |
@@ -285,7 +275,6 @@ A platform-independent npm package providing EVM trace loading, traversal, parsi
 | `/testnets` | TestNets | `TestNetDashboard` |
 | `/explorer/*` | Explorer | `ExplorerPanel` |
 | `/debugger` / `/debugger/:txHash` | Debugger | `DebuggerView` |
-| `/actions` | Actions | `ActionsDashboard` |
 | `/storage` | Storage | `StorageLayoutViewer` |
 | `/diff` | Diff | `ContractDiff` |
 
@@ -323,8 +312,6 @@ App (Router)
 │   ├── GasProfiler/{GasBarChart, GasTable, CallTypeBreakdown, OpcodeCategoryBreakdown, TopExpensiveOps, colors}
 │   ├── SDK: CallTree, GasFlamegraph, OpcodeViewer
 │   └── SoliditySourceViewer, SlitherFindingsPanel
-├── /actions → ActionsDashboard
-│   ├── ActionEditor/{TriggerTypePicker, TriggerConfigEditor, CodeEditor, SecretsEditor, TestResultPanel, EditorActions, templates}
 │   └── ActionLogs
 ├── /storage → StorageLayoutViewer
 └── /diff → ContractDiff/{InputCard, SummaryBar, FileDiffView, api, types}
@@ -340,7 +327,6 @@ App (Router)
 | `api/debugger.ts` | `/api/debug/tx/:hash/*`, `POST /api/debug/trace` | Never throws — returns `{ ok, debugAvailable, error }`. Re-exports `CallFrame = RawCallFrame` from SDK |
 | `api/explorer.ts` | `/api/tx`, `/address`, `/contract`, `/block` | Shared `apiFetch<T>` helper, throws |
 | `api/alerts.ts` | `/api/alerts` CRUD + history + test | Inline throws |
-| `api/actions.ts` | `/api/actions` CRUD + test + logs | Shared `handleResponse<T>`, throws |
 | `api/testnets.ts` | `/api/testnets` CRUD + operations | Shared `handleResponse<T>`, throws |
 | `api/rpc.ts` | `sendRpcRequest` — BYO-RPC raw reads straight to the user's override node (no shared proxy) | Throws (incl. when no override is set) |
 | `api/source.ts` | `/api/source/:address`, `:address/analyze`, `:address/map` | Never throws — `{ ok, ... }` envelope |
@@ -444,28 +430,6 @@ sequenceDiagram
     end
 ```
 
-### Web3 Action Execution (Webhook Trigger)
-
-```mermaid
-sequenceDiagram
-    participant Ext as External Service
-    participant API as POST /api/actions/webhooks/:id
-    participant DB as Postgres
-    participant Child as actionExecutor/runInChild.ts
-    participant RPC as PulseChain RPC
-
-    Ext->>API: POST webhook payload
-    API->>DB: getAction(id)
-    DB-->>API: Action record (code, secrets, storage)
-    API->>Child: spawn Node child with --permission --allow-fs-read=<repo>
-    Note over Child: stdin → JSON payload, captured console, storage proxy
-    Child->>RPC: User code calls rpc.getBalance(), etc.
-    RPC-->>Child: Chain data
-    Child-->>API: stdout JSON {success, output, stdout, stderr, duration, storageMutations}
-    API->>DB: addLog(result) + setActionStorage(mutations)
-    API-->>Ext: Execution result
-```
-
 ## Environment Variables
 
 | Variable | Default | Used By |
@@ -491,7 +455,7 @@ sequenceDiagram
 **Frontend:**
 - React 19 functional components (no class components)
 - **React Router v7 `BrowserRouter`** (changed from old map — was tab-based `useState`) — 12 top-level routes
-- Per-tab internal navigation still uses `useState<View>` discriminated unions (Debugger, Explorer, Monitoring, Actions, TestNets)
+- Per-tab internal navigation still uses `useState<View>` discriminated unions (Debugger, Explorer, Monitoring, TestNets)
 - TanStack Query v5 for server state, persisted to IndexedDB via `PersistQueryClientProvider`
 - Local component `useState` for UI state — no Redux/Zustand
 - Styling: Tailwind v4 utilities + inline `style={{}}` with CSS custom properties; **`border-radius: 0 !important`** is set globally
@@ -516,7 +480,6 @@ sequenceDiagram
 > Last verified: 2026-05-21.
 
 ### Critical (still present)
-- **`actionExecutor` child has read-all-repo access**: `--permission --allow-fs-read=<REPO_ROOT>` makes the entire repo readable from the sandbox. User code cannot *write*, but it can `readFile` source, `tsconfig.json`, migration SQL, etc. `.env` is filtered at the env level but static files are accessible. Adequate for local dev tooling, not multi-tenant.
 - **Forks bind to 127.0.0.1**: `spawnAnvil.ts` no longer binds to `0.0.0.0` (changed from the old map's gotcha). Local-only access; `proxyRpc` route is the externally-reachable surface.
 - **Bundle simulation does not propagate state by design**: `simulator/simulateBundle.ts` — `eth_call` is read-only; callers must pass explicit `stateOverrides` between steps. Architecture limitation until bundle path switches to fork-based.
 
@@ -524,7 +487,6 @@ sequenceDiagram
 - **ABI cache never invalidates**: `decoder/abiCache.ts` TTL + FIFO eviction, but no event-driven invalidation. Server restart required to pick up newly verified contracts.
 - **RPC analytics are in-memory only**: `rpcAnalytics.ts` — 10k record ring buffer, lost on restart.
 - **Auth middleware is per-process**: `middleware/auth.ts` uses a `Map` for rate limiting. In multi-replica deployments, counters are independent — rate limits are *not* globally enforced.
-- **`void initScheduler()` swallows boot errors**: `index.ts:161` — if scheduler fails to load enabled periodic actions, the error is an unhandled rejection but the server has already started listening; actions silently fail to register.
 - **Fire-and-forget cache writes**:
   - `traceTransaction.ts:43,56,62`, `traceOpcodes.ts:88,109,115` — `void setCachedTrace(...)` tracked in `pendingCacheWrites` Set for graceful shutdown, but write errors are silently logged.
   - `signatures.ts:74` — `.catch(() => {})` on signature cache insert. Failed cache writes are silent; next request pays the full external API round-trip.

@@ -74,8 +74,8 @@ function buildAppendix(): string {
 # Surfaces
 
 \`${PUBLIC_HOST}\` exposes the ${BRAND_NAME} platform — transaction simulation,
-opcode debugger, virtual testnets (Anvil forks), monitoring/alerting, and
-serverless Web3 Actions for ${defaultChain.name} (chain ID ${defaultChain.chainId}).
+opcode debugger, virtual testnets (Anvil forks) and monitoring/alerting
+for ${defaultChain.name} (chain ID ${defaultChain.chainId}).
 Chain data is served through purpose-built REST endpoints under \`/api\` (the
 explorer, network-health, chifra transfers, token metadata, …) — there is no
 open JSON-RPC proxy.
@@ -124,7 +124,6 @@ export const spec: OpenAPIObject = {
     { name: "simulate", description: "transaction + bundle simulation (read-only fork)" },
     { name: "testnets", description: "virtual testnets (Anvil forks: CRUD + lifecycle)" },
     { name: "alerts", description: "monitoring rules + history (CRUD + replay)" },
-    { name: "actions", description: "serverless web3 actions + execution history" },
     { name: "source", description: "verified-source lookup + Sourcify proxy" },
     { name: "signatures", description: "4byte / Sourcify selector lookups" },
     { name: "diff", description: "contract source diff" },

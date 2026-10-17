@@ -91,7 +91,7 @@ describe("nextStepsFor", () => {
     ).toEqual([]);
   });
 
-  it("offers a fork-replay and a Web3 Action for a successful swap", () => {
+  it("offers a fork-replay for a successful swap", () => {
     const steps = nextStepsFor(
       baseFacts({
         status: "success",
@@ -99,10 +99,9 @@ describe("nextStepsFor", () => {
       }),
       CHAIN_ID,
     );
-    expect(steps.map((s) => s.id)).toEqual(["fork", "actions"]);
+    expect(steps.map((s) => s.id)).toEqual(["fork"]);
     expect(steps[0]?.primary).toBe(true);
     expect(steps[0]?.to).toBe(`/eip155/369/fork?fromTx=${HASH}`);
-    expect(steps[1]?.to).toBe("/eip155/369/actions");
   });
 
   it("matches a swap function name case-insensitively", () => {
@@ -110,7 +109,7 @@ describe("nextStepsFor", () => {
       baseFacts({ status: "success", functionName: "SWAP_EXACT_ETH" }),
       CHAIN_ID,
     );
-    expect(steps.map((s) => s.id)).toEqual(["fork", "actions"]);
+    expect(steps.map((s) => s.id)).toEqual(["fork"]);
   });
 
   /**
@@ -130,7 +129,7 @@ describe("nextStepsFor", () => {
       baseFacts({ status: "success", functionName: fn }),
       CHAIN_ID,
     );
-    expect(steps.map((s) => s.id)).toEqual(["fork", "actions"]);
+    expect(steps.map((s) => s.id)).toEqual(["fork"]);
   });
 
   /**

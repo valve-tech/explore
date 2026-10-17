@@ -100,15 +100,14 @@ describe("<NextStepsRail />", () => {
     expect(link).toHaveAttribute("href", `/eip155/369/address/${from}`);
   });
 
-  it("links a fork-replay and a Web3 Action for a successful swap", () => {
+  it("links a fork-replay, and no Web3 Action, for a successful swap", () => {
     renderRail({
       transaction: tx({ status: "success" }),
       functionName: "swapExactTokensForTokens",
     });
     const fork = screen.getByRole("link", { name: /fork-replay/i });
     expect(fork).toHaveAttribute("href", `/eip155/369/fork?fromTx=${tx().hash}`);
-    const actions = screen.getByRole("link", { name: /wire a web3 action/i });
-    expect(actions).toHaveAttribute("href", "/eip155/369/actions");
+    expect(screen.queryByRole("link", { name: /web3 action/i })).toBeNull();
   });
 
   it("puts a short name on the button and the sentence in the tooltip", () => {

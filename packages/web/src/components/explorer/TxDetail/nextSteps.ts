@@ -196,14 +196,6 @@ export function nextStepsFor(
         sub: "Spin up a testnet seeded with this tx as the head",
         to: toolPath(chainId, `/fork?fromTx=${facts.hash}`),
       },
-      {
-        id: "actions",
-        short: "Wire an action",
-        icon: "heroicons:bolt",
-        label: "Wire a Web3 Action to react to swaps like this",
-        sub: "Trigger alerts or automations off similar activity",
-        to: toolPath(chainId, "/actions"),
-      },
     ];
   }
 

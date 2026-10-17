@@ -98,11 +98,6 @@ function nextStepsFor(o: Outcome): NextStep[] {
         sub: "Spin up a testnet seeded with this tx as the head",
       },
       {
-        icon: "heroicons:bolt",
-        label: "Wire a Web3 Action to react to swaps like this",
-        sub: "Trigger when amountIn > X, route alerts, rebalance, etc.",
-      },
-      {
         icon: "heroicons:document-duplicate",
         label: "Diff with the last reverted swap from this sender",
         sub: "What's different about this one that worked?",

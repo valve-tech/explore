@@ -13,7 +13,6 @@ const ROUTES = [
   "/mempool",
   "/network-health",
   "/debugger",
-  "/actions",
   "/storage",
   "/verify",
   "/diff",

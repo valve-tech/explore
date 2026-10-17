@@ -80,15 +80,6 @@ const UNDOCUMENTED: ReadonlyArray<{ method: string; path: string; reason: string
   { method: "delete", path: "/api/alerts/:id", reason: "Covered by follow-up: alerts tag." },
   { method: "get", path: "/api/alerts/:id/history", reason: "Covered by follow-up: alerts tag." },
   { method: "post", path: "/api/alerts/:id/replay", reason: "Covered by follow-up: alerts tag." },
-  // actions (8 routes)
-  { method: "get", path: "/api/actions/", reason: "Covered by follow-up: actions tag." },
-  { method: "post", path: "/api/actions/", reason: "Covered by follow-up: actions tag." },
-  { method: "get", path: "/api/actions/:id", reason: "Covered by follow-up: actions tag." },
-  { method: "patch", path: "/api/actions/:id", reason: "Covered by follow-up: actions tag." },
-  { method: "delete", path: "/api/actions/:id", reason: "Covered by follow-up: actions tag." },
-  { method: "post", path: "/api/actions/:id/run", reason: "Covered by follow-up: actions tag." },
-  { method: "get", path: "/api/actions/:id/runs", reason: "Covered by follow-up: actions tag." },
-  { method: "post", path: "/api/actions/:id/enable", reason: "Covered by follow-up: actions tag." },
   // source
   { method: "get", path: "/api/source/:addr", reason: "Covered by follow-up: source tag." },
   { method: "post", path: "/api/source/verify", reason: "Covered by follow-up: source tag." },

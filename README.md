@@ -1,6 +1,6 @@
 # Explore
 
-**Explore** (by Valve City) — a multichain block explorer, transaction simulator, and opcode debugger, deployed at [explore.valve.city](https://explore.valve.city). Seven developer tools — transaction simulation, block explorer, monitoring & alerting, virtual testnets (Anvil forks), smart-contract debugger, enhanced JSON-RPC proxy, and serverless Web3 Actions — delivered as a TypeScript monorepo plus a published `@valve-tech/trace-sdk` npm package.
+**Explore** (by Valve City) — a multichain block explorer, transaction simulator, and opcode debugger, deployed at [explore.valve.city](https://explore.valve.city). Six developer tools — transaction simulation, block explorer, monitoring & alerting, virtual testnets (Anvil forks), smart-contract debugger and enhanced JSON-RPC proxy — delivered as a TypeScript monorepo plus a published `@valve-tech/trace-sdk` npm package.
 
 ## Packages
 
