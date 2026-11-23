@@ -1,3 +1,4 @@
+import type { HoverValue } from "./hoverValues/types";
 import { useCallback, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Tooltip } from "../../primitives/Tooltip";
@@ -37,6 +38,7 @@ export function SourceOpcodeSplit({
   onJumpToLine,
   onTokenClick,
   describeToken,
+  hoverValue,
   // opcode pane
   steps,
   currentStep,
@@ -62,6 +64,7 @@ export function SourceOpcodeSplit({
    *  Used by the parent for go-to-definition navigation. */
   onTokenClick?: (click: SourceTokenClick) => void;
   describeToken?: (pos: SourceTokenPos, modifier: ClickModifier) => string | null;
+  hoverValue?: (pos: SourceTokenPos) => HoverValue | null;
   steps: OpcodeStep[];
   currentStep: number;
   goTo: (step: number) => void;
@@ -136,6 +139,7 @@ export function SourceOpcodeSplit({
             onLineClick={onJumpToLine}
             onTokenClick={onTokenClick}
             describeToken={describeToken}
+            hoverValue={hoverValue}
             executableLines={executableLines}
           />
         </div>

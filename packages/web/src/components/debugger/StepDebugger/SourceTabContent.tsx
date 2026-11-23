@@ -1,3 +1,4 @@
+import type { HoverValue } from "./hoverValues/types";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ContractSource, SlitherFinding } from "../../../api/source";
 import SourceViewer, { type HighlightSpan } from "../SoliditySourceViewer";
@@ -38,6 +39,7 @@ export function SourceTabContent({
   onLineClick,
   onTokenClick,
   describeToken,
+  hoverValue,
   executableLines,
 }: {
   /** Auto-selected from the cursor's source map; null when no source is loaded. */
@@ -54,6 +56,7 @@ export function SourceTabContent({
   onLineClick?: (line: number) => void;
   onTokenClick?: (click: SourceTokenClick) => void;
   describeToken?: (pos: SourceTokenPos, modifier: ClickModifier) => string | null;
+  hoverValue?: (pos: SourceTokenPos) => HoverValue | null;
   executableLines?: Set<number>;
 }) {
   // Flatten Slither's nested findings/elements/lines structure into the
@@ -162,6 +165,7 @@ export function SourceTabContent({
             onLineClick={onLineClick}
             onTokenClick={onTokenClick}
             describeToken={describeToken}
+            hoverValue={hoverValue}
             executableLines={isViewingActiveFile ? executableLines : undefined}
             findings={sourceViewerFindings}
           />

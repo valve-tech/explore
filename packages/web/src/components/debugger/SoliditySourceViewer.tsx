@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, type ReactNode } from "react";
+import { useRef, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { SourceFile } from "../../api/source";
 import {
   type Token,
@@ -9,7 +9,9 @@ import { detectSourceLanguage, tokenizeSource } from "./SoliditySourceViewer/tok
 import { useFindInSource } from "./SoliditySourceViewer/useFindInSource";
 import { FindBar } from "./SoliditySourceViewer/FindBar";
 import { Tooltip } from "../primitives/Tooltip";
-import { SourceToken, type SourceTokenClick, type SourceTokenPos } from "./SoliditySourceViewer/SourceToken";
+import { SourceToken, type SourceTokenClick, type SourceTokenPos, type TokenHover } from "./SoliditySourceViewer/SourceToken";
+import { HoverCard } from "./SoliditySourceViewer/HoverCard";
+import type { HoverValue } from "./StepDebugger/hoverValues/types";
 import type { ClickModifier } from "./StepDebugger/sourceNav/navTypes";
 
 export type { SourceTokenClick, SourceTokenPos };
@@ -37,6 +39,8 @@ interface SourceViewerProps {
   onTokenClick?: (click: SourceTokenClick) => void;
   /** Hover text for a token, or null when a click does nothing there. */
   describeToken?: (pos: SourceTokenPos, modifier: ClickModifier) => string | null;
+  /** The value an identifier holds at the current step, or null when unknown. */
+  hoverValue?: (pos: SourceTokenPos) => HoverValue | null;
   /** Click the line-number gutter to act on a line (e.g. jump to the first
    *  opcode mapped there). Lines with no executing opcode get a dimmed gutter. */
   onLineClick?: (line: number) => void;
@@ -58,9 +62,13 @@ export default function SourceViewer({
   findings,
   onTokenClick,
   describeToken,
+  hoverValue,
   onLineClick,
   executableLines,
 }: SourceViewerProps) {
+  const [hover, setHover] = useState<TokenHover | null>(null);
+  // Derived in render, so a step change updates an open card at once.
+  const hoveredValue = hover && hoverValue ? hoverValue(hover.pos) : null;
   const containerRef = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => file.content.split("\n"), [file.content]);
 
@@ -158,6 +166,7 @@ export default function SourceViewer({
 
   return (
     <div className="relative h-full">
+      {hover && <HoverCard rect={hover.rect} value={hoveredValue} hint={hover.hint} />}
       {findOpen && (
         <FindBar
           inputRef={findInputRef}
@@ -277,6 +286,7 @@ export default function SourceViewer({
                       highlighted={highlighted}
                       onTokenClick={onTokenClick}
                       describeToken={describeToken}
+                      onHover={onTokenClick ? setHover : undefined}
                     />
                   );
 

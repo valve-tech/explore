@@ -393,14 +393,16 @@ describe("SoliditySourceViewer", () => {
     const mint = screen.getByText("mint");
     fireEvent.mouseEnter(mint);
     expect(mint.style.cursor).toBe("pointer");
-    expect(mint.title).toBe("Go to implementation of mint");
+    // The hint shows in the themed hover card, not a native title.
+    expect(screen.getByTestId("source-hover-card").textContent).toBe("Go to implementation of mint");
     fireEvent.mouseLeave(mint);
     expect(mint.style.cursor).toBe("");
-    expect(mint.hasAttribute("title")).toBe(false);
+    expect(screen.queryByTestId("source-hover-card")).toBeNull();
     const token = screen.getByText("Token");
     fireEvent.mouseEnter(token);
     expect(token.style.cursor).toBe("");
     expect(token.style.textDecoration).not.toBe("underline");
+    expect(screen.queryByTestId("source-hover-card")).toBeNull();
   });
 
   it("invokes onLineClick from an executable gutter number", () => {
