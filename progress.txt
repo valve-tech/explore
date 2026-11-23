@@ -1,5 +1,23 @@
 # Explore (trace) — Progress
 
+## 2026-11-23 Debugger source viewer: tokenizer audit (branch worktree-agent-adfce21b8d7aacc4d, not merged)
+
+The source pane tokenizer now carries real state between lines and knows three
+languages. Entry point: `SoliditySourceViewer/tokenizeSource.ts`
+(`detectSourceLanguage` + `tokenizeSource`). Corpus test:
+`packages/web/src/__tests__/tokenizeCorpus.test.ts`.
+
+Facts worth keeping:
+- Click-to-definition reads `isNavigableToken` (identifier or function), not
+  `type === "identifier"`. A new token class that names user code must join it.
+- Contract, struct and enum names stay `identifier` on purpose. The tokenizer
+  has no symbol table, so it cannot tell a user type from a variable.
+- `from`, `global`, `error`, `revert`, `receive`, `fallback`, `transient` are
+  contextual. The statement kind (pragma, import, using) is line state.
+- Not done: `layout at` (storage layout specifier) stays identifier. NatSpec
+  tags inside Vyper docstrings are not split. Yul names with dots
+  (`a.b.c` in standalone Yul) split at the dot.
+
 ## 2026-09-22 Deployed explore.valve.city — prod was ~2 weeks stale
 
 Ran the monorepo's explorer deploy

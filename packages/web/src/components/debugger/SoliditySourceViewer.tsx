@@ -4,10 +4,10 @@ import {
   type Token,
   type HighlightSpan,
   TOKEN_COLORS,
-  tokenizeLine,
-  splitCommentToken,
+  isNavigableToken,
   splitTokensBySpan,
 } from "./SoliditySourceViewer/tokenize";
+import { detectSourceLanguage, tokenizeSource } from "./SoliditySourceViewer/tokenizeSource";
 import { useFindInSource } from "./SoliditySourceViewer/useFindInSource";
 import { FindBar } from "./SoliditySourceViewer/FindBar";
 import { Tooltip } from "../primitives/Tooltip";
@@ -57,16 +57,13 @@ export default function SourceViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => file.content.split("\n"), [file.content]);
 
-  // Pre-tokenize all lines with block comment tracking
-  const tokenizedLines = useMemo(() => {
-    let inComment = false;
-    return lines.map((line) => {
-      const result = tokenizeLine(line, inComment);
-      inComment = result.inBlockComment;
-      // Split comment tokens to highlight NatSpec tags
-      return result.tokens.flatMap(splitCommentToken);
-    });
-  }, [lines]);
+  // Pre-tokenize all lines. The tokenizer carries its state from line to
+  // line, and the language decides which tokenizer runs: a Vyper or Yul file
+  // must not get Solidity rules.
+  const tokenizedLines = useMemo(
+    () => tokenizeSource(lines, detectSourceLanguage(file.name, file.content)),
+    [lines, file.name, file.content],
+  );
   // Identifier clicks used to toggle a self-contained filter+badge. They now
   // fire onIdentifierClick so the parent can navigate to the definition; the
   // selected/highlight UI state lives there, not here.
@@ -148,7 +145,7 @@ export default function SourceViewer({
 
   const handleTokenClick = useCallback(
     (token: Token, lineNum: number) => {
-      if (token.type === "identifier") {
+      if (isNavigableToken(token)) {
         onIdentifierClick?.(token.value, lineNum);
       }
     },
@@ -271,7 +268,7 @@ export default function SourceViewer({
                     j: number,
                     highlighted: boolean,
                   ) => {
-                    const isClickable = token.type === "identifier";
+                    const isClickable = isNavigableToken(token);
                     return (
                       <span
                         key={j}
