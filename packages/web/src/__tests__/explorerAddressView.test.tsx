@@ -374,6 +374,7 @@ describe("<AddressView /> — sub-tab lives in the URL", () => {
     expect(screen.getByRole("button", { name: "Re-verify" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Source" }));
-    expect(await screen.findByText("contract Foo {}")).toBeInTheDocument();
+    // The viewer splits a line into token spans, so match the line's whole text.
+    expect(await screen.findByText((_, el) => el?.textContent === "contract Foo {}" && ![...(el?.children ?? [])].some((c) => c.textContent === "contract Foo {}"))).toBeInTheDocument();
   });
 });
