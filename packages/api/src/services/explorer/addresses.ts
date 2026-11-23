@@ -10,6 +10,7 @@ import { isWarming, isWarmHopeless } from "../chifra/warmIndex.js";
 import { appearanceOutageMessage } from "./addresses/outageMessage.js";
 import { lookupSelectorSummaries, type SelectorSummary } from "../signatures.js";
 import { TRANSFER_TOPIC } from "./tokenTransfers/transforms.js";
+import { addressRelations, type AddressRelation } from "./addresses/relations.js";
 import {
   buildAddressTransaction,
   buildAddressToken,
@@ -27,6 +28,8 @@ export type AddressTransaction = AddressTransactionBase & {
   type: string;
   maxFeePerGas: string | null;
   maxPriorityFeePerGas: string | null;
+  /** How the page's address takes part in this transaction. See relations.ts. */
+  relations: AddressRelation[];
 };
 
 /**
@@ -147,6 +150,7 @@ export async function getAddressTransactions(
         summary?.candidateCount ?? 0,
       ),
       ...(r.tx ? extractTxTypeAndFees(r.tx) : LEGACY_FALLBACK_FEES),
+      relations: addressRelations(address, r.tx, r.receipt),
     };
   });
 

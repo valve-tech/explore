@@ -4,6 +4,7 @@ import { formatEther, hexToBigInt, hexToNumber } from "viem";
 import { DEFAULT_CHAIN_ID } from "../lib/chains";
 import { isRpcOverridden } from "../lib/rpcEndpoint";
 import { sendRpcRequest, type JsonRpcResponse } from "./rpc";
+import type { AddressRelation } from "../lib/addressRelations";
 
 const API_BASE = apiUrl("/api");
 
@@ -136,6 +137,13 @@ export interface AddressInfo {
 }
 
 export interface AddressTransaction {
+  /**
+   * How the page's address takes part in this transaction, in a fixed order.
+   * Empty when the server could not tell (no receipt). OPTIONAL: a response
+   * cached in IndexedDB before this field existed omits it, and the row then
+   * shows no icons and never hides behind a filter.
+   */
+  relations?: AddressRelation[];
   hash: string;
   blockNumber: string;
   timeStamp: string;

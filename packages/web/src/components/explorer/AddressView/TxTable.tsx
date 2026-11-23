@@ -12,6 +12,7 @@ import { Tooltip } from "../../primitives/Tooltip";
 import { MiddleTruncate } from "../../primitives/MiddleTruncate";
 import { ResolvedAmount } from "../../primitives/ResolvedAmount";
 import { DataTable, type Column } from "../../primitives/DataTable";
+import { RelationIcons } from "./RelationIcons";
 
 interface Props {
   txs: AddressTransaction[];
@@ -31,6 +32,13 @@ export function TxTable({ txs, ownerAddress, onNavigate }: Props) {
         <LinkButton target={{ type: "tx", value: tx.hash }} onNavigate={onNavigate}>
           <MiddleTruncate value={tx.hash} copyable={false} className="font-mono text-xs theme-accent" />
         </LinkButton>
+      ),
+    },
+    {
+      key: "relation",
+      header: "Role",
+      cell: (tx) => (
+        <RelationIcons relations={tx.relations} hash={tx.hash} ownerAddress={ownerAddress} />
       ),
     },
     {
@@ -158,10 +166,15 @@ function ToCell({
     );
   }
 
-  const isIn = tx.to.toLowerCase() === ownerAddress.toLowerCase();
+  // IN and OUT are claims about THIS address. A row where it is neither the
+  // sender nor the recipient (a validator seen only in the trace, say) gets no
+  // badge: printing OUT there told readers they had sent the transaction.
+  const owner = ownerAddress.toLowerCase();
+  const direction =
+    tx.to.toLowerCase() === owner ? "in" : tx.from.toLowerCase() === owner ? "out" : null;
   return (
     <div className="flex items-center gap-1.5 min-w-0">
-      <DirectionBadge isIn={isIn} />
+      {direction && <DirectionBadge isIn={direction === "in"} />}
       <LinkButton target={{ type: "address", value: tx.to }} onNavigate={onNavigate}>
         <MiddleTruncate value={tx.to} copyable={false} className="font-mono text-xs theme-accent" />
       </LinkButton>
