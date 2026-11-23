@@ -373,7 +373,7 @@ describe("SoliditySourceViewer", () => {
     // Identifier token (function name) is clickable.
     const token = screen.getByText("mint");
     fireEvent.click(token);
-    expect(onTokenClick).toHaveBeenCalledWith({ file: "Token.sol", line: 2, col: 11, text: "mint", modifier: "plain" });
+    expect(onTokenClick).toHaveBeenCalledWith({ file: "Token.sol", line: 2, col: 11, tokenType: "function", text: "mint", modifier: "plain" });
     fireEvent.click(token, { altKey: true });
     expect(onTokenClick).toHaveBeenLastCalledWith(expect.objectContaining({ modifier: "alt" }));
     // A keyword never acts.

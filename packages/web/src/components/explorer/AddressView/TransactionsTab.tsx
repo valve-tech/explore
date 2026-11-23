@@ -1,4 +1,8 @@
+import { useState } from "react";
 import type { AddressTransaction } from "../../../api/explorer";
+import type { AddressRelation } from "../../../lib/addressRelations";
+import { RelationFilter } from "./RelationFilter";
+import { countRelations, filterByRelations } from "./relationRows";
 import { Dropdown } from "../../primitives/Dropdown";
 import { TxTable } from "./TxTable";
 import {
@@ -37,6 +41,17 @@ export function TransactionsTab({
   onPageSize,
   onNavigate,
 }: Props) {
+  // Filters the rows on THIS page only; the bar says so with its count line.
+  const [hidden, setHidden] = useState<ReadonlySet<AddressRelation>>(new Set());
+  const toggle = (kind: AddressRelation) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  const visible = filterByRelations(txs, hidden);
+  const anyRelations = txs.some((tx) => tx.relations !== undefined);
   return (
     <div
       className="rounded-lg bs overflow-hidden theme-card-bg"
@@ -49,9 +64,18 @@ export function TransactionsTab({
         </div>
       ) : (
         <>
+          {anyRelations && (
+            <RelationFilter
+              counts={countRelations(txs)}
+              hidden={hidden}
+              onToggle={toggle}
+              shown={visible.length}
+              total={txs.length}
+            />
+          )}
           <div className="overflow-x-auto">
             <TxTable
-              txs={txs}
+              txs={visible}
               ownerAddress={ownerAddress}
               onNavigate={onNavigate}
             />

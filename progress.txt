@@ -1,5 +1,61 @@
 # Explore (trace) — Progress
 
+## 2026-11-23 Address roles, a log-line key leak, and a backlog sweep
+
+SHIPPED (pushed, NOT deployed — prod still serves the old build):
+- 435d66a Address rows say how the address takes part. The API adds
+  `relations` per row (sender, recipient, creation, calldata, token, event,
+  trace) from the tx + receipt it already reads, so it costs no RPC.
+  "trace" is an INFERENCE: chifra listed the tx, the receipt answered, and no
+  visible place names the address. The table lights icons, a filter bar
+  toggles them (this page only), and the strip links to /tx/<h>?for=<addr>,
+  which lists every occurrence down to the internal call. Motivating case:
+  validator 0x5ECfE775…D74E on chain 1, tx 0x7fb39250…63d8 — it appears only
+  as an ecrecover result and an isValidator(address) argument.
+- Same commit: the To column printed OUT on every row where the address was
+  not the recipient. That is what made the validator page read as "you sent
+  these". IN/OUT now appear only for the real recipient or sender.
+- 377c793 SECURITY: every API console line goes through redactSecrets.
+  `[monitor] chain N poll error:` logged a raw viem error, URL and key
+  included, to my dev terminal. 25 call sites log raw errors; one boundary
+  covers them. Verified live: 32 poll errors, 0 raw keys in the log.
+  The leaked key was the local .env key; the gateway answers 401 "Invalid or
+  inactive API key" for it, so it looks dead already. The owner should still
+  confirm it is revoked. The log file was deleted.
+- b49c61a Node 26 broke 296 web tests: its built-in localStorage shadows
+  jsdom's. vite.config.ts now passes --no-experimental-webstorage.
+
+TRAPS found today:
+- An ssh process listens on *:5432 on this Mac (since 2026-11-21). Do NOT
+  run the API's migrations against localhost:5432 — you cannot tell which
+  database answers. I used a throwaway container on 5433.
+- The local .env RPC key returns 401, and the local chifra index has a
+  26M-block gap on chain 1, so the local API shows empty address pages.
+  Verify UI with the e2e stubs (e2e/address-relations.spec.ts) instead.
+- On a case-insensitive disk, Foo.tsx and foo.ts in one folder clash in tsc.
+
+STALE BACKLOG, checked in code: the 375px overflows on / and
+/network-health are fixed (KNOWN_FAILING is empty); AddressView has a
+client deadline (AddressView/deadline.ts); 4byte candidate counts reach the
+UI (functionCandidates / MethodName).
+## 2026-11-23 Debugger source viewer: tokenizer audit (merged to main)
+
+The source pane tokenizer now carries real state between lines and knows three
+languages. Entry point: `SoliditySourceViewer/tokenizeSource.ts`
+(`detectSourceLanguage` + `tokenizeSource`). Corpus test:
+`packages/web/src/__tests__/tokenizeCorpus.test.ts`.
+
+Facts worth keeping:
+- Click-to-definition reads `isNavigableToken` (identifier or function), not
+  `type === "identifier"`. A new token class that names user code must join it.
+- Contract, struct and enum names stay `identifier` on purpose. The tokenizer
+  has no symbol table, so it cannot tell a user type from a variable.
+- `from`, `global`, `error`, `revert`, `receive`, `fallback`, `transient` are
+  contextual. The statement kind (pragma, import, using) is line state.
+- Not done: `layout at` (storage layout specifier) stays identifier. NatSpec
+  tags inside Vyper docstrings are not split. Yul names with dots
+  (`a.b.c` in standalone Yul) split at the dot.
+
 ## 2026-09-22 Deployed explore.valve.city — prod was ~2 weeks stale
 
 Ran the monorepo's explorer deploy

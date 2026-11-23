@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { isAddress } from "viem";
 import { Icon } from "@iconify/react";
 import { fetchTransaction, type TransactionDetails } from "../../api/explorer";
 import { useActiveChainId } from "../../lib/activeChain";
@@ -13,6 +15,7 @@ import { RawDataSection } from "./TxDetail/RawDataSection";
 import { EntityActionBar } from "../EntityActionBar";
 import { AddToWorkspaceButton } from "../workspace/AddToWorkspaceButton";
 import { NextStepsRail } from "./TxDetail/NextStepsRail";
+import { AddressFocusSection } from "./TxDetail/AddressFocusSection";
 
 interface TxDetailProps {
   hash: string;
@@ -24,6 +27,11 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const chainId = useActiveChainId();
+  // Written by the address page's role icons: "show me how THIS address
+  // takes part". A malformed value is ignored, not an error.
+  const [searchParams] = useSearchParams();
+  const focus = searchParams.get("for");
+  const focusAddress = focus && isAddress(focus, { strict: false }) ? focus : null;
 
   const decode = useTxDecode(hash, chainId);
 
@@ -123,6 +131,13 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
           </div>
         </div>
       )}
+      {focusAddress && (
+        <AddressFocusSection
+          tx={tx}
+          decodedLogs={decode.decodedLogs.length > 0 ? decode.decodedLogs : tx.decodedLogs}
+          address={focusAddress}
+        />
+      )}
       <OverviewSection tx={tx} onNavigate={onNavigate} />
       <NextStepsRail
         tx={tx}
@@ -155,6 +170,7 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
         tx.internalTransactionsAvailable === false) && (
         <InternalTxSection
           internalTransactions={tx.internalTransactions}
+          tokenTransfers={tx.tokenTransfers}
           available={tx.internalTransactionsAvailable !== false}
           onNavigate={onNavigate}
         />

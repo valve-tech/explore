@@ -1,6 +1,7 @@
 import type { TransactionDetails } from "../../../api/explorer";
 import { toCallTree } from "./callTreeLayout";
-import { toCallExpression, shortAddress } from "./callExpression";
+import { toCallExpression } from "./callExpression";
+import { shortAddress } from "./callDecode";
 import type { AddressNavigate } from "./primitives";
 import { Tooltip } from "../../primitives/Tooltip";
 
@@ -23,10 +24,17 @@ type InternalCall = TransactionDetails["internalTransactions"][number];
 export function CallTree({
   calls,
   symbol,
+  tokenDecimals,
   onNavigate,
 }: {
   calls: TransactionDetails["internalTransactions"];
   symbol: string;
+  /**
+   * Token decimals by lowercased address — see `decimalsByToken`. A call to
+   * a token in this map prints its amounts at the token's scale, not in base
+   * units. Omit it and every amount stays a raw integer.
+   */
+  tokenDecimals?: ReadonlyMap<string, number>;
   onNavigate: AddressNavigate;
 }) {
   const tree = toCallTree(calls);
@@ -39,6 +47,7 @@ export function CallTree({
             key={i}
             node={node}
             symbol={symbol}
+            decimals={tokenDecimals?.get(node.row.to.toLowerCase()) ?? null}
             onNavigate={onNavigate}
           />
         ))}
@@ -50,14 +59,16 @@ export function CallTree({
 function CallRow({
   node,
   symbol,
+  decimals,
   onNavigate,
 }: {
   node: ReturnType<typeof toCallTree<InternalCall>>[number];
   symbol: string;
+  decimals: number | null;
   onNavigate: AddressNavigate;
 }) {
   const call = node.row;
-  const expr = toCallExpression(call, symbol);
+  const expr = toCallExpression(call, symbol, decimals);
   const failed = expr.error !== null;
 
   return (
@@ -89,7 +100,10 @@ function CallRow({
       </span>
 
       {expr.returns !== null && (
-        <span className="font-mono theme-text-secondary">
+        <span
+          className="font-mono theme-text-secondary"
+          title={expr.returnsFull !== expr.returns ? expr.returnsFull ?? undefined : undefined}
+        >
           → {expr.returns}
         </span>
       )}
@@ -193,9 +207,14 @@ function Arguments({ expr }: { expr: ReturnType<typeof toCallExpression> }) {
   const hidden = expr.args.length - shown.length;
   const text = `(${shown.join(", ")}${hidden > 0 ? `, +${hidden}` : ""})`;
 
-  if (hidden === 0) return <span className="theme-text-secondary">{text}</span>;
+  // The hover carries what the row left out: the arguments past the second,
+  // and the exact value of any token amount the row trimmed.
+  const full = `(${(expr.argsFull ?? expr.args).join(", ")})`;
+  if (hidden === 0 && full === text) {
+    return <span className="theme-text-secondary">{text}</span>;
+  }
   return (
-    <Tooltip label={`(${expr.args.join(", ")})`}>
+    <Tooltip label={full}>
       <span className="theme-text-secondary">{text}</span>
     </Tooltip>
   );

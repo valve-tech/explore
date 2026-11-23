@@ -39,6 +39,13 @@ export interface ClickInput {
   contractName?: string | null;
   /** Sources of the next external callee of this frame, implementation first. */
   callee?: ReadonlyArray<{ addr: string; files: readonly SourceFile[] }>;
+  /**
+   * Token class from the source tokenizer, when the caller has it. A
+   * `function`-class token is a callable name (a call or a declaration), so
+   * local variables are never searched for it. A class that cannot navigate
+   * (keyword, type, builtin, number, comment…) resolves to nothing.
+   */
+  tokenType?: string;
   /** Prebuilt index of `files`. */
   index?: SolIndex;
 }
@@ -47,6 +54,7 @@ export const INTERFACE_ONLY_NOTE =
   "No implementation source is loaded. This is the interface declaration.";
 
 const NONE: NavAction = { type: "none" };
+const ACTING_TOKENS = new Set(["identifier", "function", "string"]);
 const FN_KINDS = new Set<DeclKind>(["function"]);
 
 const toTarget = (d: Decl, addr?: string): NavTarget => ({
@@ -178,6 +186,7 @@ export function resolveCandidates(input: ClickInput): { ctx: ClickContext; targe
   if (!pf) return null;
   const ctx = clickContextAt(pf, input.line, input.col);
   if (!ctx) return null;
+  if (input.tokenType === "function") ctx.isCall = true;
   const { contract: self, member } = enclosing(index, input.file, ctx.start);
   const leaf = pickLeafContract(index, self?.name ?? null, input.contractName);
   const order = leaf ? linearize(index, leaf) : [];
@@ -209,6 +218,7 @@ export function resolveSourceClick(input: ClickInput): NavAction {
   const index = input.index ?? buildSolIndex(input.files);
   const pf = index.files.get(input.file);
   if (!pf) return NONE;
+  if (input.tokenType && !ACTING_TOKENS.has(input.tokenType)) return NONE;
   const path = importPathAt(pf, input.line, input.col);
   if (path !== null) {
     const file = resolveImportFile(path, [...index.files.keys()]);

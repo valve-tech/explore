@@ -265,6 +265,23 @@ describe("identifiers", () => {
   });
 });
 
+describe("token class hint", () => {
+  it("resolves nothing for a class that cannot navigate", () => {
+    // Without the hint, the name alone resolves; the builtin class stops it.
+    expect(click(TOKEN, ERC20, "_update(owner, to, value)", "_update").type).toBe("goto");
+    expect(click(TOKEN, ERC20, "_update(owner, to, value)", "_update", { tokenType: "builtin" })).toEqual({ type: "none" });
+    expect(click(TOKEN, ERC20, "_update(owner, to, value)", "_update", { tokenType: "keyword" })).toEqual({ type: "none" });
+  });
+  it("treats a function-class token as a callable name, not a local", () => {
+    const files = [{ name: "s.sol", content: "contract S {\n  function run() public {}\n  function go(uint256 run) public {\n    this\n      .run\n      ();\n    run;\n  }\n}\n" }];
+    const at = (line: number, tokenType: string) => resolveSourceClick({ files, file: "s.sol", line, col: 5, modifier: "plain", tokenType });
+    // Line 7: the bare word. As an identifier it is the parameter (line 3);
+    // as a function-class token it is the function (line 2).
+    expect(at(7, "identifier")).toMatchObject({ type: "goto", target: { line: 3, kind: "local" } });
+    expect(at(7, "function")).toMatchObject({ type: "goto", target: { line: 2, kind: "function" } });
+  });
+});
+
 describe("modifiers", () => {
   it("alt lists every definition, implementation first", () => {
     const a = click(TOKEN, ERC20, "_update(owner, to, value)", "_update", { modifier: "alt" });

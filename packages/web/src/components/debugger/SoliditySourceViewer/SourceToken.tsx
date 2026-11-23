@@ -1,4 +1,4 @@
-import { TOKEN_COLORS, type Token } from "./tokenize";
+import { TOKEN_COLORS, isNavigableToken, type Token, type TokenType } from "./tokenize";
 import { clickModifierOf } from "../StepDebugger/sourceNav/planGoto";
 import type { ClickModifier } from "../StepDebugger/sourceNav/resolveClick";
 
@@ -7,6 +7,8 @@ export interface SourceTokenPos {
   file: string;
   line: number;
   col: number;
+  /** Token class from the tokenizer. The resolver uses it as a hint. */
+  tokenType?: TokenType;
 }
 
 export interface SourceTokenClick extends SourceTokenPos {
@@ -15,8 +17,9 @@ export interface SourceTokenClick extends SourceTokenPos {
 }
 
 /**
- * One token of a source line. Only identifiers and strings (import paths) can
- * act. Keywords, type keywords, literals and comments never get a handler.
+ * One token of a source line. Only navigable tokens (identifier and function
+ * classes) and strings (import paths) can act. Keywords, elementary types,
+ * builtins, literals and comments never get a handler.
  * The pointer cursor and the underline appear on hover ONLY when
  * `describeToken` says the click does something, so no token shows a false
  * cursor. Without `describeToken`, every identifier is treated as clickable.
@@ -34,7 +37,7 @@ export function SourceToken({
   onTokenClick?: (click: SourceTokenClick) => void;
   describeToken?: (pos: SourceTokenPos, modifier: ClickModifier) => string | null;
 }) {
-  const interactive = !!onTokenClick && (token.type === "identifier" || token.type === "string");
+  const interactive = !!onTokenClick && (isNavigableToken(token) || token.type === "string");
   const style = { color: TOKEN_COLORS[token.type], fontWeight: highlighted ? 700 : undefined };
   if (!interactive) return <span style={style}>{token.value}</span>;
   return (
@@ -43,7 +46,7 @@ export function SourceToken({
       onMouseEnter={(e) => {
         const hint = describeToken
           ? describeToken(pos, clickModifierOf(e))
-          : token.type === "identifier" ? "" : null;
+          : isNavigableToken(token) ? "" : null;
         if (hint === null) return;
         e.currentTarget.style.textDecoration = "underline";
         e.currentTarget.style.cursor = "pointer";

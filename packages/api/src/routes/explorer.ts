@@ -23,6 +23,7 @@ import {
 import { chainClient, currentChainId } from "../services/chains/context.js";
 import { withDegradationTracking } from "../services/sourceCode/degradation.js";
 import { ApiError, asyncRoute, respond } from "../lib/respond.js";
+import { resolvePageSize } from "../lib/pageSize.js";
 
 const router = Router();
 
@@ -254,12 +255,11 @@ router.get(
   asyncRoute(async (req: Request, res: Response) => {
     const address = requireAddress(req.params.address);
     const page = parseInt(String(req.query.page ?? "1"), 10) || 1;
-    const limit = Math.min(
-      parseInt(String(req.query.limit ?? "25"), 10) || 25,
-      100,
-    );
+    // Over the maximum is a 400, not a silent clamp — see lib/pageSize.ts.
+    const pageSize = resolvePageSize(req.query.limit, "limit");
+    if (!pageSize.ok) throw new ApiError(400, pageSize.message);
 
-    const result = await getAddressTransactions(address, page, limit);
+    const result = await getAddressTransactions(address, page, pageSize.size);
     respond.ok(res, { result });
   }, "explorer/address/txs"),
 );
