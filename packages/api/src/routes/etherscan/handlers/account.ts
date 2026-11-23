@@ -27,6 +27,7 @@ import {
 } from "../../../services/chains/registry.js";
 import { getAddressTransactions } from "../../../services/explorer.js";
 import { defaultChain } from "../chain.js";
+import { resolvePageSize } from "../../../lib/pageSize.js";
 import {
   etherscanErr,
   etherscanOk,
@@ -166,11 +167,14 @@ export async function txListAction(
   // are accepted-and-ignored — the upstream service defaults to desc and
   // doesn't take block-range filters, so silently honoring them would be a lie.
   const page = parsePositiveInt(params.page, 1);
-  const offset = parsePositiveInt(params.offset, 25);
+  // The same maximum as `GET /api/address/:address/txs`. Etherscan answers an
+  // oversized window with status "0" and this wording, so clients handle it.
+  const pageSize = resolvePageSize(params.offset, "offset");
+  if (!pageSize.ok) return etherscanErr(pageSize.message);
 
   let transactions;
   try {
-    ({ transactions } = await getAddressTransactions(address, page, offset));
+    ({ transactions } = await getAddressTransactions(address, page, pageSize.size));
   } catch {
     return etherscanErr("Upstream temporarily unavailable");
   }

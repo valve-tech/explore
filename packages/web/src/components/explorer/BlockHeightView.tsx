@@ -56,9 +56,9 @@ export default function BlockHeightView({ height }: { height: string }) {
         <div className="theme-text-muted text-xs uppercase tracking-wide">
           Block height · all chains
         </div>
-        <div className="theme-mono theme-text text-sm num">
+        <h1 className="theme-mono theme-text text-sm num">
           {Number(height).toLocaleString()}
-        </div>
+        </h1>
       </header>
 
       {reached.map((b) => {
