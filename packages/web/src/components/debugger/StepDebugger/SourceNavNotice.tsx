@@ -21,7 +21,7 @@ export function SourceNavNotice({
       className="w-full text-xs p-2 theme-mono theme-text-secondary"
       style={{ backgroundColor: "var(--color-bg-secondary)", boxShadow: "0 1px 0 0 var(--color-border-default)" }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-inline">
         <span className="flex-1">
           {notice.targets
             ? `${notice.targets.length} definition${notice.targets.length === 1 ? "" : "s"} of ${notice.label}`
