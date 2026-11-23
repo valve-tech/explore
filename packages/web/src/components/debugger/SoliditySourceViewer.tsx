@@ -1,9 +1,8 @@
-import { useRef, useEffect, useMemo, useCallback, type ReactNode } from "react";
+import { useRef, useEffect, useMemo, type ReactNode } from "react";
 import type { SourceFile } from "../../api/source";
 import {
   type Token,
   type HighlightSpan,
-  TOKEN_COLORS,
   tokenizeLine,
   splitCommentToken,
   splitTokensBySpan,
@@ -11,6 +10,10 @@ import {
 import { useFindInSource } from "./SoliditySourceViewer/useFindInSource";
 import { FindBar } from "./SoliditySourceViewer/FindBar";
 import { Tooltip } from "../primitives/Tooltip";
+import { SourceToken, type SourceTokenClick, type SourceTokenPos } from "./SoliditySourceViewer/SourceToken";
+import type { ClickModifier } from "./StepDebugger/sourceNav/resolveClick";
+
+export type { SourceTokenClick, SourceTokenPos };
 
 // Re-export `HighlightSpan` and `splitTokensBySpan` so existing importers
 // (SourceTabContent, SourceOpcodeSplit, the splitTokensBySpan unit test)
@@ -30,7 +33,11 @@ interface SourceViewerProps {
   scrollKey?: number; // increment to force re-scroll even if currentLine hasn't changed
   highlightLines?: Set<number>;
   findings?: Array<{ line: number; severity: string; message: string }>;
-  onIdentifierClick?: (identifier: string, line: number) => void;
+  /** A click on an identifier or a string token, with its position and the
+   *  modifier key. The parent resolves it to one navigation action. */
+  onTokenClick?: (click: SourceTokenClick) => void;
+  /** Hover text for a token, or null when a click does nothing there. */
+  describeToken?: (pos: SourceTokenPos, modifier: ClickModifier) => string | null;
   /** Click the line-number gutter to act on a line (e.g. jump to the first
    *  opcode mapped there). Lines with no executing opcode get a dimmed gutter. */
   onLineClick?: (line: number) => void;
@@ -50,7 +57,8 @@ export default function SourceViewer({
   scrollKey,
   highlightLines,
   findings,
-  onIdentifierClick,
+  onTokenClick,
+  describeToken,
   onLineClick,
   executableLines,
 }: SourceViewerProps) {
@@ -67,8 +75,7 @@ export default function SourceViewer({
       return result.tokens.flatMap(splitCommentToken);
     });
   }, [lines]);
-  // Identifier clicks used to toggle a self-contained filter+badge. They now
-  // fire onIdentifierClick so the parent can navigate to the definition; the
+  // Token clicks fire onTokenClick so the parent can navigate; the
   // selected/highlight UI state lives there, not here.
 
   // In-pane find (Cmd/Ctrl+F). Hook owns all state, the keyboard
@@ -145,15 +152,6 @@ export default function SourceViewer({
     }
     return map;
   }, [findings]);
-
-  const handleTokenClick = useCallback(
-    (token: Token, lineNum: number) => {
-      if (token.type === "identifier") {
-        onIdentifierClick?.(token.value, lineNum);
-      }
-    },
-    [onIdentifierClick],
-  );
 
   const severityColors: Record<string, string> = {
     High: "var(--color-danger)",
@@ -266,28 +264,25 @@ export default function SourceViewer({
               <span className="flex-1 whitespace-pre" style={{ tabSize: 4 }}>
                 {(() => {
                   const segs = splitTokensBySpan(tokens, lineNum, highlightSpan ?? null);
+                  // Column of every segment, so a click reports its position
+                  // even when the highlight span cut a token in pieces.
+                  const cols: number[] = [];
+                  let col = 0;
+                  for (const s of segs) { cols.push(col); col += s.token.value.length; }
                   const renderToken = (
                     { token }: { token: Token },
                     j: number,
                     highlighted: boolean,
-                  ) => {
-                    const isClickable = token.type === "identifier";
-                    return (
-                      <span
-                        key={j}
-                        onClick={isClickable ? () => handleTokenClick(token, lineNum) : undefined}
-                        onMouseEnter={isClickable ? (e) => { e.currentTarget.style.textDecoration = "underline"; } : undefined}
-                        onMouseLeave={isClickable ? (e) => { e.currentTarget.style.textDecoration = "none"; } : undefined}
-                        style={{
-                          color: TOKEN_COLORS[token.type],
-                          fontWeight: highlighted ? 700 : undefined,
-                          cursor: isClickable ? "pointer" : undefined,
-                        }}
-                      >
-                        {token.value}
-                      </span>
-                    );
-                  };
+                  ) => (
+                    <SourceToken
+                      key={j}
+                      token={token}
+                      pos={{ file: file.name, line: lineNum, col: cols[j] ?? 0 }}
+                      highlighted={highlighted}
+                      onTokenClick={onTokenClick}
+                      describeToken={describeToken}
+                    />
+                  );
 
                   // Walk segments, grouping consecutive `highlighted: true` ones
                   // into a run that shares one box. Non-highlighted segments

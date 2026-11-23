@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ContractSource, SlitherFinding } from "../../../api/source";
 import SourceViewer, { type HighlightSpan } from "../SoliditySourceViewer";
+import type { SourceTokenClick, SourceTokenPos } from "../SoliditySourceViewer";
+import type { ClickModifier } from "./sourceNav/resolveClick";
 import { Tooltip } from "../../primitives/Tooltip";
 
 type ContractSourceFile = ContractSource["files"][number];
@@ -34,7 +36,8 @@ export function SourceTabContent({
   activeContractAddress,
   maxHeight = "500px",
   onLineClick,
-  onIdentifierClick,
+  onTokenClick,
+  describeToken,
   executableLines,
 }: {
   /** Auto-selected from the cursor's source map; null when no source is loaded. */
@@ -49,7 +52,8 @@ export function SourceTabContent({
   activeContractAddress: string | null;
   maxHeight?: string;
   onLineClick?: (line: number) => void;
-  onIdentifierClick?: (identifier: string, line: number) => void;
+  onTokenClick?: (click: SourceTokenClick) => void;
+  describeToken?: (pos: SourceTokenPos, modifier: ClickModifier) => string | null;
   executableLines?: Set<number>;
 }) {
   // Flatten Slither's nested findings/elements/lines structure into the
@@ -77,9 +81,11 @@ export function SourceTabContent({
   // changes (different sourcesByAddr → different file set), so navigating
   // to a new contract starts fresh.
   const [manualFile, setManualFile] = useState<string | null>(null);
+  // A navigation (scrollKey bump) also resets it, so the pane shows the file
+  // the jump landed in and not the tab the user picked earlier.
   useEffect(() => {
     setManualFile(null);
-  }, [activeContractAddress]);
+  }, [activeContractAddress, scrollKey]);
 
   const displayedFile = useMemo(() => {
     if (manualFile) {
@@ -154,7 +160,8 @@ export function SourceTabContent({
             highlightSpan={isViewingActiveFile ? highlightSpan : null}
             scrollKey={scrollKey}
             onLineClick={onLineClick}
-            onIdentifierClick={onIdentifierClick}
+            onTokenClick={onTokenClick}
+            describeToken={describeToken}
             executableLines={isViewingActiveFile ? executableLines : undefined}
             findings={sourceViewerFindings}
           />

@@ -16,7 +16,7 @@
  *      line inside a loop body (or a function called more than once) always
  *      teleported back to iteration 1 / the first call, not the current one.
  *
- * The fix mirrors `jumpToDefinition`'s proven pattern elsewhere in
+ * The fix mirrors `planGoto`'s proven pattern elsewhere in
  * StepDebugger.tsx: resolve the CURRENT FRAME (the deepest frameRanges entry
  * covering the cursor), use THAT frame's own per-contract source map, and
  * scan ONLY that frame's step range — so both the executable-line set and the
@@ -54,7 +54,7 @@ export interface StepLike {
  * range — shouldn't happen in practice but the caller shouldn't crash on it).
  *
  * Replicates the exact "deepest depth wins" scan used by
- * `activeContractAddress` / `jumpToDefinition` / `hasNext` / `jumpToNext`.
+ * `activeContractAddress` / `planGoto` / `hasNext` / `jumpToNext`.
  */
 export function activeFrame(frames: FrameRange[], step: number): FrameRange | null {
   let best: FrameRange | null = null;

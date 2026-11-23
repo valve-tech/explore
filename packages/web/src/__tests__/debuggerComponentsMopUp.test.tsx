@@ -445,7 +445,7 @@ describe("SoliditySourceViewer mop-up", () => {
       <SourceViewer
         file={file}
         currentLine={2}
-        onIdentifierClick={vi.fn()}
+        onTokenClick={vi.fn()}
         executableLines={new Set([2])}
       />,
     );

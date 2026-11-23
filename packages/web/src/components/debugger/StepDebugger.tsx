@@ -13,7 +13,7 @@ import {
   type CallFrame,
   type StepDetail,
 } from "../../api/debugger";
-import { analyzeContract, type SlitherFinding } from "../../api/source";
+import { analyzeContract, type SlitherFinding, type SourceFile } from "../../api/source";
 import { useActiveChainId } from "../../lib/activeChain";
 import { useContractSource, useSourceMappings } from "../../hooks/useContractSource";
 import { useContractMeta } from "../../hooks/useContractMeta";
@@ -33,7 +33,8 @@ import { ControlsBar } from "./StepDebugger/ControlsBar";
 import { CallContextBreadcrumb } from "./StepDebugger/CallContextBreadcrumb";
 import { CallTreeFromOpcodes } from "./StepDebugger/CallTreeFromOpcodes";
 import { findFunctionLine } from "./StepDebugger/findFunctionLine";
-import { findDefinitionLine } from "./StepDebugger/findDefinitionLine";
+import { useSourceClickNav } from "./StepDebugger/useSourceClickNav";
+import { SourceNavNotice } from "./StepDebugger/SourceNavNotice";
 import { activeFrame, buildFrameLineIndex } from "./StepDebugger/lineToStepIndex";
 import {
   emptyHistory,
@@ -98,26 +99,7 @@ interface RecentNav {
 }
 const RECENT_CAP = 20;
 
-// Identifiers the Solidity compiler exposes globally — they have no user-source
-// declaration to navigate to, so clicking them in the source pane should be a
-// silent no-op. Covers value/data globals (msg/tx/block/abi), keyword-ish names
-// (this/super, true/false), math/crypto helpers (keccak256, ecrecover, addmod),
-// control-flow helpers (require/assert/revert), and the elementary type names
-// the tokenizer flags as identifiers in casts (`address(0)`, `uint256(...)`).
-const SOLIDITY_GLOBALS = new Set<string>([
-  "msg", "tx", "block", "abi",
-  "this", "super",
-  "true", "false",
-  "now",
-  "require", "assert", "revert",
-  "keccak256", "sha256", "sha3", "ripemd160", "ecrecover",
-  "addmod", "mulmod", "blockhash", "gasleft", "selfdestruct", "suicide",
-  "type",
-  "address", "bool", "string", "bytes",
-  "uint", "uint8", "uint16", "uint32", "uint64", "uint128", "uint256",
-  "int", "int8", "int16", "int32", "int64", "int128", "int256",
-  "bytes1", "bytes2", "bytes4", "bytes8", "bytes16", "bytes20", "bytes32",
-]);
+const NO_FILES: SourceFile[] = [];
 
 export default function StepDebugger({
   steps,
@@ -338,7 +320,7 @@ export default function StepDebugger({
   }, [callTrace, frameStepMap, steps]);
 
   // The frame the cursor is currently inside — the deepest frameRanges entry
-  // covering currentStep. Shared by activeContractAddress, jumpToDefinition,
+  // covering currentStep. Shared by activeContractAddress, the source-click nav,
   // and the source-gutter line index below; they all need "which invocation
   // is the user looking at right now."
   const activeFrameRange = useMemo(
@@ -517,66 +499,35 @@ export default function StepDebugger({
     return { call, store, log };
   }, [steps, frameRanges, currentStep]);
 
-  // Go-to-definition: triggered when the user clicks any identifier token in
-  // the source pane. Resolves the symbol in the active contract's flattened
-  // sources and scrolls the source pane there.
-  //
-  // Misses are SILENT — many clicked identifiers are things we can't
-  // navigate to: Solidity globals (msg, tx, block, abi), function parameters,
-  // local variables, member-access right-hand sides (`x.sender`), inherited
-  // symbols from external libs. Firing a red error banner for every one of
-  // those felt like "the tool is broken." Silent no-op matches what an IDE
-  // does when you cmd-click something it can't resolve.
-  const jumpToDefinition = useCallback(
-    (name: string) => {
-      // Solidity globals never have a declaration in user source. Bail before
-      // even searching so we never even render a flash.
-      if (SOLIDITY_GLOBALS.has(name)) return;
-
-      const addr = activeFrameRange?.addr ?? null;
-      const frame = activeFrameRange
-        ? { entry: activeFrameRange.entry, end: activeFrameRange.end }
-        : null;
-      const addrKey = addr?.toLowerCase();
-      const files = addrKey ? sourcesByAddr[addrKey] : undefined;
-      if (!files || files.length === 0) return; // no source — silent
-      const hit = findDefinitionLine(files, name);
-      if (!hit) return; // unresolved — silent
-
-      // Couple the execution cursor: find the first opcode in the active frame
-      // that maps to the target source line. Walk only within [frame.entry,
-      // frame.end) so we don't jump out of the execution context the user is
-      // currently inspecting. If no opcode maps to that line in this frame
-      // (e.g. clicking a contract NAME at the contract declaration line — no
-      // opcode lives there), the source pane still moves but the cursor stays.
-      let targetStep: number | null = null;
-      if (addrKey && frame) {
-        const pcMap = traceSourceMaps[addrKey];
-        if (pcMap) {
-          for (let j = frame.entry; j < frame.end; j++) {
-            const loc = pcMap[steps[j]!.pc];
-            if (loc && loc.file === hit.file && loc.line === hit.line) {
-              targetStep = j;
-              break;
-            }
-          }
-        }
-      }
-
+  // Show a definition the source-pane click resolver picked (see
+  // useSourceClickNav + sourceNav/planGoto). `step` is already frame-scoped:
+  // planGoto walks only the active frame with that frame's own source map.
+  // `ref` names the contract + file when the line is not in the cursor's file.
+  const showDefinition = useCallback(
+    (view: { line: number; ref: { addr: string; file: string } | null; step: number | null; label: string }) => {
       setNavError(null);
-      setOverrideLine(hit.line);
-      // Definition lives in the active frame's own source — no cross-contract
-      // override.
-      setOverrideRef(null);
+      setOverrideLine(view.line);
+      setOverrideRef(view.ref);
       setScrollKey((k) => k + 1);
-      if (targetStep !== null) goTo(targetStep);
-      const landedStep = targetStep ?? currentStep;
+      if (view.step !== null) goTo(view.step);
+      const landedStep = view.step ?? currentStep;
       setNavHistory((h) =>
-        pushHistoryEntry(h, { step: landedStep, overrideLine: hit.line, overrideRef: null }),
+        pushHistoryEntry(h, { step: landedStep, overrideLine: view.line, overrideRef: view.ref }),
       );
-      pushRecent({ step: landedStep, overrideLine: hit.line, overrideRef: null, label: name, kind: "definition" });
+      pushRecent({ step: landedStep, overrideLine: view.line, overrideRef: view.ref, label: view.label, kind: "definition" });
     },
-    [activeFrameRange, currentStep, sourcesByAddr, traceSourceMaps, steps, goTo, pushRecent],
+    [currentStep, goTo, pushRecent],
+  );
+  // Open another file of the displayed contract (import-path click).
+  const showSourceFile = useCallback(
+    (ref: { addr: string; file: string }) => {
+      setNavError(null);
+      setOverrideLine(null);
+      setOverrideRef(ref);
+      setScrollKey((k) => k + 1);
+      setNavHistory((h) => pushHistoryEntry(h, { step: currentStep, overrideLine: null, overrideRef: ref }));
+    },
+    [currentStep],
   );
 
   // Apply a history entry (back/forward). Same shape as the other navigators
@@ -878,7 +829,7 @@ export default function StepDebugger({
   // line jumps execution there — scoped to the active frame so a click lands
   // in the invocation being inspected, using that frame's own per-contract
   // source map (traceSourceMaps) so PCs from other contracts can't mis-map
-  // (mirrors jumpToDefinition's frame + per-contract-map pattern above).
+  // (mirrors planGoto's frame + per-contract-map pattern).
   //
   // Falls back to `sourceMappings` — the active contract's own map, already
   // fetched for the whole trace — when there's no active frame (no callTrace,
@@ -904,6 +855,28 @@ export default function StepDebugger({
     },
     [lineToFirstStep, recordingNavigate],
   );
+
+  // Source-pane clicks: one resolved action per token. Resolved against the
+  // files the pane SHOWS; cursor moves stay scoped to the active frame.
+  const srcNav = useSourceClickNav({
+    files: sourceData?.files ?? NO_FILES,
+    contractName: sourceData?.contractName ?? null,
+    displayAddr: displayContractAddress,
+    viewingOther: !!overrideRef && overrideRef.addr.toLowerCase() !== activeContractAddress?.toLowerCase(),
+    currentFile: currentSourceFile?.name ?? null,
+    activeFrame: activeFrameRange,
+    frameRanges,
+    currentStep,
+    steps,
+    pcMap: activeFrameRange?.addr ? traceSourceMaps[activeFrameRange.addr.toLowerCase()] : undefined,
+    sourcesByAddr,
+    implByProxy,
+    lineToFirstStep,
+    show: showDefinition,
+    showFile: showSourceFile,
+    goToStep: recordingNavigate,
+    setNavError,
+  });
 
   // All hooks are above this point; the early return is safe here (the cursor
   // is always in range once there are steps, but guard for the empty trace).
@@ -1111,6 +1084,10 @@ export default function StepDebugger({
             </Tooltip>
           )}
 
+          {srcNav.notice && contentView === "debugger" && (
+            <SourceNavNotice notice={srcNav.notice} onPick={srcNav.pickTarget} onDismiss={srcNav.dismissNotice} />
+          )}
+
           {contentView === "debugger" && (
             <SourceOpcodeSplit
               currentSourceFile={currentSourceFile}
@@ -1123,7 +1100,8 @@ export default function StepDebugger({
               activeContractAddress={activeContractAddress}
               executableLines={executableLines}
               onJumpToLine={jumpToLine}
-              onIdentifierClick={jumpToDefinition}
+              onTokenClick={srcNav.onTokenClick}
+              describeToken={srcNav.describeToken}
               steps={steps}
               currentStep={currentStep}
               goTo={recordingNavigate}

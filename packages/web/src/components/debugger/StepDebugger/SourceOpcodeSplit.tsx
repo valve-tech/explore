@@ -4,6 +4,8 @@ import { Tooltip } from "../../primitives/Tooltip";
 import type { ContractSource, SlitherFinding } from "../../../api/source";
 import type { OpcodeStep } from "../../../api/debugger";
 import type { HighlightSpan } from "../SoliditySourceViewer";
+import type { SourceTokenClick, SourceTokenPos } from "../SoliditySourceViewer";
+import type { ClickModifier } from "./sourceNav/resolveClick";
 import type { OpcodeFrequency } from "./opcodeStats";
 import { SourceTabContent } from "./SourceTabContent";
 import { OpcodeFrequencyTags } from "./OpcodeFrequencyTags";
@@ -33,7 +35,8 @@ export function SourceOpcodeSplit({
   activeContractAddress,
   executableLines,
   onJumpToLine,
-  onIdentifierClick,
+  onTokenClick,
+  describeToken,
   // opcode pane
   steps,
   currentStep,
@@ -57,7 +60,8 @@ export function SourceOpcodeSplit({
   onJumpToLine: (line: number) => void;
   /** Fired when the user clicks any identifier token in the source pane.
    *  Used by the parent for go-to-definition navigation. */
-  onIdentifierClick?: (identifier: string, line: number) => void;
+  onTokenClick?: (click: SourceTokenClick) => void;
+  describeToken?: (pos: SourceTokenPos, modifier: ClickModifier) => string | null;
   steps: OpcodeStep[];
   currentStep: number;
   goTo: (step: number) => void;
@@ -130,7 +134,8 @@ export function SourceOpcodeSplit({
             activeContractAddress={activeContractAddress}
             maxHeight="100%"
             onLineClick={onJumpToLine}
-            onIdentifierClick={onIdentifierClick}
+            onTokenClick={onTokenClick}
+            describeToken={describeToken}
             executableLines={executableLines}
           />
         </div>

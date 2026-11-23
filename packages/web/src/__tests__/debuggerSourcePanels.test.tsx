@@ -359,13 +359,13 @@ describe("SoliditySourceViewer", () => {
     content: "contract Token {\n  function mint() public {}\n}\n",
   };
 
-  it("renders source lines and fires onIdentifierClick on identifier tokens", () => {
-    const onIdentifierClick = vi.fn();
+  it("renders source lines and fires onTokenClick with the token position and modifier", () => {
+    const onTokenClick = vi.fn();
     render(
       <SourceViewer
         file={file}
         currentLine={2}
-        onIdentifierClick={onIdentifierClick}
+        onTokenClick={onTokenClick}
         executableLines={new Set([2])}
         onLineClick={vi.fn()}
       />,
@@ -373,7 +373,34 @@ describe("SoliditySourceViewer", () => {
     // Identifier token (function name) is clickable.
     const token = screen.getByText("mint");
     fireEvent.click(token);
-    expect(onIdentifierClick).toHaveBeenCalledWith("mint", 2);
+    expect(onTokenClick).toHaveBeenCalledWith({ file: "Token.sol", line: 2, col: 11, text: "mint", modifier: "plain" });
+    fireEvent.click(token, { altKey: true });
+    expect(onTokenClick).toHaveBeenLastCalledWith(expect.objectContaining({ modifier: "alt" }));
+    // A keyword never acts.
+    fireEvent.click(screen.getByText("function"));
+    expect(onTokenClick).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the pointer and the hint only where describeToken resolves an action", () => {
+    render(
+      <SourceViewer
+        file={file}
+        currentLine={null}
+        onTokenClick={vi.fn()}
+        describeToken={(pos) => (pos.col === 11 ? "Go to implementation of mint" : null)}
+      />,
+    );
+    const mint = screen.getByText("mint");
+    fireEvent.mouseEnter(mint);
+    expect(mint.style.cursor).toBe("pointer");
+    expect(mint.title).toBe("Go to implementation of mint");
+    fireEvent.mouseLeave(mint);
+    expect(mint.style.cursor).toBe("");
+    expect(mint.hasAttribute("title")).toBe(false);
+    const token = screen.getByText("Token");
+    fireEvent.mouseEnter(token);
+    expect(token.style.cursor).toBe("");
+    expect(token.style.textDecoration).not.toBe("underline");
   });
 
   it("invokes onLineClick from an executable gutter number", () => {
