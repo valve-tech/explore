@@ -78,6 +78,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Node 25+ ships its own global `localStorage`, which shadows jsdom's and
+    // has no `clear()` without --localstorage-file. On Node 26 that failed 296
+    // tests. Turning the built-in off lets jsdom's storage through again.
+    execArgv: ["--no-experimental-webstorage"],
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
     // Playwright specs live in e2e/ and use their own runner (`playwright
