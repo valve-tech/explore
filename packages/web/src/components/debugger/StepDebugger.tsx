@@ -47,6 +47,7 @@ import {
 } from "./StepDebugger/navHistory";
 import { DecodedTrace } from "./StepDebugger/DecodedTrace";
 import { SourceOpcodeSplit } from "./StepDebugger/SourceOpcodeSplit";
+import { useHoverValues } from "./StepDebugger/useHoverValues";
 import { opcodeFrequencies } from "./StepDebugger/opcodeStats";
 import { StoragePanel, type StorageDiff } from "./StepDebugger/StoragePanel";
 import { StackPanel } from "./StepDebugger/StackPanel";
@@ -858,6 +859,19 @@ export default function StepDebugger({
 
   // Source-pane clicks: one resolved action per token. Resolved against the
   // files the pane SHOWS; cursor moves stay scoped to the active frame.
+  const hoverValue = useHoverValues({
+    steps,
+    frameRanges,
+    activeFrame: activeFrameRange,
+    currentStep,
+    traceSourceMaps,
+    detailMap,
+    displayAddr: displayContractAddress,
+    source: sourceData,
+    viewingOther: !!overrideRef && overrideRef.addr.toLowerCase() !== activeContractAddress?.toLowerCase(),
+    chainId,
+  });
+
   const srcNav = useSourceClickNav({
     files: sourceData?.files ?? NO_FILES,
     contractName: sourceData?.contractName ?? null,
@@ -1102,6 +1116,7 @@ export default function StepDebugger({
               onJumpToLine={jumpToLine}
               onTokenClick={srcNav.onTokenClick}
               describeToken={srcNav.describeToken}
+              hoverValue={hoverValue}
               steps={steps}
               currentStep={currentStep}
               goTo={recordingNavigate}
