@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  tokenizeLine,
   splitCommentToken,
   type Token,
 } from "../components/debugger/SoliditySourceViewer/tokenize";
+import { tokenizeLine } from "../components/debugger/SoliditySourceViewer/tokenizeSolidity";
 
 /**
  * Unit tests for the extracted Solidity tokenizer. The companion
