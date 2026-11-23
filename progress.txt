@@ -1,5 +1,50 @@
 # Explore (trace) — Progress
 
+## 2026-11-23 Debugger hover values (on main)
+
+Hover an identifier in the debugger source pane: a themed card shows its value
+at the current step, then the click hint. The card replaced the native title.
+- `StepDebugger/useHoverValues.ts` joins two pure readers in `hoverValues/`.
+  A stack value wins over a state variable, because a parameter shadows it.
+- Stack (`stackValueAt`): parameters and named return variables of the open
+  internal function, from stack heights computed from the opcode skeleton.
+  No local variables yet.
+- Storage (`stateVarValueAt`): value-type state variables, packed slots,
+  one-level literal mapping keys and struct fields. Mappings and arrays show
+  their type and base slot only.
+- Both return null when unsure. A missing value is fine; a wrong one is a bug.
+
+Verified in a browser on 2026-11-23, PulseX swap
+0xc1c8c8f0…5200 replayed on an Anvil fork of block 28132058:
+`amountIn` = 350852270 (matches the calldata); in PulseXPair at step 649,
+`reserve0` = 96364388715 and `reserve1` = 8228286635374274338441322
+(match getReserves).
+
+Facts worth keeping:
+- via-IR reverses the argument order on the stack. The stack reader detects
+  via-IR and returns null. The API stores no via-IR flag.
+- The optimizer reuses a return variable's slot inside a block, so that case
+  returns null.
+- geth puts `storage` on SLOAD/SSTORE struct logs only; `frameStorageAt`
+  walks back to the last snapshot of the frame's storage address.
+- Fixed: the storage-layout route read the source-map cache, which holds no
+  layout, so every contract the debugger had opened answered "compiler may be
+  too old". The route now recompiles.
+- Fixed: /health, the etherscan proxy and traceCall sent viem's error text,
+  keyed RPC URL included, to the client. All three redact now.
+- Local repro without a debug node: `anvil --fork-url <public rpc>
+  --fork-block-number N --steps-tracing --hardfork shanghai --chain-id 369
+  --auto-impersonate`, replay the tx with `cast send --unlocked`, and run
+  `npm run dev` with PULSECHAIN_RPC_URL and DEBUG_RPC_URL set to Anvil.
+  cast and anvil read the repo .env; always pass --rpc-url.
+
+Open:
+- Pre-transaction value of a slot the tx has not touched
+  (`preTxStateVarValue`) exists but is not wired.
+- Local variables; chained member access; via-IR contracts.
+- `StateDiffPanel.tsx` keys its layout query without the chain id.
+- `verified_sources` caches source maps by address only, with no chain id.
+
 ## 2026-11-23 Debugger source pane: one action per click (merged to main)
 
 A click in the contract source pane now resolves through one pure resolver:
