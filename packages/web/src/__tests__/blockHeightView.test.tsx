@@ -48,6 +48,19 @@ describe("BlockHeightView", () => {
     expect(screen.getByText(/21,402,118/)).toBeInTheDocument();
   });
 
+  it("names the height as the page heading", async () => {
+    renderView("12345");
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("12,345"),
+    );
+  });
+
+  it("names the height while it loads", () => {
+    heightMock.mockReturnValue(new Promise(() => {}));
+    renderView("12345");
+    expect(screen.getByText(/block 12,345/)).toBeInTheDocument();
+  });
+
   it("fills each row by gas used", async () => {
     const { container } = renderView();
     await waitFor(() => expect(screen.getByText(/142/)).toBeInTheDocument());

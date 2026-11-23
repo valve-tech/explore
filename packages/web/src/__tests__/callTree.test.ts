@@ -2,16 +2,18 @@ import { describe, expect, it } from "vitest";
 import { getAddress } from "viem";
 import { toCallTree } from "../components/explorer/TxDetail/callTreeLayout";
 import {
-  argumentTypes,
   calldataBytes,
+  toCallExpression,
+  valueModifier,
+} from "../components/explorer/TxDetail/callExpression";
+import {
+  argumentTypes,
   decodeArguments,
   decodeReturn,
   formatArgument,
   methodNameOf,
   shortAddress,
-  toCallExpression,
-  valueModifier,
-} from "../components/explorer/TxDetail/callExpression";
+} from "../components/explorer/TxDetail/callDecode";
 
 describe("toCallTree", () => {
   it("marks the last child at every level", () => {

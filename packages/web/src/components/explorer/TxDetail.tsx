@@ -155,6 +155,7 @@ export default function TxDetail({ hash, onNavigate }: TxDetailProps) {
         tx.internalTransactionsAvailable === false) && (
         <InternalTxSection
           internalTransactions={tx.internalTransactions}
+          tokenTransfers={tx.tokenTransfers}
           available={tx.internalTransactionsAvailable !== false}
           onNavigate={onNavigate}
         />

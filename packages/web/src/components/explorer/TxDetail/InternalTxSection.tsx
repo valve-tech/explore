@@ -3,13 +3,17 @@ import { SectionCard, type AddressNavigate } from "./primitives";
 import { useActiveChainId } from "../../../lib/activeChain";
 import { chainSymbol } from "../../../lib/chains";
 import { CallTree } from "./CallTree";
+import { decimalsByToken } from "./tokenAmountArgs";
 
 export function InternalTxSection({
   internalTransactions,
+  tokenTransfers = [],
   available = true,
   onNavigate,
 }: {
   internalTransactions: TransactionDetails["internalTransactions"];
+  /** The transaction's token transfers — the source of token decimals. */
+  tokenTransfers?: TransactionDetails["tokenTransfers"];
   /**
    * False when no trace source answered. The empty list then means "we do
    * not know", so the section withholds its count and says so instead of
@@ -39,6 +43,7 @@ export function InternalTxSection({
             <CallTree
               calls={internalTransactions}
               symbol={symbol}
+              tokenDecimals={decimalsByToken(tokenTransfers)}
               onNavigate={onNavigate}
             />
           </div>
