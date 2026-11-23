@@ -18,6 +18,7 @@
 
 import { listChains, type ChainConfig } from "../chains/registry.js";
 import { getNetworkHealth, INITIAL_WINDOW } from "./cache.js";
+import { redactSecrets } from "../../lib/redact.js";
 
 export type ChainWarmState = "warming" | "ready" | "degraded";
 
@@ -50,6 +51,15 @@ export function allChainsReady(): boolean {
   return all.length > 0 && all.every((s) => s.state === "ready");
 }
 
+/**
+ * The error text /health shows for a chain that failed to warm. viem puts the
+ * whole request URL, key included, in its message, and /health is public, so
+ * the text is redacted here, at capture.
+ */
+export function warmErrorMessage(err: unknown): string {
+  return redactSecrets(err instanceof Error ? err.message : String(err));
+}
+
 async function warmChain(chain: ChainConfig): Promise<void> {
   set({
     chainId: chain.chainId,
@@ -68,7 +78,7 @@ async function warmChain(chain: ChainConfig): Promise<void> {
       rpcConfigured: true,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = warmErrorMessage(err);
     set({
       chainId: chain.chainId,
       name: chain.name,
