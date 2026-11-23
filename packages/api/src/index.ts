@@ -1,4 +1,5 @@
 import "./env.js"; // must be first — loads root .env before services read process.env
+import "./lib/installRedaction.js"; // second — no log line may carry an RPC key
 
 // tsx watch re-runs modules on file change without tearing down the previous
 // instance's process listeners, so SIGINT/SIGTERM/exit handlers accumulate
