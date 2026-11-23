@@ -49,9 +49,15 @@ function optimizerCandidates(used: boolean, runs: number | null): OptimizerSetti
  */
 export async function compileForSourceMap(
   address: string,
+  opts: { storageLayout?: boolean } = {},
 ): Promise<CompilationResult | null> {
-  const cached = await getCachedCompilation(address);
-  if (cached) return cached;
+  // The cache holds the source map only, never the storage layout. A caller
+  // that needs the layout must recompile, or every contract the debugger has
+  // opened reads as "no layout" from then on.
+  if (!opts.storageLayout) {
+    const cached = await getCachedCompilation(address);
+    if (cached) return cached;
+  }
 
   // Best-effort: getVerifiedSource can throw UpstreamError during outages.
   // Swallow it here — recompilation has nothing to do if the upstream is down.

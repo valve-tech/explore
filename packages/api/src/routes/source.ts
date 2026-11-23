@@ -190,7 +190,7 @@ router.get(
     const address = requireAddress(req.params.address);
 
     // Happy path: contract is verified, solc gives us the typed layout.
-    const compiled = await compileForSourceMap(address);
+    const compiled = await compileForSourceMap(address, { storageLayout: true });
     if (compiled?.storageLayout) {
       respond.ok(res, {
         storageLayout: compiled.storageLayout,
