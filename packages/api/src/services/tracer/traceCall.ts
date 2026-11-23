@@ -1,3 +1,4 @@
+import { redactSecrets } from "../../lib/redact.js";
 import type {
   CallFrame,
   CallTraceResult,
@@ -52,7 +53,8 @@ export async function traceCall(
       debugAvailable: true,
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    // viem's message carries the upstream URL, key included. This is public.
+    const message = redactSecrets(err instanceof Error ? err.message : String(err));
     return {
       trace: null,
       error: `Failed to trace call: ${message}`,

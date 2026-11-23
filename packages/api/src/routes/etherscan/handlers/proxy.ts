@@ -23,6 +23,7 @@
  */
 
 import { getRpcClient } from "../../../services/chains/clients.js";
+import { redactSecrets } from "../../../lib/redact.js";
 import type { ChainConfig } from "../../../services/chains/registry.js";
 import { defaultChain } from "../chain.js";
 import {
@@ -80,7 +81,8 @@ async function call<T>(
     } as never)) as T;
     return jsonRpcOk(result, id);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    // viem's message carries the upstream URL, key included. This is public.
+    const message = redactSecrets(err instanceof Error ? err.message : String(err));
     return jsonRpcErr(message, -32000, id);
   }
 }
