@@ -1,6 +1,6 @@
 import { TOKEN_COLORS, isNavigableToken, type Token, type TokenType } from "./tokenize";
 import { clickModifierOf } from "../StepDebugger/sourceNav/planGoto";
-import type { ClickModifier } from "../StepDebugger/sourceNav/resolveClick";
+import type { ClickModifier } from "../StepDebugger/sourceNav/navTypes";
 
 /** Where a token sits: file name, 1-based line, 0-based column. */
 export interface SourceTokenPos {

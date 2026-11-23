@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ContractSource, SlitherFinding } from "../../../api/source";
 import SourceViewer, { type HighlightSpan } from "../SoliditySourceViewer";
 import type { SourceTokenClick, SourceTokenPos } from "../SoliditySourceViewer";
-import type { ClickModifier } from "./sourceNav/resolveClick";
+import type { ClickModifier } from "./sourceNav/navTypes";
 import { Tooltip } from "../../primitives/Tooltip";
 
 type ContractSourceFile = ContractSource["files"][number];

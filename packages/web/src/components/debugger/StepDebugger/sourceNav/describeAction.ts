@@ -1,4 +1,4 @@
-import type { NavAction, NavTarget } from "./resolveClick";
+import type { NavAction, NavTarget } from "./navTypes";
 
 /** The click map of the source pane. ShortcutsHelp renders it. */
 export const SOURCE_CLICK_MAP: ReadonlyArray<{ keys: string; label: string }> = [

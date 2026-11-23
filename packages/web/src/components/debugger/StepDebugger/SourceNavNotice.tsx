@@ -1,4 +1,4 @@
-import type { NavTarget } from "./sourceNav/resolveClick";
+import type { NavTarget } from "./sourceNav/navTypes";
 import { describeTarget } from "./sourceNav/describeAction";
 import type { SourceNavNotice as Notice } from "./useSourceClickNav";
 

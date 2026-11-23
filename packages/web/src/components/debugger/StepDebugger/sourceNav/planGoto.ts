@@ -1,6 +1,6 @@
 import type { SourceFile } from "../../../../api/source";
 import type { FrameRange } from "../lineToStepIndex";
-import type { ClickModifier, NavTarget } from "./resolveClick";
+import type { ClickModifier, NavTarget } from "./navTypes";
 
 /** Plain, ⌘/Ctrl (meta) or ⌥/Alt. Alt wins when both are down. */
 export function clickModifierOf(e: { metaKey: boolean; ctrlKey: boolean; altKey: boolean }): ClickModifier {
@@ -24,7 +24,7 @@ export interface GotoContext {
   /** File the cursor's own step maps to. */
   currentFile: string | null;
   frame: { entry: number; end: number } | null;
-  steps: ReadonlyArray<{ pc: number }>;
+  steps: ReadonlyArray<{ pc: number; depth: number }>;
   /** Source map of the ACTIVE FRAME's contract (traceSourceMaps[frameAddr]). */
   pcMap: Record<number, { file: string; line: number } | null | undefined> | undefined;
 }
@@ -35,6 +35,10 @@ export interface GotoContext {
  * map. It never scans the whole trace: the same line runs in many frames.
  */
 export function planGoto(target: NavTarget, ctx: GotoContext): GotoPlan {
+  // Trace-backed target: the step is already known and frame-scoped.
+  if (target.step !== undefined && !target.addr && !ctx.viewingOther) {
+    return { line: target.line, ref: null, step: target.step };
+  }
   if (target.addr) return { line: target.line, ref: { addr: target.addr, file: target.file }, step: null };
   if (ctx.viewingOther) {
     return { line: target.line, ref: ctx.displayAddr ? { addr: ctx.displayAddr, file: target.file } : null, step: null };

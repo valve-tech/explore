@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SourceFile } from "../../../../api/source";
-import { resolveSourceClick, type ClickInput, type NavAction } from "../sourceNav/resolveClick";
+import { resolveSourceClick } from "../sourceNav/resolveClick";
+import type { ClickInput, NavAction } from "../sourceNav/navTypes";
 import { buildSolIndex } from "../sourceNav/solIndex";
 import { linearize } from "../sourceNav/linearize";
 import { describeAction, describeTarget } from "../sourceNav/describeAction";
@@ -211,6 +212,10 @@ describe("calls through an interface type", () => {
     const onlyProxy = goto(click(VAULT_SET, VAULT, "token.transfer(to, value)", "transfer", { callee: [viaProxy[1]!] }));
     expect(onlyProxy.target.file).toBe(IERC20.name);
     expect(onlyProxy.interfaceOnly).toBe(true);
+    // A callee that has only the declaration is not an implementation either.
+    const onlyDecl = goto(click(VAULT_SET, VAULT, "token.transfer(to, value)", "transfer", { callee: [{ addr: "0xDECL", files: [IERC20] }] }));
+    expect(onlyDecl.target.addr).toBeUndefined();
+    expect(onlyDecl.interfaceOnly).toBe(true);
   });
   it("uses an implementation of the file set when the trace has no callee", () => {
     const a = goto(click([...VAULT_SET, ERC20], VAULT, "token.transfer(to, value)", "transfer"));

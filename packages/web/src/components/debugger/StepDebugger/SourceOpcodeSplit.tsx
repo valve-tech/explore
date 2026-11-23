@@ -5,7 +5,7 @@ import type { ContractSource, SlitherFinding } from "../../../api/source";
 import type { OpcodeStep } from "../../../api/debugger";
 import type { HighlightSpan } from "../SoliditySourceViewer";
 import type { SourceTokenClick, SourceTokenPos } from "../SoliditySourceViewer";
-import type { ClickModifier } from "./sourceNav/resolveClick";
+import type { ClickModifier } from "./sourceNav/navTypes";
 import type { OpcodeFrequency } from "./opcodeStats";
 import { SourceTabContent } from "./SourceTabContent";
 import { OpcodeFrequencyTags } from "./OpcodeFrequencyTags";

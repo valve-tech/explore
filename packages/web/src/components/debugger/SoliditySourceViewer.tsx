@@ -10,7 +10,7 @@ import { useFindInSource } from "./SoliditySourceViewer/useFindInSource";
 import { FindBar } from "./SoliditySourceViewer/FindBar";
 import { Tooltip } from "../primitives/Tooltip";
 import { SourceToken, type SourceTokenClick, type SourceTokenPos } from "./SoliditySourceViewer/SourceToken";
-import type { ClickModifier } from "./StepDebugger/sourceNav/resolveClick";
+import type { ClickModifier } from "./StepDebugger/sourceNav/navTypes";
 
 export type { SourceTokenClick, SourceTokenPos };
 

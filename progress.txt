@@ -1,5 +1,48 @@
 # Explore (trace) — Progress
 
+## 2026-11-23 Debugger source pane: one action per click (branch worktree-agent-a768ccde40af5a3d1, not merged)
+
+A click in the contract source pane now resolves through one pure resolver:
+`packages/web/src/components/debugger/StepDebugger/sourceNav/`. The hook
+`useSourceClickNav.ts` gathers the trace context and applies the action.
+`jumpToDefinition` and `SOLIDITY_GLOBALS` are gone from StepDebugger.tsx.
+
+The click map (also in ShortcutsHelp, from `SOURCE_CLICK_MAP`):
+- Click: go to the implementation or the declaration.
+- Cmd/Ctrl+click on a call: go to the step that runs that line in this frame.
+- Alt+click: list all definitions above the source; click a row to go there.
+- Click an import path: open that file.
+- Keywords, elementary types, builtins, literals and comments do nothing.
+
+The answer order for a function call:
+1. Trace first. If the clicked line ran in the active frame, `executedCall.ts`
+   walks that frame forward and takes the first step that lands on a
+   declaration of the name. It skips steps at a deeper depth, because their
+   program counters belong to another contract.
+2. For a call through an interface type, the next direct child frame is the
+   callee (`calleeSources`), implementation before proxy.
+3. Static ranking: a body beats a declaration, then C3 order from the verified
+   contract name (`sourceData.contractName`).
+4. The interface declaration, with a note in the UI.
+
+Facts worth keeping:
+- The resolver has no AST. It scans comment-stripped text. Types of mapping
+  values, struct fields and chained calls (`a.b().c()`) are not resolved.
+- Cursor moves stay frame-scoped (`planGoto`), with `traceSourceMaps[frameAddr]`.
+- A target in another file of the same contract with no step in the frame
+  needs `overrideRef`. Before this change the pane showed the line in the
+  wrong file.
+- The viewer now reports `{file, line, col, tokenType, modifier}`. The old
+  code passed `token.value`, which is a fragment when the highlight span cuts
+  the token.
+
+Open items:
+- NOT verified in a browser on a real multi-call transaction. Unit tests only.
+- `findDefinitionLine.ts` has no production caller now. Its tests still run.
+- Not built: alt-click a state variable to show its storage slot; hover a
+  variable to see its value at the current step (Tenderly); the hover hint
+  does not update when you press a modifier key while the pointer rests.
+
 ## 2026-11-23 Address roles, a log-line key leak, and a backlog sweep
 
 SHIPPED (pushed, NOT deployed — prod still serves the old build):
