@@ -1,6 +1,6 @@
 # Explore (trace) — Progress
 
-## 2026-11-23 Debugger source pane: one action per click (branch worktree-agent-a768ccde40af5a3d1, not merged)
+## 2026-11-23 Debugger source pane: one action per click (merged to main)
 
 A click in the contract source pane now resolves through one pure resolver:
 `packages/web/src/components/debugger/StepDebugger/sourceNav/`. The hook
