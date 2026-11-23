@@ -6,6 +6,7 @@ import {
   type SourceLocation,
 } from "../services/sourceMap.js";
 import { compileForSourceMap } from "../services/solcCompiler.js";
+import { compileWithStorageLayout } from "../services/solcCompiler/layoutCache.js";
 import { analyzeContract } from "../services/slither.js";
 import { chainClient, currentChain } from "../services/chains/context.js";
 import {
@@ -190,7 +191,7 @@ router.get(
     const address = requireAddress(req.params.address);
 
     // Happy path: contract is verified, solc gives us the typed layout.
-    const compiled = await compileForSourceMap(address, { storageLayout: true });
+    const compiled = await compileWithStorageLayout(address);
     if (compiled?.storageLayout) {
       respond.ok(res, {
         storageLayout: compiled.storageLayout,
