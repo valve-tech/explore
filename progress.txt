@@ -1,3 +1,11 @@
+## 2026-11-24 Both builds use the HashRouter (on main)
+
+- The owner chose the hash form for explore.valve.city too, so the canonical and IPFS builds show the same links.
+- EIP-3091 path URLs (/tx/0x…, /eip155/1/address/0x…) still work: the server serves the app at any path, and main.tsx calls pathToHashUrl (lib/hashRoute.ts) to move the path and query into the hash before the router mounts. No reload, no extra request.
+- The IPFS build skips the rewrite, because its path is the gateway's /ipfs/<CID>/.
+- History: 68d7c0b (2026-05-29) moved to BrowserRouter for EIP-3091; this reverses the URL form, not the EIP-3091 support.
+- ExplorerLink already built "#/…" hrefs, so it is now correct on both builds.
+
 # Explore (trace) — Progress
 
 ## 2026-11-23 Debugger hover values (on main)

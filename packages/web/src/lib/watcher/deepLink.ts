@@ -5,9 +5,8 @@
  * router/DOM concern so it's trivially unit-testable and so the same policy can
  * back both the desktop-notification click and (later) any other "open this
  * match" affordance. The caller hands the returned path to react-router's
- * `navigate`, which renders it correctly under both the BrowserRouter (`/tx/…`)
- * and HashRouter (`/#/tx/…`) builds — so this helper returns a plain path and
- * stays oblivious to the build mode.
+ * `navigate`, which writes it into the hash (`/#/tx/…`) — so this helper returns
+ * a plain path and stays oblivious to the router.
  *
  * Returns a path string, never null: every match should lead somewhere useful.
  */

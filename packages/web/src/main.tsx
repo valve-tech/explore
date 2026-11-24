@@ -1,12 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, HashRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { WagmiProvider } from "wagmi";
 import { createIdbPersister } from "./lib/idbPersister";
 import { wagmiConfig } from "./lib/wagmi";
 import App from "./App";
+import { pathToHashUrl } from "./lib/hashRoute";
 import "./index.css";
 
 // wagmi v2 uses module augmentation for chain-id literal narrowing across
@@ -18,19 +19,17 @@ declare module "wagmi" {
   }
 }
 
-// Dual-build router. The canonical explore.valve.city build uses BrowserRouter
-// for EIP-3091 URLs (/tx/0xabc). The IPFS build uses HashRouter (/#/tx/0xabc)
-// because public gateways don't rewrite paths and relative `base: "./"` is only
-// safe when the document path stays at root. VITE_IPFS picks the build.
+// Both builds use a HashRouter (/#/tx/0xabc), so explore.valve.city and the
+// IPFS build show the same links. The canonical build still accepts EIP-3091
+// path URLs (/tx/0xabc): the server serves the app at any path, and this moves
+// the path into the hash before the router mounts. A replaceState, so no
+// reload and no extra request. The IPFS build skips it: its path is the
+// gateway's /ipfs/<CID>/, not a route.
 const isIpfsBuild = import.meta.env.VITE_IPFS === "1";
-const Router = isIpfsBuild ? HashRouter : BrowserRouter;
-
-// Canonical build only: one-time HashRouter → BrowserRouter rewrite, so old
-// /#/foo bookmarks from before the EIP-3091 migration still resolve. Skipped
-// on the IPFS build, which deliberately serves hash routes.
-if (!isIpfsBuild && window.location.hash.startsWith("#/")) {
-  const newPath = window.location.hash.slice(1) + window.location.search;
-  window.history.replaceState(null, "", newPath);
+if (!isIpfsBuild) {
+  const { pathname, search, hash } = window.location;
+  const target = pathToHashUrl(pathname, search, hash);
+  if (target) window.history.replaceState(null, "", target);
 }
 
 /**
@@ -99,9 +98,9 @@ createRoot(rootEl).render(
       // rollup); old persisted entries lacked it and crashed the miners panel.
       persistOptions={{ persister, maxAge: Infinity, buster: "2026-06-15-network-health-miners" }}
     >
-      <Router>
+      <HashRouter>
         <App />
-      </Router>
+      </HashRouter>
     </PersistQueryClientProvider>
     </WagmiProvider>
   </StrictMode>,

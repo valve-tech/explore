@@ -93,9 +93,9 @@ export function stripChainPrefix(pathname: string): string {
 
 /**
  * Non-reactive scope read for fetch-layer code that runs outside a component.
- * Handles both router shapes: BrowserRouter keeps the path in `pathname` and
- * the query in `search`; the IPFS HashRouter build carries BOTH inside the
- * hash (`/#/eip155/369/tx/0x…?chainid=N`).
+ * Both builds use a HashRouter, which carries the path AND the query inside the
+ * hash (`/#/eip155/369/tx/0x…?chainid=N`). The pathname fallback covers the
+ * moment before main.tsx moves a path URL into the hash, and tests.
  *
  * Components should prefer `useChainScope` — it re-renders on navigation and
  * feeds query keys. This getter only reflects the URL at call time.

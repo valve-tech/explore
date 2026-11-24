@@ -263,7 +263,7 @@ A platform-independent npm package providing EVM trace loading, traversal, parsi
 
 ### packages/web — Routes (React Router v7)
 
-12 top-level routes via `BrowserRouter` + `Routes`. Default `/` → `/simulate`.
+12 top-level routes via `HashRouter` + `Routes` (both builds; `main.tsx` moves an EIP-3091 path URL into the hash at load). Default `/` → `/simulate`.
 
 | Route | Label | Component |
 |-------|-------|-----------|
@@ -454,7 +454,7 @@ sequenceDiagram
 
 **Frontend:**
 - React 19 functional components (no class components)
-- **React Router v7 `BrowserRouter`** (changed from old map — was tab-based `useState`) — 12 top-level routes
+- **React Router v7 `HashRouter`** (both builds since 2026-11-24; path URLs are moved into the hash at load) — 12 top-level routes
 - Per-tab internal navigation still uses `useState<View>` discriminated unions (Debugger, Explorer, Monitoring, TestNets)
 - TanStack Query v5 for server state, persisted to IndexedDB via `PersistQueryClientProvider`
 - Local component `useState` for UI state — no Redux/Zustand

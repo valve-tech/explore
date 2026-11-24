@@ -198,17 +198,19 @@ the bundle at build time. The container deploy above is unaffected.
 ## How it differs from the canonical build
 
 `npm run build:ipfs` (vs `npm run build`) flips three coupled things via
-`VITE_IPFS=1`:
+`VITE_IPFS=1`. Both builds use a HashRouter (`/#/tx/0x…`); the canonical
+build also moves an EIP-3091 path URL (`/tx/0x…`) into the hash at load.
 
 | | canonical (`build`) | IPFS (`build:ipfs`) |
 |---|---|---|
 | asset paths | absolute `/assets/…` | relative `./assets/…` |
-| router | BrowserRouter (`/tx/0x…`) | HashRouter (`/#/tx/0x…`) |
+| path URL (`/tx/0x…`) | moved into the hash at load | not a route (the path is the gateway's) |
 | backend origin | same-origin (empty) | baked `https://explore.valve.city` |
 
 Relative assets are mandatory under `/ipfs/<CID>/`, and relative assets
-are only safe with HashRouter (a nested BrowserRouter path resolves
-`./assets` against the wrong base). The backend origin is baked because
+are only safe while the document path stays at the root (a nested path
+resolves `./assets` against the wrong base). The canonical build serves
+the app at deep paths, so it keeps absolute assets. The backend origin is baked because
 the gateway origin is not our backend. Override per-browser via
 `localStorage["explore:apiBase"]`; the `?api=` query override is
 deliberately unsupported (phishing).

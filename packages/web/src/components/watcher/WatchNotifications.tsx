@@ -43,8 +43,7 @@ export default function WatchNotifications() {
       body: renderWatchSummary(latest),
       tag: latest.id,
       // Click the OS notification → focus this tab and route to the match.
-      // `navigate` (not window.location) keeps it correct under both the
-      // path-based and hash-based router builds.
+      // `navigate` (not window.location) lets the router build the URL.
       onClick: () => navigate(deepLinkForMatch(latest)),
     });
   }, [latest, navigate]);

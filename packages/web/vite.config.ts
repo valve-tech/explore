@@ -5,8 +5,8 @@ import { resolveBuildInfo } from "../../scripts/build-info.mjs";
 
 export default defineConfig({
   // IPFS build: relative asset paths so the bundle loads under `/ipfs/<CID>/`.
-  // Relative base is only safe with HashRouter (see main.tsx) — the canonical
-  // BrowserRouter build keeps absolute "/" so nested routes resolve assets.
+  // The canonical build serves the app at deep EIP-3091 paths (/tx/0x…) before
+  // main.tsx moves them into the hash, so it keeps absolute "/" assets.
   base: process.env.VITE_IPFS ? "./" : "/",
   // Build identity baked at build time (Node context), so the running bundle
   // can report which commit it is — including the VITE_IPFS build, which has

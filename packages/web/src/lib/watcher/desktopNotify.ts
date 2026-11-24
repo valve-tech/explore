@@ -74,8 +74,8 @@ export interface DesktopNotifyInput {
    * App-specific click action (e.g. route to the match's tx). Wired to the
    * notification's `onclick`; the platform-universal part — focusing the tab and
    * dismissing the toast — is handled here, so the caller's callback only has to
-   * navigate. Built in React (where `useNavigate` lives) so it routes correctly
-   * under both the BrowserRouter and HashRouter builds.
+   * navigate. Built in React (where `useNavigate` lives) so the router builds
+   * the URL.
    */
   onClick?: () => void;
 }
