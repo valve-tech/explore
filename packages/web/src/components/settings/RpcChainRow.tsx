@@ -7,6 +7,8 @@ import {
 import { VALVE_PUBLIC_RPC } from "../../lib/rpcDefaults";
 import type { RpcChoice } from "../../lib/rpcSuggestions";
 import { RpcAlternatives } from "./RpcAlternatives";
+import { EndpointUrl } from "./EndpointUrl";
+import { OverrideField } from "./OverrideField";
 
 /**
  * One chain's bring-your-own-RPC override editor: names the endpoint the
@@ -25,10 +27,13 @@ import { RpcAlternatives } from "./RpcAlternatives";
 export function RpcChainRow({
   chainId,
   name,
+  showName = true,
   onChange,
 }: {
   chainId: number;
   name: string;
+  /** False when the host already names the chain, as the top-bar popover does. */
+  showName?: boolean;
   onChange?: (stored: string | null) => void;
 }) {
   const [draft, setDraft] = useState(() => getRpcOverride(chainId) ?? "");
@@ -88,73 +93,48 @@ export function RpcChainRow({
   };
 
   return (
-    <div className="space-y-stack">
-      <div className="flex items-center justify-between gap-row">
-        <span className="text-xs uppercase tracking-widest theme-text-muted">
-          {name}
-        </span>
-        <code className="text-xs theme-mono theme-text-muted">
-          {stored ? "your node" : "Valve public node"}
-        </code>
-      </div>
-
+    <div className="flex flex-col gap-inline min-w-0">
       {/*
-       * The effective endpoint, always shown. This field used to sit empty
-       * with a greyed placeholder, which read as unconfigured — so nobody
-       * could tell what the browser would actually call. It is the default
-       * until the user sets their own.
+       * The endpoint in force, always shown. An empty field with a grey
+       * placeholder reads as "not configured", so the row names the URL the
+       * browser calls.
        */}
-      <div className="flex flex-wrap items-baseline gap-inline text-xs">
-        <span className="theme-text-muted uppercase tracking-wide">
-          Currently
+      <div className="flex flex-wrap items-center gap-x-inline gap-y-tight min-w-0">
+        {showName && (
+          <span className="text-sm font-medium theme-text">{name}</span>
+        )}
+        <span
+          className={`px-1.5 py-0.5 text-[11px] theme-mono ${
+            stored ? "theme-accent-bg theme-accent" : "theme-tertiary-bg theme-text-muted"
+          }`}
+        >
+          {stored ? "your node" : "Valve public node"}
         </span>
-        <code className="theme-mono theme-text break-all">
-          {effective ?? "no endpoint configured"}
-        </code>
+        {effective ? (
+          <EndpointUrl url={effective} />
+        ) : (
+          <span className="text-xs theme-text-muted">no endpoint configured</span>
+        )}
       </div>
-      <div className="flex items-center gap-row">
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            if (error) setError(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") apply();
-          }}
-          placeholder="https://your-node.example/rpc"
-          className={`w-full min-w-0 px-2 py-1.5 text-sm theme-mono theme-input-bg theme-text ${
-            error ? "bs-b-danger" : "bs-in-muted"
-          }`}
-        />
-        <button
-          type="button"
-          onClick={apply}
-          className="px-4 py-2 text-sm font-medium theme-accent-solid text-white hover:opacity-90 shrink-0"
-        >
-          Set
-        </button>
-        <button
-          type="button"
-          onClick={clear}
-          disabled={stored === null}
-          className={`px-4 py-2 text-sm font-medium shrink-0 ${
-            stored === null
-              ? "theme-tertiary-bg theme-text-muted cursor-not-allowed"
-              : "theme-secondary-bg theme-text hover:opacity-90"
-          }`}
-        >
-          Clear
-        </button>
-      </div>
-      {error && <div className="text-xs theme-danger">{error}</div>}
+
+      <OverrideField
+        draft={draft}
+        onDraft={(value) => {
+          setDraft(value);
+          if (error) setError(null);
+        }}
+        onApply={apply}
+        onClear={clear}
+        canClear={stored !== null}
+        error={error}
+        placeholder="https://your-node.example/rpc"
+      />
 
       {/*
-       * Endpoints the user can switch to, plus whatever is in force right
-       * now, so one Test covers the node actually being called as well as
-       * the alternatives. `rpcAlternatives` already leads with Valve's, so
-       * this only prepends when the user has set their own.
+       * The endpoints the user can switch to, plus the one in force. One
+       * Test then covers the node in use and the alternatives.
+       * `rpcAlternatives` already leads with Valve's, so this prepends only
+       * when the user has set their own.
        */}
       <RpcAlternatives
         choices={
@@ -168,7 +148,6 @@ export function RpcChainRow({
           setError(null);
         }}
       />
-
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { screen, fireEvent } from "@testing-library/react";
+import { Link } from "react-router-dom";
 import { RpcSourceChip } from "../components/settings/RpcSourceChip";
 import { renderWithProviders } from "./_test-utils";
 import { rpcOverrideKey } from "../lib/rpcEndpoint";
@@ -8,7 +9,7 @@ import { rpcOverrideKey } from "../lib/rpcEndpoint";
  * Top-bar RPC source chip. The active chain comes from the `?chainid` URL param
  * (useActiveChainId); the label derives from whether that chain has a BYO-RPC
  * override. Opening the popover reveals the shared RpcChainRow + a Settings
- * link, and an outside click closes it. Anchored on PulseChain (369) and
+ * link. An outside click, Escape and a route change each close it. Anchored on PulseChain (369) and
  * Ethereum (1) — https://scan.pulsechain.com.
  */
 
@@ -60,6 +61,43 @@ describe("<RpcSourceChip />", () => {
 
     fireEvent.mouseDown(document.body);
     expect(screen.queryByText(/RPC source ·/)).not.toBeInTheDocument();
+  });
+
+  it("Escape closes the open popover", () => {
+    renderWithProviders(<RpcSourceChip />, { initialEntries: ["/explorer"] });
+    fireEvent.click(screen.getByRole("button", { name: /backend/i }));
+    expect(screen.getByText(/RPC source ·/)).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByText(/RPC source ·/)).not.toBeInTheDocument();
+  });
+
+  it("a route change closes the open popover", () => {
+    renderWithProviders(
+      <>
+        <RpcSourceChip />
+        <Link to="/mempool">elsewhere</Link>
+      </>,
+      { initialEntries: ["/explorer"] },
+    );
+    fireEvent.click(screen.getByRole("button", { name: /backend/i }));
+    expect(screen.getByText(/RPC source ·/)).toBeInTheDocument();
+
+    // A click fires no mousedown here, so only the navigation can close it.
+    fireEvent.click(screen.getByRole("link", { name: "elsewhere" }));
+    expect(screen.queryByText(/RPC source ·/)).not.toBeInTheDocument();
+  });
+
+  it("the info button reveals the facts behind the controls", () => {
+    renderWithProviders(<RpcSourceChip />, { initialEntries: ["/explorer"] });
+    fireEvent.click(screen.getByRole("button", { name: /backend/i }));
+    expect(screen.queryByText(/always go through our backend/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "How this works" }));
+    expect(screen.getByText(/always go through our backend/)).toBeInTheDocument();
+    expect(screen.getByText(/providers' own claims/)).toBeInTheDocument();
+    expect(screen.getByText(/state at block 1/)).toBeInTheDocument();
+    expect(screen.getByText(/\(CORS\)/)).toBeInTheDocument();
   });
 
   it("clicking the 'All chains & settings' link closes the popover", () => {

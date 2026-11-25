@@ -7,6 +7,9 @@ import {
   clearApiBaseOverride,
 } from "../../lib/apiBase";
 import { RpcChainRow } from "./RpcChainRow";
+import { OverrideField } from "./OverrideField";
+import { InfoButton, FactList } from "./InfoDisclosure";
+import { BACKEND_FACTS, RPC_FACTS } from "./rpcFacts";
 import {
   isDesktopNotifyEnabled,
   setDesktopNotifyEnabled,
@@ -52,11 +55,10 @@ function Toggle({
 
 export default function SettingsPanel() {
   return (
-    <div className="p-4 max-w-3xl">
-      <div className="mb-6">
-        <div
-          className="text-xs uppercase tracking-widest mb-1 theme-text-muted"
-        >
+    // The cards pad. This wrapper only spaces them and adds no padding.
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-stack">
+      <div className="lg:col-span-2">
+        <div className="text-xs uppercase tracking-widest mb-1 theme-text-muted">
           Settings
         </div>
         <h1 className="text-xl font-semibold theme-text">
@@ -64,23 +66,20 @@ export default function SettingsPanel() {
         </h1>
       </div>
 
-      {/* Section: Backend API origin */}
       <BackendApiSection />
-
       <RpcEndpointSection />
-
       <TestnetsSection />
       <TimeDisplaySection />
-
       <NotificationsSection />
-
       <BuildSection />
 
       {/* Section: Future home for other prefs */}
-      <Section title="More" icon="heroicons:adjustments-horizontal">
-        <div
-          className="text-xs italic py-4 text-center theme-text-muted"
-        >
+      <Section
+        title="More"
+        icon="heroicons:adjustments-horizontal"
+        className="lg:col-span-2"
+      >
+        <div className="text-xs italic text-center theme-text-muted">
           Network, theme accents, default route, keyboard shortcuts —
           will live here as we add them.
         </div>
@@ -126,76 +125,38 @@ function BackendApiSection() {
   };
 
   return (
-    <Section title="Backend API origin" icon="heroicons:server-stack">
-      <div className="space-y-stack pt-2">
-        <div className="flex items-center justify-between gap-row">
-          <span className="text-xs uppercase tracking-widest theme-text-muted">
+    <Section
+      title="Backend API origin"
+      icon="heroicons:server-stack"
+      facts={BACKEND_FACTS}
+      className="lg:col-span-2"
+    >
+      <div className="flex flex-col gap-inline max-w-2xl">
+        <div className="flex flex-wrap items-baseline gap-x-inline gap-y-tight text-xs">
+          <span className="uppercase tracking-wide theme-text-muted">
             Currently using
           </span>
-          <code className="text-xs theme-mono theme-text">
+          <code className="theme-mono theme-text break-all">
             {effective || "(same origin)"}
           </code>
         </div>
 
-        <p className="text-xs theme-text-muted max-w-md">
-          Override the backend this UI talks to. Needed when the app is served
-          from an IPFS gateway and must point at a chosen backend. Only http(s)
-          origins are accepted; the value is stored in this browser only.
-        </p>
+        <OverrideField
+          draft={draft}
+          onDraft={(value) => {
+            setDraft(value);
+            if (error) setError(null);
+          }}
+          onApply={apply}
+          onClear={clear}
+          canClear={stored !== null}
+          error={error}
+          placeholder="https://explore.valve.city"
+        />
 
-        <div className="flex items-center gap-row">
-          <input
-            type="text"
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              if (error) setError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") apply();
-            }}
-            placeholder="https://explore.valve.city"
-            className={`w-full px-2 py-1.5 text-sm theme-mono theme-input-bg theme-text ${
-              error ? "bs-b-danger" : "bs-in-muted"
-            }`}
-          />
-          <button
-            type="button"
-            onClick={apply}
-            className="px-4 py-2 text-sm font-medium theme-accent-solid text-white hover:opacity-90 shrink-0"
-          >
-            Set
-          </button>
-          <button
-            type="button"
-            onClick={clear}
-            disabled={stored === null}
-            className={`px-4 py-2 text-sm font-medium shrink-0 ${
-              stored === null
-                ? "theme-tertiary-bg theme-text-muted cursor-not-allowed"
-                : "theme-secondary-bg theme-text hover:opacity-90"
-            }`}
-          >
-            Clear
-          </button>
-        </div>
-
-        {error && (
-          <div className="text-xs theme-danger">{error}</div>
-        )}
-
-        <div className="flex items-start gap-inline text-xs theme-text-muted">
-          <Icon
-            icon="heroicons:arrow-path"
-            className="w-3.5 h-3.5 mt-0.5 shrink-0"
-          />
-          <span>
-            {stored
-              ? `Override set to ${stored}. `
-              : "No override set. "}
-            Reload the page for the change to take effect — the backend origin is
-            resolved once when the app loads.
-          </span>
+        <div className="text-xs theme-text-muted break-all">
+          {stored ? `Override set to ${stored}. ` : "No override set. "}
+          Reload to apply.
         </div>
       </div>
     </Section>
@@ -204,44 +165,17 @@ function BackendApiSection() {
 
 function RpcEndpointSection() {
   return (
-    <Section title="Chain RPC endpoints" icon="heroicons:bolt">
-      <div className="space-y-stack pt-2">
-        <p className="text-xs theme-text-muted max-w-md">
-          Where this browser sends its own chain calls. Explore&apos;s enriched
-          reads (charts, debugger traces, source, decompile) always go through
-          our backend and never appear here. What this sets is the raw reads —
-          a transaction, an address&apos;s balance and code, a block — plus
-          anything your connected wallet needs.
-        </p>
-        <p className="text-xs theme-text-muted max-w-md">
-          The default is Valve&apos;s own public node. Valve states it keeps no
-          request logs and no client IP addresses, and so does every
-          alternative below. Those are the providers&apos; own claims, taken
-          from the chainlist dataset. We cannot check any of them, ours
-          included.
-        </p>
-        <p className="text-xs theme-text-muted max-w-md">
-          What we can check is whether an endpoint serves history. Press Test
-          on a row and each one is asked for state at block 1. Most public
-          endpoints answer only for recent blocks, and this app reads old ones
-          constantly, so those will fail here. Point a chain at your own node
-          to depend on nobody. Any endpoint you set must allow browser requests
-          (CORS).
-        </p>
+    <Section
+      title="Chain RPC endpoints"
+      icon="heroicons:bolt"
+      facts={RPC_FACTS}
+      className="lg:col-span-2"
+    >
+      {/* The grid spaces the chains. They carry no padding of their own. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-section">
         {CHAINS.map((chain) => (
           <RpcChainRow key={chain.id} chainId={chain.id} name={chain.name} />
         ))}
-        <div className="flex items-start gap-inline text-xs theme-text-muted">
-          <Icon
-            icon="heroicons:arrow-path"
-            className="w-3.5 h-3.5 mt-0.5 shrink-0"
-          />
-          <span>
-            Reload after changing an endpoint. Explorer reads pick up a new
-            URL on the next fetch, but your connected wallet&apos;s transport is
-            built once when the app loads, so only a reload moves that.
-          </span>
-        </div>
       </div>
     </Section>
   );
@@ -390,20 +324,34 @@ function BuildSection() {
 function Section({
   title,
   icon,
+  facts,
+  className = "",
   children,
 }: {
   title: string;
   icon: string;
+  /** Detail the section keeps behind its info button. */
+  facts?: string[];
+  className?: string;
   children: React.ReactNode;
 }) {
+  const [showFacts, setShowFacts] = useState(false);
   return (
-    <div className="mb-4 card p-5">
-      <div
-        className="flex items-center gap-inline mb-4 text-xs uppercase tracking-widest theme-text-muted"
-      >
-        <Icon icon={icon} className="w-3.5 h-3.5" />
-        {title}
+    <div className={`card p-2 sm:p-4 min-w-0 ${className}`}>
+      <div className="flex items-center justify-between gap-inline mb-3 min-h-6">
+        <div className="flex items-center gap-inline text-xs uppercase tracking-widest theme-text-muted">
+          <Icon icon={icon} className="w-3.5 h-3.5" />
+          {title}
+        </div>
+        {facts && (
+          <InfoButton open={showFacts} onToggle={() => setShowFacts((s) => !s)} />
+        )}
       </div>
+      {facts && showFacts && (
+        <div className="mb-3">
+          <FactList facts={facts} />
+        </div>
+      )}
       {children}
     </div>
   );

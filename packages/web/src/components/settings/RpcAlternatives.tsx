@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { probeArchive, VERDICT_LABEL, type ArchiveVerdict } from "../../lib/rpcArchive";
 import type { RpcChoice } from "../../lib/rpcSuggestions";
+import { Tooltip } from "../primitives/Tooltip";
 
 /** Host of a URL, for a compact chip label. Falls back to the raw string. */
 function hostOf(url: string): string {
@@ -27,6 +28,9 @@ function hostOf(url: string): string {
  * than removed. Removing them would silently shorten the list and leave the
  * user wondering what happened; showing the verdict answers the question
  * they pressed the button to ask.
+ *
+ * The row shows little. A tooltip on the label, on Test, on the count and on
+ * each chip carries the detail.
  */
 export function RpcAlternatives({
   choices,
@@ -62,64 +66,80 @@ export function RpcAlternatives({
   const usable = choices.filter((c) => verdicts[c.url] === "archive").length;
 
   return (
-    <div className="space-y-stack">
-      <div className="flex flex-wrap items-center gap-inline text-xs">
-        <span className="theme-text-muted uppercase tracking-wide shrink-0">
-          No-log options
-        </span>
+    <div className="flex flex-col gap-tight min-w-0">
+      <div className="flex items-center justify-between gap-inline text-xs">
+        <div className="flex flex-wrap items-baseline gap-x-inline min-w-0">
+          <Tooltip label="Their claim, not our measurement.">
+            <span className="theme-text-muted uppercase tracking-wide">
+              No-log options
+            </span>
+          </Tooltip>
+          {tested && (
+            <Tooltip
+              wrap
+              label="The rest answer for recent blocks only, or not at all. This app reads history, so they fail here."
+            >
+              <span className="theme-text-secondary">
+                {usable} of {choices.length} can read state at block 1
+              </span>
+            </Tooltip>
+          )}
+        </div>
+        <Tooltip label="Asks each endpoint for state at block 1.">
+          <button
+            type="button"
+            onClick={() => void runTest()}
+            disabled={testing}
+            className="px-2 py-0.5 shrink-0 theme-secondary-bg theme-text shadow-[0_0_0_1px_var(--color-border-default)] hover:opacity-90 disabled:opacity-50"
+          >
+            {testing ? "Testing…" : "Test"}
+          </button>
+        </Tooltip>
+      </div>
+
+      <div className="flex flex-wrap gap-tight text-xs">
         {choices.map((choice) => {
           const active = effective === choice.url;
           const verdict = verdicts[choice.url];
           const dead = verdict != null && verdict !== "archive";
           return (
-            <button
+            <Tooltip
               key={choice.url}
-              type="button"
-              onClick={() => onPick(choice.url)}
-              title={
-                `${choice.url} — provider states it keeps no logs` +
-                (choice.isValve ? ". Valve's own node." : "") +
-                (verdict ? `. Tested: ${VERDICT_LABEL[verdict]}.` : "")
+              wrap
+              className="max-w-full"
+              label={
+                `${choice.url}. The provider states it keeps no logs.` +
+                (choice.isValve ? " Valve's own node." : "") +
+                (verdict ? ` Tested: ${VERDICT_LABEL[verdict]}.` : "")
               }
-              /*
-               * `break-all`, not `shrink-0`. A tested chip carries its host
-               * AND its verdict — "eth-sepolia-testnet.api.pocket.network ·
-               * recent blocks only" measures 425px against a 365px content
-               * pane at 375px wide. Held rigid it pushed the pane sideways,
-               * which the probe e2e caught and a pre-probe measurement could
-               * not. The host is the chip's identity, so it wraps rather than
-               * truncating.
-               */
-              className={`px-1.5 py-0.5 theme-mono text-left break-all shadow-[0_0_0_1px_var(--color-border-default)] ${
-                dead ? "line-through opacity-50 " : ""
-              }${
-                active
-                  ? "theme-accent-solid text-white"
-                  : "theme-text-muted hover:theme-text"
-              }`}
             >
-              {choice.isValve ? "Valve" : hostOf(choice.url)}
-              {verdict && verdict !== "archive" && (
-                <span className="ml-1 normal-case">· {VERDICT_LABEL[verdict]}</span>
-              )}
-            </button>
+              {/*
+               * `break-all`, not `shrink-0`. A tested chip carries its host
+               * and its verdict. "eth-sepolia-testnet.api.pocket.network ·
+               * recent blocks only" is 425px wide, and the pane is 365px at
+               * a 375px viewport. A rigid chip pushed the pane sideways. The
+               * host is the chip's identity, so it wraps and never truncates.
+               */}
+              <button
+                type="button"
+                onClick={() => onPick(choice.url)}
+                className={`px-2 py-0.5 theme-mono text-left break-all shadow-[0_0_0_1px_var(--color-border-default)] ${
+                  dead ? "line-through opacity-50 " : ""
+                }${
+                  active
+                    ? "theme-accent-solid text-white"
+                    : "theme-text-secondary hover:opacity-80"
+                }`}
+              >
+                {choice.isValve ? "Valve" : hostOf(choice.url)}
+                {verdict && verdict !== "archive" && (
+                  <span className="ml-1 normal-case">· {VERDICT_LABEL[verdict]}</span>
+                )}
+              </button>
+            </Tooltip>
           );
         })}
-        <button
-          type="button"
-          onClick={() => void runTest()}
-          disabled={testing}
-          className="px-1.5 py-0.5 shrink-0 theme-secondary-bg theme-text shadow-[0_0_0_1px_var(--color-border-default)] hover:opacity-90 disabled:opacity-50"
-        >
-          {testing ? "Testing…" : "Test"}
-        </button>
       </div>
-
-      <p className="text-xs theme-text-muted">
-        {tested
-          ? `${usable} of ${choices.length} can read state at block 1. The rest answer for recent blocks only, or not at all — this app reads history, so they will fail here.`
-          : "Each provider states it keeps no logs; that is their claim, not our measurement. Whether one serves history is ours — press Test to find out."}
-      </p>
     </div>
   );
 }

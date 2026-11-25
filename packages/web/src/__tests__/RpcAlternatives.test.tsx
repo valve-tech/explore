@@ -45,7 +45,9 @@ describe("<RpcAlternatives />", () => {
 
   it("says the no-log claim is the provider's until Test is pressed", () => {
     render(<RpcAlternatives choices={CHOICES} effective={undefined} onPick={vi.fn()} />);
-    expect(screen.getByText(/their claim, not our measurement/)).toBeInTheDocument();
+    // The claim sits behind the label's tooltip, so hover the label first.
+    fireEvent.mouseEnter(screen.getByText("No-log options"));
+    expect(screen.getByText(/their claim, not our measurement/i)).toBeInTheDocument();
   });
 
   it("reports how many endpoints can actually read history", async () => {
