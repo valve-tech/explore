@@ -20,6 +20,8 @@ import { formatGwei } from "../lib/format/tokenAmount";
 import { RecentRail } from "./RecentRail";
 import { ChainSelector, ChainGlyph } from "./ChainSelector";
 import { ExploreLogo } from "./AppShell/ExploreLogo";
+import { scanPath } from "../lib/scanRoutes";
+import { chainRoutePrefix } from "../lib/chainScope";
 import {
   ALL_CHAINS,
   DEFAULT_CHAIN_ID,
@@ -267,6 +269,8 @@ function LiveStats({ chain }: { chain: ChainSelection }) {
   // PulseChain; picking a specific chain focuses the stats on it.
   const chainId = chain === ALL_CHAINS ? DEFAULT_CHAIN_ID : chain;
   const chainInfo = chainById(chainId);
+  // Each tile opens the page for its own number, on the chain it came from.
+  const prefix = chainRoutePrefix(chainId);
 
   const summary = useQuery({
     queryKey: ["landing", "summary", chainId],
@@ -297,14 +301,14 @@ function LiveStats({ chain }: { chain: ChainSelection }) {
         value={block ? `#${commas(block.number)}` : "—"}
         sub={block ? `${block.transactionCount} txs` : "loading…"}
         live
-        to="/explorer"
+        to={block ? scanPath("block", String(block.number), chainId) : `${prefix}/explorer`}
       />
       <StatTile
         icon="heroicons:fire"
         label="Base fee"
         value={baseFee ? gwei(baseFee) : "—"}
         sub="gwei"
-        to="/explorer"
+        to={`${prefix}/network-health`}
       />
       <StatTile
         icon="heroicons:queue-list"
@@ -312,7 +316,7 @@ function LiveStats({ chain }: { chain: ChainSelection }) {
         value={mempool.data ? commasNum(mempool.data.pendingCount) : "—"}
         sub="pending"
         live
-        to="/mempool"
+        to={`${prefix}/mempool`}
       />
       </div>
     </div>

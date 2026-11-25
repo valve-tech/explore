@@ -145,4 +145,21 @@ describe("<Landing />", () => {
     await waitFor(() => expect(screen.getByText("7")).toBeInTheDocument());
     expect(fetchLatestSummary).toHaveBeenCalledWith(369);
   });
+
+  it("links each stat tile to the page for its number, on the stats chain", async () => {
+    renderWithProviders(<Landing />);
+    await waitFor(() =>
+      expect(screen.getByText("#19,000,000")).toBeInTheDocument(),
+    );
+    // "Mempool" is also a feature card, so pick the tile: the link that holds the number.
+    const tile = (label: string) =>
+      screen
+        .getAllByText(label)
+        .map((el) => el.closest("a"))
+        .find((a) => a?.querySelector(".tabular-nums"))!
+        .getAttribute("href");
+    expect(tile("Latest block")).toBe("/eip155/369/block/19000000");
+    expect(tile("Base fee")).toBe("/eip155/369/network-health");
+    expect(tile("Mempool")).toBe("/eip155/369/mempool");
+  });
 });
