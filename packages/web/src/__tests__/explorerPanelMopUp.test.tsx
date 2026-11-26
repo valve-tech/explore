@@ -25,7 +25,7 @@ vi.mock("../components/explorer/TxDetail", () => ({
   }) => (
     <div>
       tx-view:{hash}
-      <button onClick={() => onNavigate({ type: "address", value: "0xafterTx" })}>
+      <button onClick={() => onNavigate({ type: "address", value: "0x2222222222222222222222222222222222222222" })}>
         tx-go-addr
       </button>
     </div>
@@ -61,7 +61,7 @@ vi.mock("../components/explorer/BlockView", () => ({
   }) => (
     <div>
       block-view:{numberOrHash}
-      <button onClick={() => onNavigate({ type: "address", value: "0xfromblock" })}>
+      <button onClick={() => onNavigate({ type: "address", value: "0x4444444444444444444444444444444444444444" })}>
         block-go-addr
       </button>
     </div>
@@ -141,7 +141,7 @@ describe("<ExplorerPanel /> — breadcrumb navigation arms", () => {
     await screen.findByText(/block-view:/);
     fireEvent.click(screen.getByText("block-go-addr"));
     await screen.findByText(/address-view:/);
-    expect(await screen.findByText("address-view:0xfromblock")).toBeInTheDocument();
+    expect(await screen.findByText("address-view:0x4444444444444444444444444444444444444444")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(await screen.findByText("block-view:100")).toBeInTheDocument();
@@ -153,7 +153,7 @@ describe("<ExplorerPanel /> — breadcrumb navigation arms", () => {
     await screen.findByText(/block-view:/); // trail: [] → block
     fireEvent.click(screen.getByText("block-go-addr"));
     await screen.findByText(/address-view:/); // trail: [block] → address
-    expect(await screen.findByText("address-view:0xfromblock")).toBeInTheDocument();
+    expect(await screen.findByText("address-view:0x4444444444444444444444444444444444444444")).toBeInTheDocument();
 
     // The block crumb (history index 0) is a clickable button → jumpTo(0).
     const nav = screen.getByRole("navigation", { name: "Explorer trail" });

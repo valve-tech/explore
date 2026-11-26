@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { isAddress } from "viem";
 import TxDetail from "./TxDetail";
 import AddressView from "./AddressView";
 import BlockView from "./BlockView";
@@ -150,10 +151,17 @@ export default function ExplorerPanel() {
   // a chain-less URL that redirects to its scoped form changes
   // `location.pathname`, which already rebuilds `view` and refires this
   // effect. The second pass now carries the chain the first pass lacked.
+  // A malformed address (/address/0x123) gets an error page, not an empty
+  // address page, and never lands in the recents.
+  const invalidAddress =
+    (view.type === "address" || view.type === "contract") &&
+    !isAddress(view.address, { strict: false });
+
   useEffect(() => {
+    if (invalidAddress) return;
     const ref = recentRefForView(view);
     if (ref) recordVisit({ ...ref, chainId: scopedChainId });
-  }, [view, scopedChainId]);
+  }, [view, scopedChainId, invalidAddress]);
 
   const navigateTo = useCallback(
     (newView: ExplorerView) => {
@@ -204,6 +212,21 @@ export default function ExplorerPanel() {
   // never resolves to one, so it skips the breadcrumb + single-chain views
   // below entirely. Both view shapes carry `.address`, so one branch serves
   // both.
+  if (invalidAddress) {
+    return (
+      <div role="alert" className="card p-2 sm:p-4 space-y-row">
+        <div className="flex items-center gap-inline font-semibold theme-danger">
+          <Icon icon="heroicons:exclamation-triangle" className="w-4 h-4 shrink-0" />
+          Invalid address
+        </div>
+        <p className="text-sm theme-text-secondary">
+          <code className="break-all theme-mono">{"address" in view ? view.address : ""}</code> is
+          not an address. An address is 0x followed by 40 hex characters.
+        </p>
+      </div>
+    );
+  }
+
   if (showAllChains && (view.type === "address" || view.type === "contract")) {
     return <MultiChainAddressView address={view.address} />;
   }

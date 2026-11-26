@@ -40,10 +40,11 @@ export default function Landing() {
   };
 
   // A specific chain selected → route straight there. "All chains" (the
-  // default) locates a pasted tx/address across every registered chain first,
-  // then routes to the chain it lives on — so a hash on chain 1 doesn't
-  // silently open the default chain and read as "not found". Blocks/selectors
-  // aren't chain-located; they route bare (default chain).
+  // default) locates a pasted tx across every registered chain first, then
+  // routes to the chain it lives on — so a hash on chain 1 doesn't silently
+  // open the default chain and read as "not found". An address is valid on
+  // every chain, so it routes bare to the page that shows every chain.
+  // Blocks/selectors aren't chain-located either; they route bare.
   const run = async () => {
     const kind = classifyInput(query);
     if (!kind) {
@@ -55,7 +56,7 @@ export default function Landing() {
       navigate(routeForInput(query, chain)!);
       return;
     }
-    if (kind === "tx" || kind === "address") {
+    if (kind === "tx") {
       setBusy(true);
       try {
         const { matches } = await resolveEntity(query.trim());

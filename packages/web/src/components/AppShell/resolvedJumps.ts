@@ -22,12 +22,17 @@ export interface Resolution {
 }
 
 /** Append `?chainid=N` to an action's route and annotate it with the chain. */
-function forChain(action: PaletteAction, chainId: number): PaletteAction {
+function forChain(
+  action: PaletteAction,
+  chainId: number,
+  explicit = false,
+): PaletteAction {
   const name = chainById(chainId)?.name ?? `Chain ${chainId}`;
-  // DEFAULT_CHAIN_ID omits the param (byte-identical to the single-chain era,
-  // matching how api/chainScope.ts scopes requests); other chains carry it.
+  // DEFAULT_CHAIN_ID omits the param for a tx (byte-identical to the
+  // single-chain era). An address must always carry it: its bare route is the
+  // every-chain page, not the default chain.
   const to =
-    chainId === DEFAULT_CHAIN_ID
+    chainId === DEFAULT_CHAIN_ID && !explicit
       ? action.to
       : action.to + (action.to.includes("?") ? "&" : "?") + `chainid=${chainId}`;
   return { ...action, to, detail: `on ${name} — ${action.detail}` };
@@ -46,6 +51,19 @@ export function resolvedActions(
     resolution.matches.length === 0
   ) {
     return parsed.actions; // resolving, or found nowhere → default-chain fallback
+  }
+  if (parsed.kind === "address") {
+    // An address is valid on every chain. The bare row opens the page that
+    // shows every chain, so it comes first and Enter never picks chain 1.
+    return [
+      // Only the Explorer page has an every-chain form; storage is per chain.
+      ...parsed.actions
+        .filter((a) => a.to.startsWith("/address/"))
+        .map((a) => ({ ...a, detail: `on every chain — ${a.detail}` })),
+      ...resolution.matches.flatMap((m) =>
+        parsed.actions.map((a) => forChain(a, m.chainId, true)),
+      ),
+    ];
   }
   return resolution.matches.flatMap((m) =>
     parsed.actions.map((a) => forChain(a, m.chainId)),

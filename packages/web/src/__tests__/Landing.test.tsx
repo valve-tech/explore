@@ -86,6 +86,15 @@ describe("<Landing />", () => {
     expect(resolveEntity).toHaveBeenCalledWith(TX);
   });
 
+  it("opens an address on the every-chain page, without resolving it", () => {
+    // An address is valid on every chain, so "All chains" must not pick one.
+    renderWithProviders(<Landing />);
+    fireEvent.change(search(), { target: { value: WPLS } });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    expect(navigate).toHaveBeenCalledWith(`/address/${WPLS}`);
+    expect(resolveEntity).not.toHaveBeenCalled();
+  });
+
   it("falls back to the bare route when the tx is found on no chain", async () => {
     resolveEntity.mockResolvedValue({ kind: "tx", query: TX, matches: [] });
     renderWithProviders(<Landing />);

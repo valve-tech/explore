@@ -69,9 +69,20 @@ describe("resolvedActions", () => {
       parsed,
       done([{ chainId: 1 }, { chainId: 943 }]),
     );
-    expect(out).toHaveLength(actionsOf(parsed).length * 2);
+    // One every-chain Explorer row, then one action set per matched chain.
+    expect(out).toHaveLength(1 + actionsOf(parsed).length * 2);
     expect(out.some((a) => a.to.includes("chainid=1"))).toBe(true);
     expect(out.some((a) => a.to.includes("chainid=943"))).toBe(true);
+  });
+
+  it("leads an address with the every-chain page, so Enter never picks chain 1", () => {
+    const parsed = parseInput(ADDR);
+    const [first, ...rest] = resolvedActions(parsed, done([{ chainId: 1 }, { chainId: 369 }]));
+    expect(first?.to).toBe(`/address/${ADDR}`);
+    expect(first?.detail).toMatch(/^on every chain/);
+    // Every chain row names its chain, the default one too: a bare address
+    // route is the every-chain page, not PulseChain.
+    for (const a of rest) expect(a.to).toMatch(/chainid=(1|369)$/);
   });
 
   it("leaves block/selector actions untouched (not chain-located)", () => {

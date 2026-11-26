@@ -21,7 +21,7 @@ vi.mock("../components/explorer/TxDetail", () => ({
   }) => (
     <div>
       tx-view:{hash}
-      <button onClick={() => onNavigate({ type: "address", value: "0xAddrFromTx" })}>
+      <button onClick={() => onNavigate({ type: "address", value: "0x1111111111111111111111111111111111111111" })}>
         tx-go-addr
       </button>
     </div>
@@ -80,8 +80,8 @@ vi.mock("../components/explorer/ExplorerHome", () => ({
       <div>
         home-view
         <Link to={scanPath("block", "26804492", chainId)}>go-block</Link>
-        <Link to={scanPath("address", "0xaddr", chainId)}>go-address</Link>
-        <Link to={scanPath("contract", "0xcontract", chainId)}>go-contract</Link>
+        <Link to={scanPath("address", "0x5555555555555555555555555555555555555555", chainId)}>go-address</Link>
+        <Link to={scanPath("contract", "0x3333333333333333333333333333333333333333", chainId)}>go-contract</Link>
       </div>
     );
   },
@@ -240,6 +240,13 @@ describe("<ExplorerPanel /> — view routing", () => {
     expect(resolveEntity).not.toHaveBeenCalled();
   });
 
+  it("shows Invalid address for a malformed address, and records nothing", async () => {
+    renderAt("/address/0x123");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Invalid address");
+    expect(screen.queryByText(/multi-chain-view:/)).not.toBeInTheDocument();
+    expect(recordVisit).not.toHaveBeenCalled();
+  });
+
   it("renders the single-chain address view under a chain-scoped prefix", async () => {
     renderAt(`/eip155/369/address/${WPLS}`);
     expect(await screen.findByText(`address-view:${WPLS}`)).toBeInTheDocument();
@@ -304,7 +311,7 @@ describe("<ExplorerPanel /> — navigation + breadcrumb", () => {
     // land on the terminal all-chain view instead, which has no "go-tx" arm.
     renderAt("/eip155/369/explorer");
     fireEvent.click(screen.getByText("go-address"));
-    expect(await screen.findByText("address-view:0xaddr")).toBeInTheDocument();
+    expect(await screen.findByText("address-view:0x5555555555555555555555555555555555555555")).toBeInTheDocument();
 
     // From the address view, jump to a tx — trail now has Home + address.
     fireEvent.click(screen.getByText("go-tx"));
@@ -320,7 +327,7 @@ describe("<ExplorerPanel /> — navigation + breadcrumb", () => {
     // on the all-chain page, which the mocked ContractView never renders.
     renderAt("/eip155/369/explorer");
     fireEvent.click(screen.getByText("go-contract"));
-    expect(await screen.findByText("contract-view:0xcontract")).toBeInTheDocument();
+    expect(await screen.findByText("contract-view:0x3333333333333333333333333333333333333333")).toBeInTheDocument();
 
     // Click the Home crumb button.
     fireEvent.click(screen.getByRole("button", { name: "Home" }));
@@ -343,7 +350,7 @@ describe("<ExplorerPanel /> — pathForView keeps the active chain", () => {
     const hash = "0x" + "ef".repeat(32);
     renderAt(`/eip155/369/tx/${hash}`);
     fireEvent.click(await screen.findByText("tx-go-addr"));
-    expect(await screen.findByText("address-view:0xAddrFromTx")).toBeInTheDocument();
+    expect(await screen.findByText("address-view:0x1111111111111111111111111111111111111111")).toBeInTheDocument();
   });
 
   it("stays bare when navigating from an all-chain page", async () => {
@@ -358,7 +365,7 @@ describe("<ExplorerPanel /> — pathForView keeps the active chain", () => {
     fireEvent.click(await screen.findByText("tx-go-addr"));
     // Bare page → bare address path → the all-chain view, not AddressView.
     expect(
-      await screen.findByText("multi-chain-view:0xAddrFromTx"),
+      await screen.findByText("multi-chain-view:0x1111111111111111111111111111111111111111"),
     ).toBeInTheDocument();
   });
 });
