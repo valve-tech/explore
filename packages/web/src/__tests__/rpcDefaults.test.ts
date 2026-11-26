@@ -72,10 +72,20 @@ describe("lib/rpcDefaults", () => {
       }
     });
 
+    it("drops hosts that log although chainlist says they do not", () => {
+      const hosts = rpcAlternatives(369, 20).map((c) => new URL(c.url).hostname);
+      expect(hosts).not.toContain("rpc.pulsechainrpc.com");
+      expect(hosts).not.toContain("rpc.hairylabs.io");
+    });
+
+    it("still returns up to the limit of third-party endpoints", () => {
+      expect(rpcAlternatives(1, 3).filter((c) => !c.isValve)).toHaveLength(3);
+    });
+
     it("finds real third-party options beyond Valve's own", () => {
       // Guards the chainlist wiring itself: if collectRpcs stopped resolving,
       // every list would silently collapse to the single Valve entry and the
-      // "no-log options" row would look intentional rather than broken.
+      // "other endpoints" row would look intentional rather than broken.
       const extras = rpcAlternatives(1).filter((c) => !c.isValve);
       expect(extras.length).toBeGreaterThan(0);
     });

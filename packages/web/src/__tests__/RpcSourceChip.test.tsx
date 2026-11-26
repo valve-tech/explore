@@ -95,7 +95,7 @@ describe("<RpcSourceChip />", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "How this works" }));
     expect(screen.getByText(/always go through our backend/)).toBeInTheDocument();
-    expect(screen.getByText(/providers' own claims/)).toBeInTheDocument();
+    expect(screen.getByText(/no claim about their logging or uptime/)).toBeInTheDocument();
     expect(screen.getByText(/state at block 1/)).toBeInTheDocument();
     expect(screen.getByText(/\(CORS\)/)).toBeInTheDocument();
   });

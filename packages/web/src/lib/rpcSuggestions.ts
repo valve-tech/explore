@@ -25,13 +25,29 @@ export interface RpcChoice {
 }
 
 /**
- * Valve's endpoint first, then every chainlist endpoint whose provider states
- * it does not log.
+ * Valve's endpoint first, then chainlist endpoints whose provider states it
+ * does not log. The UI repeats no such claim: it is the provider's word, and
+ * some of these log anyway (see below).
  *
  * `allowedTracking: ["none"]` is deliberately strict. `collectRpcs` already
  * orders privacy-first, so dropping the filter would append providers that
  * openly log — fine as data, wrong as a suggestion.
  */
+/**
+ * Hosts that chainlist marks `tracking: "none"` but that do log, per the
+ * owner (2026-11-26). Both still answered eth_blockNumber that day. The collector's dataset is a vendored snapshot, so the
+ * fix lives here until chainlist and the collector correct it.
+ */
+const LOGGING_DESPITE_CHAINLIST = new Set(["rpc.pulsechainrpc.com", "rpc.hairylabs.io"]);
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
 export function rpcAlternatives(chainId: number, limit = 6): RpcChoice[] {
   const valve = VALVE_PUBLIC_RPC[chainId];
   const choices: RpcChoice[] = valve
@@ -44,7 +60,8 @@ export function rpcAlternatives(chainId: number, limit = 6): RpcChoice[] {
       chainId,
       allowedTracking: ["none"],
       protocol: "http",
-      limit,
+      // Ask for extra, so dropping a known logger still leaves `limit`.
+      limit: limit + LOGGING_DESPITE_CHAINLIST.size,
     });
   } catch {
     // An unknown chain throws. A missing suggestion list is not worth
@@ -54,7 +71,9 @@ export function rpcAlternatives(chainId: number, limit = 6): RpcChoice[] {
 
   const seen = new Set(choices.map((c) => c.url));
   for (const endpoint of collected) {
+    if (choices.length - (valve ? 1 : 0) >= limit) break;
     if (seen.has(endpoint.url)) continue;
+    if (LOGGING_DESPITE_CHAINLIST.has(hostOf(endpoint.url))) continue;
     seen.add(endpoint.url);
     choices.push({
       url: endpoint.url,

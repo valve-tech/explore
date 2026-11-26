@@ -43,11 +43,12 @@ describe("<RpcAlternatives />", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("says the no-log claim is the provider's until Test is pressed", () => {
+  it("makes no logging claim about third-party endpoints", () => {
     render(<RpcAlternatives choices={CHOICES} effective={undefined} onPick={vi.fn()} />);
-    // The claim sits behind the label's tooltip, so hover the label first.
-    fireEvent.mouseEnter(screen.getByText("No-log options"));
-    expect(screen.getByText(/their claim, not our measurement/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no-log/i)).not.toBeInTheDocument();
+    // The disclaimer sits behind the label's tooltip, so hover the label first.
+    fireEvent.mouseEnter(screen.getByText("Other endpoints"));
+    expect(screen.getByText(/we make no claim about their logging or uptime/i)).toBeInTheDocument();
   });
 
   it("reports how many endpoints can actually read history", async () => {

@@ -42,7 +42,7 @@ test.describe("RPC archive probe", () => {
     });
 
     await page.goto("/settings");
-    await page.getByText("No-log options").first().waitFor();
+    await page.getByText("Other endpoints").first().waitFor();
     // Opening Settings must not announce the reader to seven third parties.
     expect(rpcCalls).toEqual([]);
   });

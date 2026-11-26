@@ -15,10 +15,10 @@ function hostOf(url: string): string {
 /**
  * The endpoints a user can switch to, and what each one can actually do.
  *
- * Two claims are made about these endpoints and only one of them is ours.
- * The provider states it keeps no logs — that is chainlist's record of the
- * provider's own words, and we cannot check it. Whether the endpoint serves
- * history is something we CAN check, so we do, and until we have we say so.
+ * We make no claim about a third-party endpoint's logging or uptime. The list
+ * comes from chainlist, and its logging field is the provider's own word,
+ * which we cannot check. Whether an endpoint answers and serves history is
+ * something we CAN check, so Test does, and until then we say nothing.
  *
  * The list starts untested on purpose. Probing on mount would open a
  * connection to every third party on the list the moment the settings page
@@ -69,9 +69,9 @@ export function RpcAlternatives({
     <div className="flex flex-col gap-tight min-w-0">
       <div className="flex items-center justify-between gap-inline text-xs">
         <div className="flex flex-wrap items-baseline gap-x-inline min-w-0">
-          <Tooltip label="Their claim, not our measurement.">
+          <Tooltip wrap label="From the chainlist dataset. We make no claim about their logging or uptime. Press Test to check them.">
             <span className="theme-text-muted uppercase tracking-wide">
-              No-log options
+              Other endpoints
             </span>
           </Tooltip>
           {tested && (
@@ -108,8 +108,8 @@ export function RpcAlternatives({
               wrap
               className="max-w-full"
               label={
-                `${choice.url}. The provider states it keeps no logs.` +
-                (choice.isValve ? " Valve's own node." : "") +
+                choice.url +
+                (choice.isValve ? ". Valve's own node." : ". From chainlist. We make no claim about it.") +
                 (verdict ? ` Tested: ${VERDICT_LABEL[verdict]}.` : "")
               }
             >
