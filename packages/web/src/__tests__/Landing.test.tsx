@@ -41,6 +41,12 @@ function search() {
   return screen.getByPlaceholderText(/Paste a tx hash, address, block/i);
 }
 
+/** Open the chain selector and pick a chain by its exact name. */
+function pickChain(name: string) {
+  fireEvent.click(screen.getByRole("button", { name: /All chains/i }));
+  fireEvent.click(screen.getByText(name, { exact: true }));
+}
+
 describe("<Landing />", () => {
   beforeEach(() => {
     navigate.mockClear();
@@ -135,8 +141,15 @@ describe("<Landing />", () => {
     expect(card.style.boxShadow).toBe("");
   });
 
+  it("shows no stats while 'All chains' is selected", () => {
+    renderWithProviders(<Landing />);
+    expect(screen.queryByText("Latest block")).not.toBeInTheDocument();
+    expect(fetchLatestSummary).not.toHaveBeenCalled();
+  });
+
   it("renders the live-stats tiles from the summary + mempool queries", async () => {
     renderWithProviders(<Landing />);
+    pickChain("PulseChain");
     await waitFor(() =>
       expect(screen.getByText("#19,000,000")).toBeInTheDocument(),
     );
@@ -148,6 +161,7 @@ describe("<Landing />", () => {
 
   it("links each stat tile to the page for its number, on the stats chain", async () => {
     renderWithProviders(<Landing />);
+    pickChain("PulseChain");
     await waitFor(() =>
       expect(screen.getByText("#19,000,000")).toBeInTheDocument(),
     );

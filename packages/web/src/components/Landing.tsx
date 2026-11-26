@@ -24,7 +24,6 @@ import { scanPath } from "../lib/scanRoutes";
 import { chainRoutePrefix } from "../lib/chainScope";
 import {
   ALL_CHAINS,
-  DEFAULT_CHAIN_ID,
   chainById,
   type ChainSelection,
 } from "../lib/chains";
@@ -89,7 +88,8 @@ export default function Landing() {
           chain={chain}
           onChainChange={setChain}
         />
-        <LiveStats chain={chain} />
+        {/* "All chains" has no single live source, so it shows no stats. */}
+        {chain !== ALL_CHAINS && <LiveStats chainId={chain} />}
       </div>
 
       {/* Feature catalogue, grouped by intent */}
@@ -264,10 +264,7 @@ function PulseLine() {
 /* Live stats                                                         */
 /* ------------------------------------------------------------------ */
 
-function LiveStats({ chain }: { chain: ChainSelection }) {
-  // "All chains" has no single live source yet, so the stats default to
-  // PulseChain; picking a specific chain focuses the stats on it.
-  const chainId = chain === ALL_CHAINS ? DEFAULT_CHAIN_ID : chain;
+function LiveStats({ chainId }: { chainId: number }) {
   const chainInfo = chainById(chainId);
   // Each tile opens the page for its own number, on the chain it came from.
   const prefix = chainRoutePrefix(chainId);
