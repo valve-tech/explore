@@ -47,12 +47,9 @@ export function RpcChainRow({
   const effective = stored ?? VALVE_PUBLIC_RPC[chainId];
 
   /*
-   * The suggestion list arrives by DYNAMIC import, and that is load-bearing.
-   * This row renders inside the top bar's RPC chip, so a static import would
-   * put `@valve-tech/rpc-collector`'s ~272 KB chainlist dataset in the core
-   * chunk via TopBar -> RpcSourceChip -> RpcChainRow — paid on every page
-   * load for a list only this row shows. `import()` splits it into its own
-   * chunk, fetched when a row actually mounts.
+   * The suggestion list arrives by dynamic import. This row renders inside
+   * the top bar's RPC chip, and the list is only needed once a row mounts, so
+   * `import()` keeps it out of the core chunk.
    *
    * An effect is right here: this is asynchronous loading, not derived state.
    */
@@ -139,7 +136,7 @@ export function RpcChainRow({
       <RpcAlternatives
         choices={
           stored && !alternatives.some((c) => c.url === stored)
-            ? [{ url: stored, tracking: "unknown", isValve: false }, ...alternatives]
+            ? [{ url: stored, isValve: false }, ...alternatives]
             : alternatives
         }
         effective={effective}

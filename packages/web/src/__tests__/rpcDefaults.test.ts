@@ -64,30 +64,31 @@ describe("lib/rpcDefaults", () => {
       }
     });
 
-    it("offers only endpoints whose provider states it keeps no logs", () => {
+    it("offers only https endpoints, with no key in the URL", () => {
       for (const id of CHAINS) {
         for (const choice of rpcAlternatives(id)) {
-          expect(choice.tracking, `${choice.url} on chain ${id}`).toBe("none");
+          expect(choice.url, `chain ${id}`).toMatch(/^https:\/\//);
+          if (!choice.isValve) expect(choice.url).not.toMatch(/[0-9a-f]{24,}|api_?key/i);
         }
       }
     });
 
-    it("drops hosts that log although chainlist says they do not", () => {
-      const hosts = rpcAlternatives(369, 20).map((c) => new URL(c.url).hostname);
-      expect(hosts).not.toContain("rpc.pulsechainrpc.com");
-      expect(hosts).not.toContain("rpc.hairylabs.io");
+    it("never offers the hosts that log", () => {
+      for (const id of CHAINS) {
+        const hosts = rpcAlternatives(id, 20).map((c) => new URL(c.url).hostname);
+        expect(hosts).not.toContain("rpc.pulsechainrpc.com");
+        expect(hosts).not.toContain("rpc.hairylabs.io");
+      }
     });
 
-    it("still returns up to the limit of third-party endpoints", () => {
+    it("caps the third-party endpoints at the limit", () => {
       expect(rpcAlternatives(1, 3).filter((c) => !c.isValve)).toHaveLength(3);
     });
 
-    it("finds real third-party options beyond Valve's own", () => {
-      // Guards the chainlist wiring itself: if collectRpcs stopped resolving,
-      // every list would silently collapse to the single Valve entry and the
-      // "other endpoints" row would look intentional rather than broken.
-      const extras = rpcAlternatives(1).filter((c) => !c.isValve);
-      expect(extras.length).toBeGreaterThan(0);
+    it("offers at least one third-party endpoint on every served chain", () => {
+      for (const id of CHAINS) {
+        expect(rpcAlternatives(id).filter((c) => !c.isValve).length, `chain ${id}`).toBeGreaterThan(0);
+      }
     });
 
     it("never repeats a URL", () => {
@@ -95,12 +96,7 @@ describe("lib/rpcDefaults", () => {
       expect(new Set(urls).size).toBe(urls.length);
     });
 
-    it("returns an empty list for a chain chainlist does not know", () => {
-      // collectRpcs throws UnknownChainError for an id absent from the
-      // dataset. The settings page must not break over a missing suggestion
-      // list — and with no Valve entry either, the honest answer is nothing.
-      // (999999999 looks unused but is Zora Sepolia and resolves; this id
-      // genuinely does not.)
+    it("returns an empty list for a chain we do not serve", () => {
       const unknown = 999999999999;
       expect(() => rpcAlternatives(unknown)).not.toThrow();
       expect(rpcAlternatives(unknown)).toEqual([]);

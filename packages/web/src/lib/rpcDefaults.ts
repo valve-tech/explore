@@ -15,11 +15,9 @@ import { getRpcOverride } from "./rpcEndpoint";
  * nobody chose, on a page that tells the user their browser makes no direct
  * node calls. Sepolia had no transport at all.
  *
- * DELIBERATELY free of any `@valve-tech/rpc-collector` import. `wagmi.ts`
- * depends on this module, so anything imported here lands in the app's core
- * chunk — and the collector carries a ~272 KB vendored chainlist dataset.
- * The suggestion list lives in `rpcSuggestions.ts`, which only the settings
- * UI pulls in.
+ * `wagmi.ts` depends on this module, so anything imported here lands in the
+ * app's core chunk. The suggestion list lives in `rpcSuggestions.ts`, which
+ * only the settings UI pulls in.
  */
 
 /**
@@ -34,9 +32,8 @@ import { getRpcOverride } from "./rpcEndpoint";
  *     (`eth_getBalance` at `0x1`); all four answered.
  *   - they are ours, so a default page load contacts no third party.
  *
- * The chainlist dataset has no archive field, so a static filter cannot
- * express the first point — `rpcSuggestions.ts` can prove it per endpoint at
- * runtime, but only when the user asks.
+ * The settings page can prove the first point per endpoint at runtime, but
+ * only when the user presses Test.
  */
 export const VALVE_PUBLIC_RPC: Readonly<Record<number, string>> = {
   1: "https://one.valve.city/rpc/vk_demo/evm/1",

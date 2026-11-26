@@ -1,3 +1,5 @@
+import { RPC_LIST_CHECKED } from "../../lib/rpcSuggestions";
+
 /**
  * The facts behind the settings controls. The page shows the controls and
  * keeps these lines behind the info button.
@@ -9,7 +11,7 @@ export const RPC_FACTS: string[] = [
   "Explore's enriched reads (charts, debugger traces, source, decompile) always go through our backend. They never appear here.",
   "The default is Valve's own public node. Clear a field to return to it.",
   "Valve states it keeps no request logs and no client IP addresses.",
-  "The other endpoints come from the chainlist dataset. We make no claim about their logging or uptime.",
+  `The other endpoints are public ones we chose and last checked on ${RPC_LIST_CHECKED}. We make no claim about their logging or uptime.`,
   "We can check whether an endpoint serves history. Test asks each one for state at block 1. Most public endpoints answer for recent blocks only. This app reads old blocks all the time, so those endpoints fail here.",
   "Point a chain at your own node to depend on nobody.",
   "An endpoint you set must allow browser requests (CORS).",

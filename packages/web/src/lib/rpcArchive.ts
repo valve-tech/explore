@@ -1,11 +1,9 @@
 /**
  * Does an RPC endpoint answer for anything other than `latest`?
  *
- * There is no dataset that can tell you this. `@valve-tech/rpc-collector`
- * carries chainlist's fields — url, protocol, tracking, isOpenSource — and
- * chainlist records nothing about pruning, so `collectRpcs` has no archive
- * option and `RpcEndpoint` has no archive field. Neither does the app. The
- * only way to know is to ask the node.
+ * No dataset can tell you this. chainlist records nothing about pruning,
+ * and a provider can prune at any time. The only way to know is to ask the
+ * node.
  *
  * Measured 2026-08-24 across chains 1 and 369: of the nine endpoints the
  * settings page suggested, Valve's was the only one that answered. Three

@@ -8,6 +8,13 @@
 
 # Explore (trace) — Progress
 
+## 2026-11-26 Curated RPC list replaces chainlist suggestions
+
+- packages/web/src/lib/rpcCurated.json holds the endpoints Settings offers, per chain. rpcSuggestions.ts reads it; @valve-tech/rpc-collector is no longer a web dependency, and the bundle-boundary test that guarded its 272 KB dataset is gone.
+- Why: on 2026-11-26 most chainlist candidates were dead, rate-limited or needed a key, and rpc.pulsechainrpc.com and rpc.hairylabs.io were marked "no logs" but log (owner). We make no logging claim about any third party.
+- Re-check with `npm run check:rpcs --workspace=packages/web`. It tests chain id, head lag (<= 20 blocks), CORS from explore.valve.city, and history at block 1. One retry per endpoint: rpc.pulsechain.com failed one CORS preflight, then passed four in a row. Update "checked" in the JSON after a pass.
+- Not in CI on purpose: a live probe of third parties would make CI depend on their uptime.
+
 ## 2026-11-23 Debugger hover values (on main)
 
 Hover an identifier in the debugger source pane: a themed card shows its value

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { probeArchive, VERDICT_LABEL, type ArchiveVerdict } from "../../lib/rpcArchive";
-import type { RpcChoice } from "../../lib/rpcSuggestions";
+import { RPC_LIST_CHECKED, type RpcChoice } from "../../lib/rpcSuggestions";
 import { Tooltip } from "../primitives/Tooltip";
 
 /** Host of a URL, for a compact chip label. Falls back to the raw string. */
@@ -16,8 +16,7 @@ function hostOf(url: string): string {
  * The endpoints a user can switch to, and what each one can actually do.
  *
  * We make no claim about a third-party endpoint's logging or uptime. The list
- * comes from chainlist, and its logging field is the provider's own word,
- * which we cannot check. Whether an endpoint answers and serves history is
+ * is curated (`rpcCurated.json`) and was checked on one date only. Whether an endpoint answers and serves history is
  * something we CAN check, so Test does, and until then we say nothing.
  *
  * The list starts untested on purpose. Probing on mount would open a
@@ -69,7 +68,7 @@ export function RpcAlternatives({
     <div className="flex flex-col gap-tight min-w-0">
       <div className="flex items-center justify-between gap-inline text-xs">
         <div className="flex flex-wrap items-baseline gap-x-inline min-w-0">
-          <Tooltip wrap label="From the chainlist dataset. We make no claim about their logging or uptime. Press Test to check them.">
+          <Tooltip wrap label={`Public endpoints we last checked on ${RPC_LIST_CHECKED}. We make no claim about their logging or uptime. Press Test to check them.`}>
             <span className="theme-text-muted uppercase tracking-wide">
               Other endpoints
             </span>
@@ -109,7 +108,7 @@ export function RpcAlternatives({
               className="max-w-full"
               label={
                 choice.url +
-                (choice.isValve ? ". Valve's own node." : ". From chainlist. We make no claim about it.") +
+                (choice.isValve ? ". Valve's own node." : ". Public endpoint. We make no claim about it.") +
                 (verdict ? ` Tested: ${VERDICT_LABEL[verdict]}.` : "")
               }
             >

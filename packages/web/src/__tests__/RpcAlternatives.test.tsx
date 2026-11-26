@@ -8,8 +8,8 @@ import type { RpcChoice } from "../lib/rpcSuggestions";
  * only have on a provider's word.
  */
 const CHOICES: RpcChoice[] = [
-  { url: "https://one.valve.city/rpc/vk_demo/evm/369", tracking: "none", isValve: true },
-  { url: "https://pulsechain-rpc.publicnode.com", tracking: "none", isValve: false },
+  { url: "https://one.valve.city/rpc/vk_demo/evm/369", isValve: true },
+  { url: "https://pulsechain-rpc.publicnode.com", isValve: false },
 ];
 
 /** Answer the archive probe per URL: archive for Valve, pruned for the rest. */

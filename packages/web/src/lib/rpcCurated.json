@@ -1,0 +1,26 @@
+{
+  "checked": "2026-11-26",
+  "endpoints": {
+    "1": [
+      "https://eth.drpc.org",
+      "https://eth.api.pocket.network",
+      "https://rpc.mevblocker.io",
+      "https://ethereum-rpc.publicnode.com",
+      "https://1rpc.io/eth"
+    ],
+    "369": [
+      "https://rpc.pulsechain.com",
+      "https://pulsechain-rpc.publicnode.com"
+    ],
+    "943": [
+      "https://rpc.v4.testnet.pulsechain.com",
+      "https://pulsechain-testnet-rpc.publicnode.com"
+    ],
+    "11155111": [
+      "https://eth-sepolia-testnet.api.pocket.network",
+      "https://sepolia.rpc.sentio.xyz",
+      "https://ethereum-sepolia-rpc.publicnode.com",
+      "https://1rpc.io/sepolia"
+    ]
+  }
+}
